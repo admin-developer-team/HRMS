@@ -1,0 +1,59 @@
+<div class="page-shell employee-detail-page">
+  <div class="page-header">
+    <div>
+      <a class="back-link" routerLink="/employees"><mat-icon>arrow_back</mat-icon> Employees</a>
+      <div class="eyebrow">Employee 360</div>
+      <h1 class="page-title">{{ employee()?.fullName || 'Employee profile' }}</h1>
+      <p class="page-description">Employment, attendance, access activity, and documents in one place.</p>
+    </div>
+  </div>
+
+  @if (error()) { <div class="alert error">{{ error() }}</div> }
+  @if (loading()) {
+    <div class="loading-state"><mat-spinner diameter="32" /><span>Loading employee profile…</span></div>
+  } @else if (employee(); as person) {
+    <section class="profile-card app-card">
+      <div class="avatar">{{ person.fullName.slice(0, 1) }}</div>
+      <div><h2>{{ person.fullName }}</h2><p>{{ person.employeeNumber }} · {{ person.workEmail }}</p></div>
+      <span class="status-pill">{{ person.status }}</span>
+      <div class="profile-grid">
+        <div><small>Employment</small><b>{{ person.employmentType }}</b></div>
+        <div><small>Hire date</small><b>{{ person.hireDate | date: 'd MMM yyyy' }}</b></div>
+        <div><small>Phone</small><b>{{ person.phone || 'Not provided' }}</b></div>
+        <div><small>Login account</small><b>{{ person.userId ? 'Active/link created' : 'Not provisioned' }}</b></div>
+      </div>
+    </section>
+
+    <section class="range-bar app-card">
+      <div><label>From</label><input type="date" [value]="from()" (change)="from.set($any($event.target).value)" /></div>
+      <div><label>To</label><input type="date" [value]="to()" (change)="to.set($any($event.target).value)" /></div>
+      <button mat-raised-button class="primary-button" (click)="load()"><mat-icon>filter_alt</mat-icon> Apply range</button>
+    </section>
+
+    @if (summary(); as totals) {
+      <section class="metric-grid">
+        <article class="app-card"><small>Total worked</small><strong>{{ duration(totals.totalHours) }}</strong><span>{{ totals.daysPresent }} of {{ totals.scheduledDays }} scheduled days worked</span></article>
+        <article class="app-card"><small>Average worked day</small><strong>{{ duration(totals.averageHours) }}</strong><span>Across days with attendance</span></article>
+        <article class="app-card"><small>Attendance exceptions</small><strong>{{ totals.lateDays + totals.earlyDepartureDays + totals.shortDays }}</strong><span>{{ totals.lateDays }} late · {{ totals.earlyDepartureDays }} early out</span></article>
+        <article class="app-card"><small>Overtime</small><strong>{{ duration(totals.overtimeHours) }}</strong><span>{{ totals.daysAbsent }} absent · {{ totals.daysOnLeave }} on approved leave</span></article>
+      </section>
+    }
+
+    <section class="app-card table-card">
+      <div class="section-head"><div><h2>Daily attendance</h2><p>All punch sessions are combined into one auditable daily result.</p></div></div>
+      <div class="table-scroll"><table class="data-table"><thead><tr><th>Attendance date</th><th>First check-in</th><th>Last check-out</th><th>Sessions</th><th>Worked</th><th>Scheduled</th><th>Late arrival</th><th>Early departure</th><th>Hours short</th><th>Attendance result</th></tr></thead>
+        <tbody>@for (row of report(); track row.workDate) {<tr><td>{{ row.workDate | date: 'd MMM yyyy' }}</td><td>{{ row.firstCheckIn ? (row.firstCheckIn | date: 'shortTime') : '—' }}</td><td>{{ row.lastCheckOut ? (row.lastCheckOut | date: 'shortTime') : '—' }}</td><td>{{ row.sessionCount }}</td><td>{{ duration(row.totalHours) }}</td><td>{{ duration(row.requiredHours) }}</td><td>{{ minutes(row.lateMinutes) }}</td><td>{{ minutes(row.earlyDepartureMinutes) }}</td><td>{{ duration(row.shortfallHours) }}</td><td><span class="status-pill">{{ row.status }}</span></td></tr>} @empty {<tr><td colspan="10" class="empty-cell">No scheduled attendance or punch sessions exist in this range.</td></tr>}</tbody>
+      </table></div>
+    </section>
+
+    <section class="two-column">
+      <article class="app-card login-card"><div class="section-head"><div><h2>Login history</h2><p>Last 50 successful account sign-ins.</p></div></div>
+        <div class="activity-list">@for (login of logins(); track login.loggedInAt) {<div><mat-icon>login</mat-icon><span><b>{{ login.loggedInAt | date: 'medium' }}</b><small>{{ login.ipAddress || 'IP unavailable' }} · {{ login.userAgent || 'Browser unavailable' }}</small></span></div>} @empty {<p class="empty-cell">No successful sign-ins have been recorded yet.</p>}</div>
+      </article>
+      <article class="app-card documents-card"><div class="section-head"><div><h2>Employee documents</h2><p>Import and manage identity records and payslips.</p></div></div>
+        <app-document ownerType="Employee" [ownerId]="person.id" category="identity" label="Identity documents" [readonly]="!auth.hasPermission('employees.manage')" [maxFiles]="20" />
+        <app-document ownerType="Employee" [ownerId]="person.id" category="payslip" label="Payslip documents" [readonly]="!auth.hasPermission('employees.manage')" [maxFiles]="100" />
+      </article>
+    </section>
+  }
+</div>

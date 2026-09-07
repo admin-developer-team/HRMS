@@ -1,0 +1,486 @@
+<div class="page-shell">
+  <div class="page-header">
+    <div>
+      <div class="eyebrow">Core HR · People directory</div>
+      <h1 class="page-title">Employees</h1>
+      <p class="page-description">
+        Manage employee records, reporting lines, organization assignments and compensation.
+      </p>
+    </div>
+    <div class="header-actions">
+      <button mat-stroked-button (click)="exportCsv()" [disabled]="!data().items.length">
+        <mat-icon>download</mat-icon>Export CSV</button
+      ><button mat-raised-button class="primary-button" (click)="openCreate()">
+        <mat-icon>person_add</mat-icon>Add employee
+      </button>
+    </div>
+  </div>
+  @if (success()) {
+    <div class="success-banner">
+      <mat-icon>check_circle</mat-icon>{{ success()
+      }}<button mat-icon-button (click)="success.set('')"><mat-icon>close</mat-icon></button>
+    </div>
+  }
+  <section class="app-card table-card employee-table-card">
+    <div class="table-toolbar">
+      <div class="search-field">
+        <mat-icon>search</mat-icon
+        ><input
+          [value]="search()"
+          (input)="search.set($any($event.target).value)"
+          (keydown.enter)="load(1)"
+          placeholder="Search by name, email or employee ID"
+        />
+      </div>
+      <select [value]="status()" (change)="status.set($any($event.target).value); load(1)">
+        <option value="">All statuses</option>
+        <option>Active</option>
+        <option>Probation</option>
+        <option>NoticePeriod</option>
+        <option>Suspended</option>
+        <option>Terminated</option>
+        <option>Resigned</option></select
+      ><button mat-stroked-button (click)="load(1)"><mat-icon>filter_list</mat-icon>Apply</button
+      ><span class="result-count">{{ data().total }} employees</span>
+    </div>
+    @if (loading()) {
+      <div class="loading-table">
+        @for (row of [1, 2, 3, 4, 5]; track row) {
+          <div class="skeleton"></div>
+        }
+      </div>
+    } @else if (error() && !drawerOpen()) {
+      <div class="empty-state" role="alert">
+        <mat-icon>cloud_off</mat-icon>
+        <h3>Employees unavailable</h3>
+        <p>{{ error() }}</p>
+        <button mat-stroked-button (click)="load(data().page)">Retry</button>
+      </div>
+    } @else if (!data().items.length) {
+      <div class="empty-state">
+        <mat-icon>group</mat-icon>
+        <h3>No employees found</h3>
+        <p>Adjust your filters or add your first employee.</p>
+        <button mat-raised-button class="primary-button" (click)="openCreate()">
+          Add employee
+        </button>
+      </div>
+    } @else {
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Employee</th>
+              <th>Employee ID</th>
+              <th>Organization</th>
+              <th>Employment</th>
+              <th>Hire date</th>
+              <th>Base salary</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (employee of data().items; track employee.id) {
+              <tr class="employee-row" (click)="openDetails(employee)">
+                <td>
+                  <div class="person-cell">
+                    <span>{{ initials(employee) }}</span>
+                    <div>
+                      <b>{{ employee.fullName }}</b
+                      ><small>{{ employee.workEmail }}</small>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <code>{{ employee.employeeNumber }}</code>
+                </td>
+                <td>
+                  <b class="cell-primary">{{ lookup(departments(), employee.departmentId) }}</b
+                  ><small class="cell-secondary">{{
+                    lookup(designations(), employee.designationId)
+                  }}</small>
+                </td>
+                <td>
+                  <b class="cell-primary">{{ employee.employmentType }}</b
+                  ><small class="cell-secondary">{{ employee.phone || 'No phone' }}</small>
+                </td>
+                <td>{{ employee.hireDate | date: 'd MMM yyyy' }}</td>
+                <td>
+                  {{ employee.baseSalary | currency: employee.salaryCurrency : 'symbol' : '1.0-0' }}
+                </td>
+                <td>
+                  <span [class]="'status-pill ' + statusClass(employee.status)">{{
+                    employee.status
+                  }}</span>
+                </td>
+                <td (click)="$event.stopPropagation()">
+                  <button mat-icon-button [matMenuTriggerFor]="rowMenu">
+                    <mat-icon>more_horiz</mat-icon></button
+                  ><mat-menu #rowMenu="matMenu"
+                    ><button mat-menu-item (click)="openDetails(employee)">
+                      <mat-icon>visibility</mat-icon>View profile</button
+                    ><button mat-menu-item (click)="openEdit(employee)">
+                      <mat-icon>edit</mat-icon>Edit employee
+                    </button>
+                    @if (auth.hasPermission('identity.manage') && !employee.userId) {
+                      <button mat-menu-item (click)="openAccount(employee)">
+                        <mat-icon>person_add</mat-icon>Create login account
+                      </button>
+                    }
+                    @if (auth.hasPermission('identity.manage') && employee.userId) {
+                      <button mat-menu-item (click)="openPasswordReset(employee)">
+                        <mat-icon>password</mat-icon>Reset password
+                      </button>
+                    }
+                    ><button mat-menu-item (click)="deleteEmployee(employee)" class="danger-action">
+                      <mat-icon>delete</mat-icon>Delete employee
+                    </button></mat-menu
+                  >
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <div class="table-pagination">
+        <span>Page {{ data().page }} of {{ data().totalPages || 1 }}</span>
+        <div>
+          <button mat-icon-button [disabled]="data().page <= 1" (click)="load(data().page - 1)">
+            <mat-icon>chevron_left</mat-icon></button
+          ><button
+            mat-icon-button
+            [disabled]="data().page >= data().totalPages"
+            (click)="load(data().page + 1)"
+          >
+            <mat-icon>chevron_right</mat-icon>
+          </button>
+        </div>
+      </div>
+    }
+  </section>
+</div>
+
+@if (drawerOpen()) {
+  <div class="drawer-overlay" (click)="drawerOpen.set(false)"></div>
+  <aside class="form-drawer">
+    <div class="drawer-head">
+      <div>
+        <div class="eyebrow">{{ editing() ? 'Employee record' : 'New hire' }}</div>
+        <h2>{{ editing() ? 'Edit employee' : 'Add employee' }}</h2>
+      </div>
+      <button mat-icon-button (click)="drawerOpen.set(false)"><mat-icon>close</mat-icon></button>
+    </div>
+    <form class="drawer-body" [formGroup]="form" id="employee-form" (ngSubmit)="submit()">
+      @if (error()) {
+        <div class="error-banner">{{ error() }}</div>
+      }
+      <div class="form-section">
+        <h3>Personal details</h3>
+        @if (!editing()) {
+          <div class="new-employee-photo">
+            <span class="new-employee-photo__preview">
+              @if (profilePhotoPreview()) {
+                <img [src]="profilePhotoPreview()" alt="Selected employee profile photo" />
+              } @else {
+                <mat-icon>person</mat-icon>
+              }
+            </span>
+            <div>
+              <b>Profile photo</b>
+              <small>Optional · JPG, PNG, WebP, or AVIF · maximum 5 MB</small>
+              <div class="new-employee-photo__actions">
+                <label class="photo-select-button"><mat-icon>photo_camera</mat-icon>{{ profilePhoto() ? 'Change photo' : 'Choose photo' }}<input type="file" accept="image/jpeg,image/png,image/webp,image/avif" (change)="selectProfilePhoto($event)" /></label>
+                @if (profilePhoto()) { <button mat-button type="button" (click)="removeProfilePhoto()">Remove</button> }
+              </div>
+            </div>
+          </div>
+        }
+        <div class="form-grid">
+          <div class="field"><label>First name *</label><input formControlName="firstName" /></div>
+          <div class="field"><label>Last name *</label><input formControlName="lastName" /></div>
+          <div class="field wide">
+            <label>Work email *</label><input type="email" formControlName="workEmail" />
+          </div>
+          <div class="field wide"><label>Phone</label><input formControlName="phone" /></div>
+        </div>
+      </div>
+      <div class="form-section">
+        <h3>Employment</h3>
+        <div class="form-grid">
+          <div class="field">
+            <label>Employee ID *</label
+            ><input formControlName="employeeNumber" placeholder="EMP-001" [readOnly]="editing()" />
+          </div>
+          <div class="field">
+            <label>Hire date *</label
+            ><input type="date" formControlName="hireDate" [readOnly]="editing()" />
+          </div>
+          <div class="field">
+            <label>Employment type *</label
+            ><select formControlName="employmentType">
+              <option>Permanent</option>
+              <option>Contract</option>
+              <option>Intern</option>
+              <option>Consultant</option>
+              <option>PartTime</option>
+            </select>
+          </div>
+          @if (editing()) {
+            <div class="field">
+              <label>Status *</label
+              ><select formControlName="status">
+                <option>Active</option>
+                <option>Probation</option>
+                <option>NoticePeriod</option>
+                <option>Suspended</option>
+                <option>Terminated</option>
+                <option>Resigned</option>
+              </select>
+            </div>
+          }
+        </div>
+      </div>
+      <div class="form-section">
+        <h3>Organization assignment</h3>
+        <div class="form-grid">
+          <div class="field">
+            <label>Department</label
+            ><select formControlName="departmentId">
+              <option value="">Unassigned</option>
+              @for (item of departments(); track item.id) {
+                <option [value]="item.id">{{ item.name }}</option>
+              }
+            </select>
+          </div>
+          <div class="field">
+            <label>Designation</label
+            ><select formControlName="designationId">
+              <option value="">Unassigned</option>
+              @for (item of designations(); track item.id) {
+                <option [value]="item.id">{{ item.name }}</option>
+              }
+            </select>
+          </div>
+          <div class="field">
+            <label>Location</label
+            ><select formControlName="locationId">
+              <option value="">Unassigned</option>
+              @for (item of locations(); track item.id) {
+                <option [value]="item.id">{{ item.name }}</option>
+              }
+            </select>
+          </div>
+          <div class="field">
+            <label>Manager</label
+            ><select formControlName="managerId">
+              <option value="">No manager</option>
+              @for (item of managers(); track item.id) {
+                <option [value]="item.id">{{ item.fullName }}</option>
+              }
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="form-section">
+        <h3>Compensation</h3>
+        <div class="form-grid">
+          <div class="field">
+            <label>Base salary</label><input type="number" formControlName="baseSalary" min="0" />
+          </div>
+          <div class="field">
+            <label>Currency</label
+            ><select formControlName="salaryCurrency">
+              <option>USD</option>
+              <option>SGD</option>
+              <option>INR</option>
+              <option>EUR</option>
+              <option>GBP</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </form>
+    <div class="drawer-actions">
+      <button mat-stroked-button (click)="drawerOpen.set(false)">Cancel</button
+      ><button mat-raised-button class="primary-button" form="employee-form" [disabled]="saving()">
+        @if (saving()) {
+          <mat-spinner diameter="18"></mat-spinner>
+        } @else {
+          {{ editing() ? 'Save changes' : 'Create employee' }}
+        }
+      </button>
+    </div>
+  </aside>
+}
+
+@if (accountDrawerOpen() && accountEmployee(); as employee) {
+  <div class="drawer-overlay" (click)="accountDrawerOpen.set(false)"></div>
+  <aside class="form-drawer">
+    <div class="drawer-head">
+      <div>
+        <div class="eyebrow">Employee access</div>
+        <h2>Create login for {{ employee.fullName }}</h2>
+      </div>
+      <button mat-icon-button (click)="accountDrawerOpen.set(false)">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+    <form
+      class="drawer-body"
+      [formGroup]="accountForm"
+      id="account-form"
+      (ngSubmit)="provisionAccount()"
+    >
+      @if (error()) {
+        <div class="error-banner">{{ error() }}</div>
+      }
+      <div class="account-intro">
+        <mat-icon>shield_person</mat-icon>
+        <p>
+          The account uses <b>{{ employee.workEmail }}</b> and is linked permanently to this
+          employee. Assign <b>Employee Self-Service</b> to a normal employee, or
+          <b>People Manager</b> if they manage direct reports.
+        </p>
+      </div>
+      <div class="form-grid">
+        <div class="field wide">
+          <label>Temporary password *</label
+          ><input type="password" formControlName="password" autocomplete="new-password" /><small
+            class="field-help"
+            >Minimum 8 characters. Share it securely.</small
+          >
+        </div>
+        <div class="field wide">
+          <label>System roles *</label
+          ><select formControlName="roleIds" multiple size="6">
+            @for (role of roles(); track role.id) {
+              <option [value]="role.id">{{ role.name }}</option>
+            }</select
+          ><small class="field-help"
+            >A developer is still an Employee Self-Service user. Do not assign HR, payroll, or
+            administrator roles unless their job requires it.</small
+          >
+        </div>
+      </div>
+    </form>
+    <div class="drawer-actions">
+      <button mat-stroked-button (click)="accountDrawerOpen.set(false)">Cancel</button
+      ><button mat-raised-button class="primary-button" form="account-form" [disabled]="saving()">
+        @if (saving()) {
+          <mat-spinner diameter="18"></mat-spinner>
+        } @else {
+          Create employee login
+        }
+      </button>
+    </div>
+  </aside>
+}
+
+@if (passwordDrawerOpen() && passwordEmployee(); as employee) {
+  <div class="drawer-overlay" (click)="passwordDrawerOpen.set(false)"></div>
+  <aside class="form-drawer">
+    <div class="drawer-head">
+      <div>
+        <div class="eyebrow">Employee access</div>
+        <h2>Reset password for {{ employee.fullName }}</h2>
+      </div>
+      <button mat-icon-button (click)="passwordDrawerOpen.set(false)">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+    <form
+      class="drawer-body"
+      [formGroup]="passwordForm"
+      id="password-reset-form"
+      (ngSubmit)="resetPassword()"
+    >
+      @if (error()) {
+        <div class="error-banner">{{ error() }}</div>
+      }
+      <div class="account-intro">
+        <mat-icon>lock_reset</mat-icon>
+        <p>
+          Set a temporary password for <b>{{ employee.workEmail }}</b>. The employee can sign in
+          with this password and change it from self-service.
+        </p>
+      </div>
+      <div class="form-grid">
+        <div class="field wide">
+          <label>New temporary password *</label
+          ><input type="password" formControlName="password" autocomplete="new-password" /><small
+            class="field-help"
+            >Minimum 8 characters. Share it securely.</small
+          >
+        </div>
+      </div>
+    </form>
+    <div class="drawer-actions">
+      <button mat-stroked-button (click)="passwordDrawerOpen.set(false)">Cancel</button
+      ><button mat-raised-button class="primary-button" form="password-reset-form" [disabled]="saving()">
+        @if (saving()) {
+          <mat-spinner diameter="18"></mat-spinner>
+        } @else {
+          Reset password
+        }
+      </button>
+    </div>
+  </aside>
+}
+
+@if (detailOpen() && selected(); as employee) {
+  <div class="drawer-overlay" (click)="detailOpen.set(false)"></div>
+  <aside class="form-drawer detail-drawer">
+    <div class="drawer-head">
+      <div>
+        <div class="eyebrow">Employee profile</div>
+        <h2>{{ employee.fullName }}</h2>
+      </div>
+      <button mat-icon-button (click)="detailOpen.set(false)"><mat-icon>close</mat-icon></button>
+    </div>
+    <div class="drawer-body">
+      <div class="profile-hero">
+        <span>{{ initials(employee) }}</span>
+        <h3>{{ employee.fullName }}</h3>
+        <p>{{ employee.workEmail }}</p>
+        <span [class]="'status-pill ' + statusClass(employee.status)">{{ employee.status }}</span>
+      </div>
+      <div class="profile-grid">
+        <div>
+          <span>Employee ID</span><b>{{ employee.employeeNumber }}</b>
+        </div>
+        <div>
+          <span>Hire date</span><b>{{ employee.hireDate | date: 'd MMM yyyy' }}</b>
+        </div>
+        <div>
+          <span>Department</span><b>{{ lookup(departments(), employee.departmentId) }}</b>
+        </div>
+        <div>
+          <span>Designation</span><b>{{ lookup(designations(), employee.designationId) }}</b>
+        </div>
+        <div>
+          <span>Location</span><b>{{ lookup(locations(), employee.locationId) }}</b>
+        </div>
+        <div>
+          <span>Manager</span><b>{{ lookup(managers(), employee.managerId) }}</b>
+        </div>
+        <div>
+          <span>Employment</span><b>{{ employee.employmentType }}</b>
+        </div>
+        <div>
+          <span>Compensation</span
+          ><b>{{ employee.baseSalary | currency: employee.salaryCurrency }}</b>
+        </div>
+      </div>
+    </div>
+    <div class="drawer-actions">
+      <button
+        mat-raised-button
+        class="primary-button"
+        (click)="detailOpen.set(false); openEdit(employee)"
+      >
+        <mat-icon>edit</mat-icon>Edit employee
+      </button>
+    </div>
+  </aside>
+}

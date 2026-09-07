@@ -1,0 +1,591 @@
+<section
+  class="documents"
+  [class.documents--compact]="compact"
+  tabindex="0"
+  (dragover)="$event.preventDefault(); dragActive.set(true)"
+  (dragleave)="dragActive.set(false)"
+  (drop)="drop($event)"
+>
+  <div class="documents__head">
+    <div class="documents__title">
+      <h3>{{ label }}</h3>
+
+      @if (documents().length || pending().length) {
+        <span class="document-count">
+          {{ documents().length + pending().length }}
+        </span>
+      }
+    </div>
+
+    @if (!readonly && showUploadButton) {
+      <label
+        class="upload-button"
+        [class.disabled]="busy()"
+      >
+        <mat-icon>add</mat-icon>
+        <span>Add file</span>
+
+        <input
+          type="file"
+          [accept]="accept"
+          [multiple]="!replaceMode"
+          [disabled]="busy()"
+          (change)="selectFiles($event)"
+        />
+      </label>
+    }
+  </div>
+
+  @if (!readonly) {
+    <label
+      class="drop-zone"
+      [class.active]="dragActive()"
+      [class.disabled]="busy()"
+    >
+      <mat-icon class="drop-zone__icon">
+        upload_file
+      </mat-icon>
+
+      <div class="drop-zone__content">
+        <span>
+          Drop, paste or
+          <b>browse</b>
+        </span>
+
+        <small>
+          Max {{ maxSizeMb }} MB
+        </small>
+      </div>
+
+      <input
+        type="file"
+        [accept]="accept"
+        [multiple]="!replaceMode"
+        [disabled]="busy()"
+        (change)="selectFiles($event)"
+      />
+    </label>
+  }
+
+  @if (busy() && !preview()) {
+    <div class="document-progress">
+      <mat-spinner diameter="18" />
+      <span>Working...</span>
+    </div>
+  }
+
+  <div class="document-list">
+    @for (
+      item of pending();
+      track item.file.name + item.file.lastModified;
+      let index = $index
+    ) {
+      <div class="document-row pending">
+
+        @if (item.url) {
+          <img
+            class="document-thumbnail"
+            [src]="item.url"
+            alt=""
+          />
+        } @else {
+          <span class="document-type-icon">
+            <mat-icon
+              [style.color]="iconColor(item.file.name)"
+            >
+              {{ icon(item.file.name) }}
+            </mat-icon>
+          </span>
+        }
+
+        <div class="document-info">
+          <strong>
+            {{ item.file.name }}
+          </strong>
+
+          <small>
+            {{ formatSize(item.file.size) }}
+            · Uploading
+          </small>
+        </div>
+
+        <button
+          mat-icon-button
+          type="button"
+          matTooltip="Remove"
+          (click)="removePending(index)"
+        >
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+    }
+
+    @for (
+      item of documents();
+      track item.id
+    ) {
+      <div class="document-row">
+
+        <span class="document-type-icon">
+          <mat-icon
+            [style.color]="iconColor(item.extension)"
+          >
+            {{ icon(item.extension) }}
+          </mat-icon>
+        </span>
+
+        <button
+          class="document-name"
+          type="button"
+          (click)="open(item)"
+        >
+          <strong>
+            {{ item.fileName }}
+          </strong>
+
+          <small>
+            {{ formatSize(item.sizeBytes) }}
+            ·
+            {{ item.createdAt | date:'mediumDate' }}
+          </small>
+        </button>
+
+        <button
+          mat-icon-button
+          type="button"
+          matTooltip="Download"
+          (click)="download(item)"
+        >
+          <mat-icon>download</mat-icon>
+        </button>
+
+        @if (!readonly) {
+          <button
+            mat-icon-button
+            type="button"
+            matTooltip="Delete"
+            (click)="delete(item)"
+          >
+            <mat-icon>delete_outline</mat-icon>
+          </button>
+        }
+      </div>
+    }
+
+    @if (
+      !busy() &&
+      !documents().length &&
+      !pending().length
+    ) {
+      <div class="empty-documents">
+        <mat-icon>draft</mat-icon>
+        <span>No document uploaded</span>
+      </div>
+    }
+  </div>
+</section>
+
+@if (preview(); as item) {
+  <div
+    class="preview-backdrop"
+    (click)="closePreview()"
+  >
+    <section
+      class="preview-dialog"
+      role="dialog"
+      aria-modal="true"
+      [attr.aria-label]="item.name"
+      (click)="$event.stopPropagation()"
+    >
+      <header>
+        <div class="preview-title">
+          <mat-icon>
+            {{ icon(item.extension) }}
+          </mat-icon>
+
+          <strong>
+            {{ item.name }}
+          </strong>
+        </div>
+
+        <div class="preview-actions">
+          @if (canZoom(item.kind)) {
+            <div class="zoom-controls">
+              <button
+                mat-icon-button
+                type="button"
+                matTooltip="Zoom out"
+                [disabled]="zoomLevel() <= zoomMin"
+                (click)="zoomOut()"
+              >
+                <mat-icon>remove</mat-icon>
+              </button>
+
+              <button
+                type="button"
+                class="zoom-value"
+                matTooltip="Reset zoom"
+                (click)="resetZoom()"
+              >
+                {{ (zoomLevel() * 100).toFixed(0) }}%
+              </button>
+
+              <button
+                mat-icon-button
+                type="button"
+                matTooltip="Zoom in"
+                [disabled]="zoomLevel() >= zoomMax"
+                (click)="zoomIn()"
+              >
+                <mat-icon>add</mat-icon>
+              </button>
+            </div>
+          }
+
+          <button
+            mat-icon-button
+            type="button"
+            matTooltip="Download"
+            (click)="downloadCurrent()"
+          >
+            <mat-icon>download</mat-icon>
+          </button>
+
+          <button
+            mat-icon-button
+            type="button"
+            aria-label="Close preview"
+            matTooltip="Close"
+            (click)="closePreview()"
+          >
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+      </header>
+
+      <div
+        class="preview-content"
+        (wheel)="onPreviewWheel($event)"
+      >
+        @if (previewBusy()) {
+          <div class="preview-loading">
+            <mat-spinner diameter="34" />
+
+            <span>
+              Loading preview...
+            </span>
+          </div>
+        }
+
+        @switch (item.kind) {
+          @case ('image') {
+            @if (item.rawUrl) {
+              <div class="preview-scroll image-preview">
+                <div
+                  class="zoom-layer image-zoom-layer"
+                  [style.transform]="'scale(' + zoomLevel() + ')'"
+                  [style.transform-origin]="'top center'"
+                >
+                  <img
+                    [src]="item.rawUrl"
+                    [alt]="item.name"
+                  />
+                </div>
+              </div>
+            }
+          }
+
+          @case ('pdf') {
+            @if (item.resourceUrl) {
+              <iframe
+                class="pdf-preview"
+                [src]="item.resourceUrl"
+                [title]="item.name"
+              ></iframe>
+            }
+          }
+
+          @case ('video') {
+            @if (item.rawUrl) {
+              <div class="media-preview">
+                <video
+                  [src]="item.rawUrl"
+                  controls
+                  preload="metadata"
+                ></video>
+              </div>
+            }
+          }
+
+          @case ('audio') {
+            @if (item.rawUrl) {
+              <div class="audio-preview">
+                <mat-icon>
+                  audio_file
+                </mat-icon>
+
+                <strong>
+                  {{ item.name }}
+                </strong>
+
+                <audio
+                  [src]="item.rawUrl"
+                  controls
+                  preload="metadata"
+                ></audio>
+              </div>
+            }
+          }
+
+          @case ('excel') {
+            <div class="excel-preview">
+              @if (excelSheets().length) {
+                <div class="sheet-tabs">
+                  @for (
+                    sheet of excelSheets();
+                    track sheet.name;
+                    let index = $index
+                  ) {
+                    <button
+                      type="button"
+                      class="sheet-tab"
+                      [class.active]="activeSheetIndex() === index"
+                      (click)="activeSheetIndex.set(index)"
+                    >
+                      {{ sheet.name }}
+                    </button>
+                  }
+                </div>
+
+                <div class="sheet-content">
+                  @for (
+                    sheet of excelSheets();
+                    track sheet.name;
+                    let index = $index
+                  ) {
+                    @if (activeSheetIndex() === index) {
+                      <div
+                        class="zoom-layer sheet-zoom-layer"
+                        [style.transform]="'scale(' + zoomLevel() + ')'"
+                        [style.transform-origin]="'top left'"
+                        [style.width]="'calc(100% / ' + zoomLevel() + ')'"
+                      >
+                        <div
+                          class="excel-table-wrap"
+                          [innerHTML]="sheet.html"
+                        ></div>
+                      </div>
+                    }
+                  }
+                </div>
+              } @else if (!previewBusy()) {
+                <div class="unsupported-preview">
+                  <mat-icon>warning</mat-icon>
+
+                  <p>
+                    The spreadsheet is empty or could not be read.
+                  </p>
+                </div>
+              }
+            </div>
+          }
+
+          @case ('docx') {
+            <div class="docx-preview">
+              <div
+                class="zoom-layer docx-zoom-layer"
+                [style.transform]="'scale(' + zoomLevel() + ')'"
+                [style.transform-origin]="'top center'"
+                [style.width]="'calc(100% / ' + zoomLevel() + ')'"
+              >
+                <div
+                  #docxContainer
+                  class="docx-container"
+                ></div>
+              </div>
+            </div>
+          }
+
+          @case ('text') {
+            <div class="text-preview">
+              <div
+                class="text-zoom-layer"
+                [style.transform]="'scale(' + zoomLevel() + ')'"
+                [style.transform-origin]="'top left'"
+                [style.width]="'calc(100% / ' + zoomLevel() + ')'"
+              >
+                <table class="text-table">
+                  <tbody>
+                    @for (
+                      line of textLines();
+                      track line.n
+                    ) {
+                      <tr>
+                        <td class="text-line-number">
+                          {{ line.n }}
+                        </td>
+
+                        <td class="text-line">
+                          {{ line.text }}
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          }
+
+          @case ('email') {
+            @if (emailPreview(); as email) {
+              <div class="email-preview">
+                <div class="email-headers">
+                  <div class="email-subject">
+                    {{ email.subject }}
+                  </div>
+
+                  @if (email.from) {
+                    <div class="email-meta">
+                      <span>From</span>
+                      <strong>{{ email.from }}</strong>
+                    </div>
+                  }
+
+                  @if (email.to) {
+                    <div class="email-meta">
+                      <span>To</span>
+                      <strong>{{ email.to }}</strong>
+                    </div>
+                  }
+
+                  @if (email.cc) {
+                    <div class="email-meta">
+                      <span>CC</span>
+                      <strong>{{ email.cc }}</strong>
+                    </div>
+                  }
+
+                  @if (email.date) {
+                    <div class="email-meta">
+                      <span>Date</span>
+                      <strong>{{ email.date }}</strong>
+                    </div>
+                  }
+
+                  @if (email.attachments.length) {
+                    <div class="email-meta">
+                      <span>Attachments</span>
+
+                      <div class="email-attachments">
+                        @for (
+                          attachment of email.attachments;
+                          track attachment
+                        ) {
+                          <span class="email-attachment">
+                            <mat-icon>attach_file</mat-icon>
+                            {{ attachment }}
+                          </span>
+                        }
+                      </div>
+                    </div>
+                  }
+                </div>
+
+                <div class="email-body">
+                  @if (email.isHtml && emailHtmlUrl()) {
+                    <iframe
+                      class="email-html"
+                      [src]="emailHtmlUrl()"
+                      sandbox="allow-popups allow-popups-to-escape-sandbox"
+                      referrerpolicy="no-referrer"
+                      [style.transform]="'scale(' + zoomLevel() + ')'"
+                      [style.transform-origin]="'top left'"
+                      [style.width]="'calc(100% / ' + zoomLevel() + ')'"
+                      [style.height]="'calc(100% / ' + zoomLevel() + ')'"
+                    ></iframe>
+                  } @else {
+                    <pre
+                      class="email-plain"
+                      [style.transform]="'scale(' + zoomLevel() + ')'"
+                      [style.transform-origin]="'top left'"
+                      [style.width]="'calc(100% / ' + zoomLevel() + ')'"
+                    >{{ email.body || '(No message body)' }}</pre>
+                  }
+                </div>
+              </div>
+            }
+          }
+
+          @case ('archive') {
+            <div class="archive-preview">
+              <div class="archive-head">
+                <strong>
+                  {{ archiveEntries().length }}
+                  item{{ archiveEntries().length === 1 ? '' : 's' }}
+                </strong>
+              </div>
+
+              @if (archiveEntries().length) {
+                <div class="archive-list">
+                  @for (
+                    entry of archiveEntries();
+                    track entry.name
+                  ) {
+                    <div class="archive-row">
+                      <mat-icon>
+                        {{ entry.isDir ? 'folder' : 'draft' }}
+                      </mat-icon>
+
+                      <span>
+                        {{ entry.name }}
+                      </span>
+
+                      @if (!entry.isDir) {
+                        <small>
+                          {{ formatSize(entry.size) }}
+                        </small>
+                      }
+                    </div>
+                  }
+                </div>
+              } @else if (!previewBusy()) {
+                <div class="unsupported-preview">
+                  <mat-icon>folder_zip</mat-icon>
+
+                  <p>
+                    The ZIP archive is empty or could not be read.
+                  </p>
+                </div>
+              }
+            </div>
+          }
+
+          @case ('unsupported') {
+            <div class="unsupported-preview">
+              <mat-icon>
+                {{ icon(item.extension) }}
+              </mat-icon>
+
+              <strong>
+                {{ item.name }}
+              </strong>
+
+              <p>
+                {{ item.note }}
+              </p>
+
+              <button
+                mat-stroked-button
+                type="button"
+                (click)="downloadCurrent()"
+              >
+                <mat-icon>download</mat-icon>
+                Download file
+              </button>
+            </div>
+          }
+        }
+      </div>
+    </section>
+  </div>
+}

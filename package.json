@@ -1,0 +1,15 @@
+{
+  "name": "peopleflow-hrms",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "frontend": "npm --prefix frontend start",
+    "frontend:build": "npm --prefix frontend run build",
+    "frontend:test": "npm --prefix frontend test -- --watch=false",
+    "backend": "node scripts/dotnet-backend.mjs run",
+    "backend:build": "node scripts/dotnet-backend.mjs build",
+    "backend:test": "node scripts/dotnet-backend.mjs test",
+    "build": "npm run frontend:build && npm run backend:build",
+    "test": "npm run frontend:test && npm run backend:test"
+  }
+}

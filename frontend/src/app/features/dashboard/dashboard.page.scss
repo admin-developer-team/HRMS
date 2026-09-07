@@ -1,0 +1,389 @@
+.header-actions {
+  display: flex;
+  gap: 9px;
+}
+
+.header-actions mat-icon {
+  margin-right: 5px;
+  font-size: 18px;
+}
+
+.dashboard-error {
+  min-height: 128px;
+  padding: 24px;
+  color: var(--ink-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+}
+
+.dashboard-error > mat-icon {
+  width: 32px;
+  height: 32px;
+  font-size: 32px;
+}
+
+.dashboard-error div {
+  display: flex;
+  flex-direction: column;
+}
+
+.dashboard-error strong {
+  color: var(--ink);
+  font-size: 0.9375rem;
+}
+
+.dashboard-error span {
+  margin-top: 2px;
+  font-size: 0.8125rem;
+}
+
+.dashboard-error button {
+  margin-left: 10px;
+}
+
+.metric-icon {
+  width: 36px;
+  height: 36px;
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  border-radius: 8px;
+  background: rgb(var(--brand-rgb) / 0.1);
+  color: var(--brand);
+  display: grid;
+  place-items: center;
+}
+
+.metric-icon mat-icon {
+  width: 19px;
+  height: 19px;
+  font-size: 19px;
+}
+
+.metric-skeleton {
+  width: 72px;
+  height: 32px;
+  margin-top: 10px;
+}
+
+.dashboard-grid {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(300px, 0.75fr);
+  gap: 14px;
+}
+
+.card-head {
+  padding: 18px 18px 14px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.card-head h3 {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.4;
+  font-weight: 650;
+}
+
+.card-head p {
+  margin: 3px 0 0;
+  color: var(--ink-muted);
+  font-size: 0.8125rem;
+}
+
+.composition-list {
+  min-height: 220px;
+  padding: 8px 18px 22px;
+  display: grid;
+  align-content: center;
+  gap: 17px;
+}
+
+.composition-row {
+  display: grid;
+  grid-template-columns: minmax(130px, 0.7fr) minmax(120px, 1fr) 42px;
+  align-items: center;
+  gap: 13px;
+}
+
+.composition-row > div:first-child {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.8125rem;
+}
+
+.composition-row > div:first-child span {
+  color: var(--ink-muted);
+}
+
+.composition-track {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--card-muted);
+  overflow: hidden;
+}
+
+.composition-track i {
+  height: 100%;
+  min-width: 2px;
+  border-radius: inherit;
+  background: var(--brand);
+  display: block;
+}
+
+.composition-row small {
+  color: var(--ink-muted);
+  font-size: 0.75rem;
+  text-align: right;
+}
+
+.empty-chart {
+  padding: 40px 16px;
+  color: var(--ink-muted);
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+.chart-legend {
+  padding: 11px 18px;
+  border-top: 1px solid var(--border);
+  color: var(--ink-muted);
+  display: flex;
+  gap: 20px;
+  font-size: 0.75rem;
+}
+
+.chart-legend span > i {
+  width: 7px;
+  height: 7px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--brand);
+  display: inline-block;
+}
+
+.chart-legend b {
+  margin-left: 5px;
+  color: var(--ink);
+}
+
+.quick-actions {
+  overflow: hidden;
+}
+
+.action-grid {
+  padding: 2px 14px 16px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.action-grid a {
+  min-height: 100px;
+  padding: 13px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease;
+}
+
+.action-grid a:hover {
+  border-color: var(--brand);
+  background: rgb(var(--brand-rgb) / 0.035);
+}
+
+.action-grid a > span {
+  width: 32px;
+  height: 32px;
+  border-radius: 7px;
+  background: rgb(var(--brand-rgb) / 0.1);
+  color: var(--brand);
+  display: grid;
+  place-items: center;
+}
+
+.action-grid span mat-icon {
+  width: 18px;
+  height: 18px;
+  font-size: 18px;
+}
+
+.action-grid b {
+  margin-top: 12px;
+  font-size: 0.8125rem;
+  font-weight: 650;
+}
+
+.action-grid a > mat-icon {
+  width: 17px;
+  height: 17px;
+  margin-top: -17px;
+  align-self: flex-end;
+  color: var(--ink-muted);
+  font-size: 17px;
+}
+
+.dashboard-bottom {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 14px;
+}
+
+.priority-grid {
+  padding: 0 18px 18px;
+  display: grid;
+  gap: 8px;
+}
+
+.priority-grid a {
+  min-height: 58px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.priority-grid a:first-child {
+  border-top: 0;
+}
+
+.priority-grid a > span {
+  width: 34px;
+  height: 34px;
+  border-radius: 7px;
+  background: #fff7e8;
+  color: #b85c00;
+  display: grid;
+  place-items: center;
+}
+
+.priority-grid a > span.violet {
+  background: #f1efff;
+  color: #6144d8;
+}
+
+.priority-grid a > span.green {
+  background: #ebf9f1;
+  color: #087a4a;
+}
+
+.priority-grid a > span mat-icon,
+.priority-grid a > mat-icon {
+  width: 19px;
+  height: 19px;
+  font-size: 19px;
+}
+
+.priority-grid a > div {
+  min-width: 0;
+  flex: 1;
+}
+
+.priority-grid small,
+.priority-grid b {
+  display: block;
+}
+
+.priority-grid small {
+  color: var(--ink-muted);
+  font-size: 0.8125rem;
+}
+
+.priority-grid b {
+  margin-top: 1px;
+  font-size: 1rem;
+}
+
+.priority-grid a > mat-icon {
+  color: var(--ink-muted);
+}
+
+.payroll-card {
+  padding-bottom: 18px;
+}
+
+.payroll-total {
+  padding: 4px 18px 18px;
+}
+
+.payroll-total small,
+.payroll-total b,
+.payroll-total span {
+  display: block;
+}
+
+.payroll-total small {
+  color: var(--ink-muted);
+  font-size: 0.8125rem;
+}
+
+.payroll-total b {
+  margin: 4px 0 6px;
+  font-size: 1.75rem;
+  line-height: 1.25;
+  letter-spacing: 0;
+}
+
+.payroll-total span {
+  color: var(--ink-muted);
+  font-size: 0.8125rem;
+  line-height: 1.55;
+}
+
+.payroll-card > button {
+  margin-left: 18px;
+}
+
+@media (max-width: 1100px) {
+  .dashboard-grid,
+  .dashboard-bottom {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .header-actions {
+    width: 100%;
+  }
+
+  .header-actions button {
+    flex: 1;
+  }
+
+  .header-actions button:first-child {
+    display: none;
+  }
+
+  .composition-row {
+    grid-template-columns: minmax(100px, 0.7fr) 1fr 38px;
+    gap: 8px;
+  }
+
+  .dashboard-error {
+    padding: 28px 20px;
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .dashboard-error button {
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 420px) {
+  .action-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,221 @@
+<div class="page-shell theme-page">
+  <div class="page-header">
+    <div>
+      <div class="eyebrow">Settings</div>
+      <h1 class="page-title">Settings</h1>
+      <p class="page-description">
+        Manage your profile, security, company identity, and application appearance.
+      </p>
+    </div>
+  </div>
+
+  <section class="theme-layout">
+    <article class="app-card settings-card profile-settings-card">
+        <div class="settings-head">
+          <div><h2>Personal profile</h2><p>Update your photo and personal contact information.</p></div>
+        </div>
+        <div class="profile-settings-layout">
+          <app-document
+            [ownerType]="profileOwnerType()"
+            [ownerId]="profileOwnerId()"
+            category="profile"
+            label="Profile photo"
+            [replaceMode]="true"
+            [maxFiles]="1"
+            [maxSizeMb]="5"
+            [showUploadButton]="false"
+            [compact]="true"
+            [allowedExtensions]="['jpg', 'jpeg', 'png', 'webp', 'avif']"
+            (documentsChanged)="profilePhotoChanged()"
+          />
+          <div class="personal-fields">
+            @if (profile(); as employee) {
+              <div class="field"><label>Full name</label><input [value]="employee.fullName" readonly /></div>
+              <div class="field"><label>Work email</label><input [value]="employee.workEmail" readonly /></div>
+              <div class="field"><label>Employee ID</label><input [value]="employee.employeeNumber" readonly /></div>
+              <div class="field"><label>Phone</label><input [ngModel]="phone()" (ngModelChange)="phone.set($event)" maxlength="40" /></div>
+              <div class="setting-actions profile-actions">
+                <button mat-raised-button class="primary-button" [disabled]="savingProfile()" (click)="saveProfile()">
+                  @if (savingProfile()) { <mat-spinner diameter="17" /> } @else { <mat-icon>save</mat-icon> } Save profile
+                </button>
+              </div>
+            } @else { 
+              <div class="field"><label>Display name</label><input [value]="auth.user()?.displayName" readonly /></div>
+              <div class="field"><label>Account email</label><input [value]="auth.user()?.email" readonly /></div>
+              <p class="account-profile-note">Name and email are controlled by account administrators.</p>
+            }
+          </div>
+        </div>
+      </article>
+
+    @if (profile()) {
+      <article class="app-card settings-card security-card">
+        <div class="settings-head"><div><h2>Account security</h2><p>Change your password. All active refresh sessions will be revoked.</p></div></div>
+        <div class="password-grid">
+          <div class="field"><label>Current password</label><input type="password" autocomplete="current-password" [ngModel]="currentPassword()" (ngModelChange)="currentPassword.set($event)" /></div>
+          <div class="field"><label>New password</label><input type="password" autocomplete="new-password" [ngModel]="newPassword()" (ngModelChange)="newPassword.set($event)" /></div>
+          <div class="field"><label>Confirm new password</label><input type="password" autocomplete="new-password" [ngModel]="confirmPassword()" (ngModelChange)="confirmPassword.set($event)" /></div>
+        </div>
+        <div class="setting-actions"><button mat-raised-button class="primary-button" [disabled]="savingPassword() || !currentPassword() || !newPassword() || !confirmPassword()" (click)="changePassword()">@if (savingPassword()) { <mat-spinner diameter="17" /> } @else { <mat-icon>password</mat-icon> } Change password</button></div>
+      </article>
+    }
+
+    @if (auth.hasPermission('identity.manage') && company.profile(); as profile) {
+      <article class="app-card settings-card identity-card">
+        <div class="settings-head">
+          <div><h2>Company identity</h2><p>Your company name and logo appear in the application navigation.</p></div>
+        </div>
+        <div class="identity-layout">
+          <div class="company-fields">
+            <div class="field"><label for="companyName">Company name</label><input id="companyName" [ngModel]="companyName()" (ngModelChange)="companyName.set($event)" /></div>
+            <div class="field"><label for="legalName">Legal name</label><input id="legalName" [ngModel]="legalName()" (ngModelChange)="legalName.set($event)" /></div>
+            <div class="field"><label for="currency">Currency</label><input id="currency" maxlength="3" [ngModel]="currency()" (ngModelChange)="currency.set($event)" /></div>
+            <div class="field"><label for="timeZone">Time zone</label><input id="timeZone" [ngModel]="timeZone()" (ngModelChange)="timeZone.set($event)" /></div>
+            <div class="field"><label for="locale">Locale</label><input id="locale" [ngModel]="locale()" (ngModelChange)="locale.set($event)" /></div>
+            <div class="setting-actions identity-actions">
+              <button mat-raised-button class="primary-button" [disabled]="savingCompany() || !companyName().trim()" (click)="saveCompany()">
+                @if (savingCompany()) { <mat-spinner diameter="17" /> } @else { <mat-icon>save</mat-icon> } Save company
+              </button>
+            </div>
+          </div>
+          <app-document
+          ownerType="Tenant"
+          [ownerId]="profile.id"
+          category="logo"
+          label="Company logo"
+          [replaceMode]="true"
+          [maxFiles]="1"
+          [maxSizeMb]="5"
+          [showUploadButton]="false"
+          [compact]="true"
+          [allowedExtensions]="[
+            'jpg',
+            'jpeg',
+            'jpd',
+            'jfif',
+            'png',
+            'webp',
+            'avif',
+            'heic',
+            'heif'
+          ]"
+          (documentsChanged)="refreshCompanyBranding()"
+        />
+        </div>
+      </article>
+    }
+
+    <article class="app-card settings-card appearance-card">
+      <div class="settings-head">
+        <div>
+          <h2>Color theme</h2>
+          <p>Select a ready-to-use application palette.</p>
+        </div>
+      </div>
+      <div class="preset-grid">
+        @for (theme of themes.presets; track theme.id) {
+          <button
+            class="preset-card"
+            [class.selected]="themes.current().id === theme.id"
+            (click)="select(theme)"
+            [attr.aria-pressed]="themes.current().id === theme.id"
+          >
+            <span class="preset-swatches" aria-hidden="true">
+              <i [style.background]="theme.sidebar"></i>
+              <i [style.background]="theme.primary"></i>
+              <i [style.background]="theme.surface"></i>
+            </span>
+            <span class="preset-copy">
+              <strong>{{ theme.name }}</strong>
+              <small>{{ theme.description }}</small>
+            </span>
+            @if (themes.current().id === theme.id) {
+              <mat-icon>check_circle</mat-icon>
+            }
+          </button>
+        }
+      </div>
+    </article>
+
+    <article class="app-card settings-card">
+      <div class="settings-head">
+        <div>
+          <h2>Custom preferences</h2>
+          <p>Adjust color, contrast, density, and corner style.</p>
+        </div>
+      </div>
+
+      <div class="setting-grid">
+        <div class="field">
+          <label for="primaryColor">Primary color</label>
+          <div class="color-control">
+            <input
+              id="primaryColor"
+              type="color"
+              [ngModel]="customPrimary()"
+              (ngModelChange)="customPrimary.set($event)"
+            />
+            <input
+              aria-label="Primary color value"
+              [ngModel]="customPrimary()"
+              (ngModelChange)="customPrimary.set($event)"
+            />
+          </div>
+        </div>
+        <div class="field">
+          <label for="accentColor">Accent color</label>
+          <div class="color-control">
+            <input
+              id="accentColor"
+              type="color"
+              [ngModel]="customAccent()"
+              (ngModelChange)="customAccent.set($event)"
+            />
+            <input
+              aria-label="Accent color value"
+              [ngModel]="customAccent()"
+              (ngModelChange)="customAccent.set($event)"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div class="preference-row">
+        <div><b>Dark mode</b><span>Use darker surfaces and higher-contrast text.</span></div>
+        <mat-slide-toggle
+          aria-label="Dark mode"
+          [checked]="dark()"
+          (change)="dark.set($event.checked)"
+        ></mat-slide-toggle>
+      </div>
+      <div class="preference-row">
+        <div><b>Compact density</b><span>Reduce row height in data-heavy tables.</span></div>
+        <mat-slide-toggle
+          aria-label="Compact density"
+          [checked]="compact()"
+          (change)="compact.set($event.checked)"
+        ></mat-slide-toggle>
+      </div>
+      <div class="radius-row">
+        <div>
+          <b>Corner radius</b><span>{{ customRadius() }}px</span>
+        </div>
+        <input
+          aria-label="Corner radius"
+          type="range"
+          min="4"
+          max="8"
+          [ngModel]="customRadius()"
+          (ngModelChange)="customRadius.set(+$event)"
+        />
+      </div>
+
+      <div class="setting-actions">
+        <button mat-stroked-button (click)="select(themes.presets[0])">Reset</button>
+        <button mat-raised-button class="primary-button" (click)="applyCustom()">
+          <mat-icon>check</mat-icon>Apply preferences
+        </button>
+      </div>
+    </article>
+  </section>
+</div>

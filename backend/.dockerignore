@@ -1,0 +1,13 @@
+**/bin
+**/obj
+.git
+.gitignore
+.vs
+TestResults
+artifacts
+coverage
+*.log
+.env
+.env.*
+**/*.user
+**/*.suo

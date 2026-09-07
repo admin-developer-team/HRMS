@@ -1,0 +1,117 @@
+<main class="login-page">
+  <aside class="login-brand" aria-label="PeopleFlow">
+    <div class="brand-lockup">
+      <div class="login-mark" aria-hidden="true"><i></i><i></i><i></i></div>
+      <div>
+        <strong>PeopleFlow</strong>
+        <span>Human resources management</span>
+      </div>
+    </div>
+    <div class="brand-message">
+      <span>Secure workforce operations</span>
+      <h1>One workspace for your people and processes.</h1>
+      <p>Sign in with the workspace assigned by your organization.</p>
+    </div>
+    <div class="brand-security"><mat-icon>verified_user</mat-icon>Tenant-isolated access</div>
+  </aside>
+
+  <section class="login-form-side">
+    <div class="mobile-brand">
+      <div class="login-mark" aria-hidden="true"><i></i><i></i><i></i></div>
+      <div><strong>PeopleFlow</strong><span>HRMS</span></div>
+    </div>
+
+    <div class="login-card">
+      <div class="form-heading">
+        <span>Account access</span>
+        <h2>Sign in</h2>
+        <p>Enter your organization workspace and account details.</p>
+      </div>
+
+      @if (error()) {
+        <div class="login-error" role="alert">
+          <mat-icon>error</mat-icon><span>{{ error() }}</span>
+        </div>
+      }
+
+      <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+        <div class="form-field">
+          <label for="tenantSlug">Company workspace</label>
+          <div class="login-field">
+            <mat-icon aria-hidden="true">domain</mat-icon>
+            <input
+              id="tenantSlug"
+              formControlName="tenantSlug"
+              placeholder="your-company"
+              autocomplete="organization"
+              autocapitalize="none"
+            />
+          </div>
+          @if (form.controls.tenantSlug.touched && form.controls.tenantSlug.invalid) {
+            <small class="field-error">Enter a workspace with at least 3 characters.</small>
+          }
+        </div>
+
+        <div class="form-field">
+          <label for="email">Work email</label>
+          <div class="login-field">
+            <mat-icon aria-hidden="true">mail</mat-icon>
+            <input
+              id="email"
+              type="email"
+              formControlName="email"
+              placeholder="name@company.com"
+              autocomplete="username"
+              autocapitalize="none"
+            />
+          </div>
+          @if (form.controls.email.touched && form.controls.email.invalid) {
+            <small class="field-error">Enter a valid work email address.</small>
+          }
+        </div>
+
+        <div class="form-field">
+          <label for="password">Password</label>
+          <div class="login-field">
+            <mat-icon aria-hidden="true">lock</mat-icon>
+            <input
+              id="password"
+              [type]="passwordVisible() ? 'text' : 'password'"
+              formControlName="password"
+              placeholder="Enter your password"
+              autocomplete="current-password"
+            />
+            <button
+              type="button"
+              (click)="passwordVisible.set(!passwordVisible())"
+              [attr.aria-label]="passwordVisible() ? 'Hide password' : 'Show password'"
+            >
+              <mat-icon>{{ passwordVisible() ? 'visibility_off' : 'visibility' }}</mat-icon>
+            </button>
+          </div>
+          @if (form.controls.password.touched && form.controls.password.invalid) {
+            <small class="field-error">Password must contain at least 8 characters.</small>
+          }
+        </div>
+
+        <label class="remember">
+          <input type="checkbox" formControlName="remember" />
+          <span>Keep me signed in on this device</span>
+        </label>
+
+        <button mat-raised-button class="login-submit" type="submit" [disabled]="loading()">
+          @if (loading()) {
+            <mat-spinner diameter="20"></mat-spinner>
+          } @else {
+            <span>Sign in</span>
+          }
+        </button>
+      </form>
+
+      <p class="access-help">
+        <mat-icon>help_outline</mat-icon>
+        Contact your HR administrator if you do not know your workspace or password.
+      </p>
+    </div>
+  </section>
+</main>

@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title description">
+  <title id="title">AVN Technologies</title>
+  <desc id="description">AVN monogram on a blue rounded square</desc>
+  <defs>
+    <linearGradient id="background" x1="8" y1="4" x2="56" y2="60" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#071a33" />
+      <stop offset="0.52" stop-color="#075ea8" />
+      <stop offset="1" stop-color="#0a8ae6" />
+    </linearGradient>
+    <linearGradient id="accent" x1="9" y1="20" x2="55" y2="44" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ffffff" />
+      <stop offset="1" stop-color="#d8f3ff" />
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="60" height="60" rx="15" fill="url(#background)" />
+  <path
+    d="M7 44 15 20l8 24M10.2 35h9.6M24 20l8 24 8-24M43 44V20l13 24V20"
+    fill="none"
+    stroke="url(#accent)"
+    stroke-width="4"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <path d="M7 51h49" stroke="#53d2ff" stroke-width="2" stroke-linecap="round" opacity="0.9" />
+</svg>

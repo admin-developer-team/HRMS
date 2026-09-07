@@ -1,0 +1,185 @@
+<mat-sidenav-container
+  class="app-frame"
+  [class.sidebar-collapsed]="collapsed() && !mobile()"
+  [autosize]="true"
+>
+  <mat-sidenav
+    #drawer
+    [mode]="mobile() ? 'over' : 'side'"
+    [opened]="!mobile()"
+    [class.collapsed]="collapsed()"
+    class="app-sidebar"
+  >
+    <div class="brand-block">
+      @if (companyLogoUrl()) {
+        <img class="company-logo" [src]="companyLogoUrl()" [alt]="companyName()" />
+      } @else {
+        <div class="brand-mark"><span></span><span></span><span></span></div>
+      }
+      @if (!collapsed()) {
+        <div class="brand-copy"><strong>{{ companyName() }}</strong><small>PeopleFlow HRMS</small></div>
+      }
+    </div>
+
+    <nav class="side-nav" aria-label="Primary navigation">
+      @for (section of navigation; track section.label) {
+        @if (sectionVisible(section)) {
+          @if (!collapsed()) {
+            <div class="nav-section-label">{{ section.label }}</div>
+          }
+          @for (item of section.items; track item.route) {
+            @if (visible(item)) {
+              <a
+                [routerLink]="item.route"
+                routerLinkActive="active"
+                [matTooltip]="collapsed() ? item.label : ''"
+                matTooltipPosition="right"
+                (click)="mobile() && drawer.close()"
+              >
+                <mat-icon>{{ item.icon }}</mat-icon>
+                @if (!collapsed()) {
+                  <span>{{ item.label }}</span>
+                }
+                @if (item.badge && !collapsed()) {
+                  <b class="nav-badge">{{ item.badge }}</b>
+                }
+              </a>
+            }
+          }
+        }
+      }
+    </nav>
+
+    <div class="sidebar-foot">
+      <a
+        routerLink="/settings"
+        routerLinkActive="active"
+        [matTooltip]="collapsed() ? 'Settings' : ''"
+        (click)="mobile() && drawer.close()"
+      >
+        <mat-icon>settings</mat-icon>
+        @if (!collapsed()) {
+          <span>Settings</span>
+        }
+      </a>
+    </div>
+  </mat-sidenav>
+
+  <mat-sidenav-content>
+    <header class="topbar">
+      <button
+        mat-icon-button
+        (click)="mobile() ? drawer.toggle() : toggleNavigation()"
+        aria-label="Toggle navigation"
+      >
+        <mat-icon>menu</mat-icon>
+      </button>
+      <div class="global-search">
+        <mat-icon>search</mat-icon>
+        <input
+          type="search"
+          [placeholder]="
+            auth.hasPermission('employees.read')
+              ? 'Search people by name, email or ID...'
+              : 'Open employee services...'
+          "
+          (keydown.enter)="navigateSearch($event)"
+        />
+      </div>
+      <div class="topbar-actions">
+        <button class="notification-trigger" mat-icon-button [matMenuTriggerFor]="notificationMenu" aria-label="Open notifications">
+          <mat-icon>notifications</mat-icon>
+          @if (notifications.feed().unreadCount) { <span class="notification-badge">{{ notifications.feed().unreadCount > 99 ? '99+' : notifications.feed().unreadCount }}</span> }
+        </button>
+        <mat-menu #notificationMenu="matMenu" class="notification-menu">
+          <div class="notification-head" (click)="$event.stopPropagation()">
+            <strong>Notifications</strong>
+            @if (notifications.feed().unreadCount) { <button type="button" (click)="markAllNotificationsRead()">Mark all read</button> }
+          </div>
+          @for (item of notifications.feed().items; track item.id) {
+            <button mat-menu-item class="notification-item" [class.unread]="!item.isRead" (click)="openNotification(item)">
+              <span class="notification-icon"><mat-icon>{{ notificationIcon(item.kind) }}</mat-icon></span>
+              <span class="notification-copy"><strong>{{ item.title }}</strong><span>{{ item.message }}</span><small>{{ item.createdAt | date:'medium' }}</small></span>
+            </button>
+          } @empty {
+            <div class="notification-empty"><mat-icon>notifications_none</mat-icon><span>You are all caught up</span></div>
+          }
+        </mat-menu>
+        <button
+          mat-icon-button
+          [matMenuTriggerFor]="quickActionsMenu"
+          aria-label="Open quick actions"
+        >
+          <mat-icon>apps</mat-icon>
+        </button>
+        <mat-menu #quickActionsMenu="matMenu">
+          <div class="menu-heading">Quick actions</div>
+          @if (auth.isEmployee()) {
+            @if (auth.hasPermission('work.read')) {
+              <button mat-menu-item routerLink="/work">
+                <mat-icon>view_kanban</mat-icon>Open work management
+              </button>
+            }
+            <button mat-menu-item routerLink="/my">
+              <mat-icon>schedule</mat-icon>Open daily attendance</button
+            ><button mat-menu-item routerLink="/my-services">
+              <mat-icon>event_available</mat-icon>Open my requests
+            </button>
+            @if (auth.isManager()) {
+              <button mat-menu-item routerLink="/my-team">
+                <mat-icon>approval</mat-icon>Review my team
+              </button>
+            }
+          } @else {
+            @if (auth.hasPermission('leave.manage')) {
+              <button mat-menu-item routerLink="/leave">
+                <mat-icon>event_available</mat-icon>Review leave requests
+              </button>
+            }
+            @if (auth.hasPermission('payroll.manage')) {
+              <button mat-menu-item routerLink="/payroll">
+                <mat-icon>payments</mat-icon>Open payroll operations
+              </button>
+            }
+            @if (auth.hasPermission('workforce.manage')) {
+              <button mat-menu-item routerLink="/workforce">
+                <mat-icon>badge</mat-icon>Review workforce records
+              </button>
+            }
+          }
+        </mat-menu>
+        <button class="user-trigger" [matMenuTriggerFor]="userMenu" aria-label="Open account menu">
+          <span class="avatar">@if (profilePhotoUrl()) { <img [src]="profilePhotoUrl()" alt="" /> } @else { {{ initials() }} }</span
+          ><span class="user-copy"
+            ><strong>{{ auth.user()?.displayName }}</strong
+            ><small>{{ auth.user()?.email }}</small></span
+          ><mat-icon>expand_more</mat-icon>
+        </button>
+        <mat-menu #userMenu="matMenu">
+          <button mat-menu-item routerLink="/settings">
+            <mat-icon>settings</mat-icon>Settings
+          </button>
+          <button mat-menu-item (click)="auth.logout()"><mat-icon>logout</mat-icon>Sign out</button>
+        </mat-menu>
+      </div>
+    </header>
+    <div
+      class="global-progress"
+      [class.visible]="loading.visible()"
+      [attr.aria-hidden]="!loading.visible()"
+      role="progressbar"
+      aria-label="Loading"
+    ><span></span></div>
+    <main [attr.aria-busy]="loading.visible()"><router-outlet /></main>
+  </mat-sidenav-content>
+</mat-sidenav-container>
+
+<div class="toast-stack" aria-live="polite" aria-atomic="true">
+  @for (toast of toasts.messages(); track toast.id) {
+    <div class="app-toast" [class]="'app-toast ' + toast.tone">
+      <mat-icon>{{ toast.tone === 'success' ? 'check_circle' : toast.tone === 'error' ? 'error' : 'info' }}</mat-icon>
+      <span>{{ toast.text }}</span>
+      <button mat-icon-button type="button" aria-label="Dismiss message" (click)="toasts.dismiss(toast.id)"><mat-icon>close</mat-icon></button>
+    </div>
+  }
+</div>

@@ -1,0 +1,171 @@
+<div class="page-shell dashboard-page">
+  <div class="page-header">
+    <div>
+      <div class="eyebrow">Workforce overview</div>
+      <h1 class="page-title">Good morning, {{ auth.user()?.displayName?.split(' ')?.[0] }}</h1>
+      <p class="page-description">
+        Live operating metrics for your organization on {{ today | date: 'EEEE, d MMMM' }}.
+      </p>
+    </div>
+    <div class="header-actions">
+      <button mat-stroked-button (click)="exportReport()">
+        <mat-icon>download</mat-icon>Export report</button
+      ><button mat-raised-button class="primary-button" routerLink="/employees">
+        <mat-icon>add</mat-icon>Add employee
+      </button>
+    </div>
+  </div>
+  @if (error()) {
+    <div class="dashboard-error app-card" role="alert">
+      <mat-icon>cloud_off</mat-icon>
+      <div>
+        <strong>Dashboard unavailable</strong>
+        <span>{{ error() }}</span>
+      </div>
+      <button mat-stroked-button (click)="load()">Retry</button>
+    </div>
+  } @else {
+    <section class="metric-grid">
+      @for (
+        metric of [
+          {
+            label: 'Active employees',
+            value: dashboard().activeEmployees,
+            icon: 'groups',
+            trend: 'Current active workforce',
+          },
+          {
+            label: 'Pending leave',
+            value: dashboard().pendingLeaveRequests,
+            icon: 'beach_access',
+            trend: 'Awaiting a decision',
+          },
+          {
+            label: 'Open positions',
+            value: dashboard().openJobs,
+            icon: 'work',
+            trend: 'Current hiring demand',
+          },
+          {
+            label: 'Available assets',
+            value: dashboard().availableAssets,
+            icon: 'laptop_mac',
+            trend: 'Ready for assignment',
+          },
+        ];
+        track metric.label
+      ) {
+        <article class="app-card metric-card">
+          <div class="metric-icon">
+            <mat-icon>{{ metric.icon }}</mat-icon>
+          </div>
+          <div class="metric-label">{{ metric.label }}</div>
+          @if (loading()) {
+            <div class="skeleton metric-skeleton"></div>
+          } @else {
+            <div class="metric-value">{{ metric.value | number }}</div>
+          }
+          <div class="metric-trend">{{ metric.trend }}</div>
+        </article>
+      }
+    </section>
+    <section class="dashboard-grid">
+      <article class="app-card workforce-chart">
+        <div class="card-head">
+          <div>
+            <h3>Workforce composition</h3>
+            <p>Employees grouped by current employment status</p>
+          </div>
+        </div>
+        <div class="composition-list">
+          @if (!statusEntries().length) {
+            <div class="empty-chart">
+              Employee status data will appear after employees are added.
+            </div>
+          }
+          @for (status of statusEntries(); track status.label) {
+            <div class="composition-row">
+              <div>
+                <span>{{ status.label }}</span
+                ><b>{{ status.value | number }}</b>
+              </div>
+              <div class="composition-track"><i [style.width.%]="status.percent"></i></div>
+              <small>{{ status.percent }}%</small>
+            </div>
+          }
+        </div>
+        <div class="chart-legend">
+          <span
+            ><i></i>Active employee total <b>{{ dashboard().activeEmployees | number }}</b></span
+          >
+        </div>
+      </article>
+      <article class="app-card quick-actions">
+        <div class="card-head">
+          <div>
+            <h3>Quick actions</h3>
+            <p>Open connected HR workflows</p>
+          </div>
+        </div>
+        <div class="action-grid">
+          @for (action of actions; track action.label) {
+            <a [routerLink]="action.route"
+              ><span
+                ><mat-icon>{{ action.icon }}</mat-icon></span
+              ><b>{{ action.label }}</b
+              ><mat-icon>arrow_forward</mat-icon></a
+            >
+          }
+        </div>
+      </article>
+    </section>
+    <section class="dashboard-bottom">
+      <article class="app-card activity-card">
+        <div class="card-head">
+          <div>
+            <h3>Operational priorities</h3>
+            <p>Current items that may require action</p>
+          </div>
+        </div>
+        <div class="priority-grid">
+          <a routerLink="/leave"
+            ><span class="amber"><mat-icon>event_available</mat-icon></span>
+            <div>
+              <small>Pending leave requests</small
+              ><b>{{ dashboard().pendingLeaveRequests | number }}</b>
+            </div>
+            <mat-icon>arrow_forward</mat-icon></a
+          ><a routerLink="/recruitment"
+            ><span class="violet"><mat-icon>work</mat-icon></span>
+            <div>
+              <small>Open job positions</small><b>{{ dashboard().openJobs | number }}</b>
+            </div>
+            <mat-icon>arrow_forward</mat-icon></a
+          ><a routerLink="/assets"
+            ><span class="green"><mat-icon>laptop_mac</mat-icon></span>
+            <div>
+              <small>Assets available</small><b>{{ dashboard().availableAssets | number }}</b>
+            </div>
+            <mat-icon>arrow_forward</mat-icon></a
+          >
+        </div>
+      </article>
+      <article class="app-card payroll-card">
+        <div class="card-head">
+          <div>
+            <h3>Payroll snapshot</h3>
+            <p>Current payroll total returned by the payroll service</p>
+          </div>
+        </div>
+        <div class="payroll-total">
+          <small>Current net payroll</small
+          ><b>{{ dashboard().currentPayrollTotal | currency: 'USD' : 'symbol' : '1.0-0' }}</b
+          ><span>Open payroll for run-level currency, items and approval status.</span>
+        </div>
+        <button mat-stroked-button routerLink="/payroll">
+          Open payroll workspace <mat-icon>arrow_forward</mat-icon>
+        </button>
+      </article>
+    </section>
+  }
+</div>

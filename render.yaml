@@ -1,0 +1,78 @@
+# yaml-language-server: $schema=https://json.schemastore.org/render.json
+services:
+  - type: web
+    name: hrms-backend
+    runtime: docker
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: free
+    region: singapore
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: ASPNETCORE_HTTP_PORTS
+        value: 10000
+      - key: ASPNETCORE_FORWARDEDHEADERS_ENABLED
+        value: "true"
+      - key: PORT
+        value: 10000
+      - key: ConnectionStrings__Hrms
+        sync: false
+      - key: Jwt__SigningKey
+        generateValue: true
+      - key: Bootstrap__PlatformAdminEmail
+        sync: false
+      - key: Bootstrap__PlatformAdminPassword
+        sync: false
+      - key: Database__AutoMigrate
+        value: "true"
+      - key: Swagger__Enabled
+        value: "true"
+      - key: Cors__AllowedOrigins__0
+        value: https://hrms.onrender.com
+
+  - type: web
+    name: hrms
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: ./dist/frontend/browser
+    autoDeployTrigger: commit
+    envVars:
+      - key: NODE_VERSION
+        value: "24.15.0"
+    headers:
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
+      - path: /*
+        name: Permissions-Policy
+        value: geolocation=(self), camera=(), microphone=()
+      - path: /*
+        name: Content-Security-Policy
+        value: >-
+          default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'
+          https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:;
+          img-src 'self' data: blob:; connect-src 'self' https://hrms-backend-7wpm.onrender.com
+          wss://hrms-backend-7wpm.onrender.com; frame-src https://www.openstreetmap.org;
+          frame-ancestors 'none';
+          base-uri 'self'; form-action 'self'
+      - path: /index.html
+        name: Cache-Control
+        value: no-cache, no-store, must-revalidate
+    routes:
+      - type: rewrite
+        source: /api/*
+        destination: https://hrms-backend-7wpm.onrender.com/api/*
+      - type: rewrite
+        source: /*
+        destination: /index.html

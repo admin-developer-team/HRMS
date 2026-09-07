@@ -1,0 +1,68 @@
+# Operating systems and editors
+.DS_Store
+Thumbs.db
+Desktop.ini
+.idea/
+.vs/
+.vscode/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Logs and temporary files
+*.log
+logs/
+tmp/
+temp/
+*.tmp
+*.bak
+
+# Environment files and secrets
+.env
+.env.*
+!.env.example
+*.local
+secrets.json
+appsettings.Local.json
+appsettings.*.Local.json
+*.pfx
+*.p12
+*.pem
+*.key
+
+# .NET backend
+backend/**/bin/
+backend/**/obj/
+backend/artifacts/
+backend/TestResults/
+backend/**/TestResults/
+backend/**/coverage/
+backend/**/*.trx
+backend/**/*.coverage
+backend/**/*.coveragexml
+backend/.ionide/
+
+# Angular frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.angular/
+frontend/coverage/
+frontend/.cache/
+frontend/.sass-cache/
+frontend/out-tsc/
+frontend/.nx/
+frontend/.eslintcache
+frontend/*.tsbuildinfo
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+frontend/pnpm-debug.log*
+
+# Deployment and generated output
+artifacts/
+dist/
+coverage/
+.netlify/
+.vercel/
+

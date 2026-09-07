@@ -1,0 +1,226 @@
+<div class="page-shell self-page">
+  <div class="page-header">
+    <div>
+      <div class="eyebrow">Employee self-service</div>
+      <h1 class="page-title">
+        Hello, {{ dashboard()?.profile?.fullName ?? auth.user()?.displayName }}
+      </h1>
+      <p class="page-description">
+        Your private workspace for attendance, requests, payslips and development.
+      </p>
+    </div>
+    <div class="header-actions">
+      <button mat-stroked-button routerLink="/my-services">
+        <mat-icon>apps</mat-icon>Open all services
+      </button>
+      @if (auth.isManager()) {
+        <button mat-raised-button class="primary-button" routerLink="/my-team">
+          <mat-icon>groups</mat-icon>My team
+        </button>
+      }
+    </div>
+  </div>
+  @if (error()) {
+    <div class="error-banner">
+      <mat-icon>error</mat-icon>{{ error()
+      }}<button mat-icon-button (click)="error.set('')"><mat-icon>close</mat-icon></button>
+    </div>
+  }
+  @if (success()) {
+    <div class="success-banner">
+      <mat-icon>check_circle</mat-icon>{{ success()
+      }}<button mat-icon-button (click)="success.set('')"><mat-icon>close</mat-icon></button>
+    </div>
+  }
+
+  <section class="hero-grid">
+    <article class="app-card clock-card">
+      <div class="clock-top">
+        <div>
+          <span>{{ now() | date: 'EEEE, d MMMM' }}</span
+          ><strong>{{ now() | date: 'h:mm a' }}</strong>
+        </div>
+        <div class="live-dot"><i></i>Live</div>
+      </div>
+      @if (loading()) {
+        <div class="clock-loading"><mat-spinner diameter="36"></mat-spinner></div>
+      } @else {
+        <div class="clock-state">
+          <span class="clock-icon"
+            ><mat-icon>{{
+              dashboard()?.todayAttendance?.clockedOutAt
+                ? 'task_alt'
+                : dashboard()?.todayAttendance?.clockedInAt
+                  ? 'work_history'
+                  : 'schedule'
+            }}</mat-icon></span
+          >
+          <div>
+            <small>Today’s status</small>
+            <h2>
+              {{
+                needsCorrection() ? 'Check-out needs correction' : dashboard()?.todayAttendance?.clockedOutAt
+                  ? 'Ready to check in again'
+                  : dashboard()?.todayAttendance?.clockedInAt
+                    ? 'Currently checked in'
+                    : 'Not checked in'
+              }}
+            </h2>
+            @if (dashboard()?.todayAttendance?.clockedInAt) {
+              <p>
+                Started {{ dashboard()?.todayAttendance?.clockedInAt | date: (dashboard()?.todayAttendance?.workDate === (now() | date: 'yyyy-MM-dd') ? 'h:mm a' : 'd MMM, h:mm a') }}
+                @if (dashboard()?.todayAttendance?.clockedOutAt) {
+                  · Finished {{ dashboard()?.todayAttendance?.clockedOutAt | date: 'h:mm a' }}
+                }
+              </p>
+            }
+            @if (dashboard()?.todaySessionCount) {
+              <p>{{ dashboard()?.todayTotalHours | number: '1.1-2' }} hours across {{ dashboard()?.todaySessionCount }} {{ dashboard()?.todaySessionCount === 1 ? 'session' : 'sessions' }} today</p>
+            }
+          </div>
+        </div>
+      }
+      <div class="location-note">
+        <mat-icon>location_on</mat-icon
+        ><span
+          ><b>{{ dashboard()?.requireLocationCapture ? 'Location verification' : 'Attendance privacy' }}</b>
+          @if (dashboard()?.requireLocationCapture) { {{ locationStatus() }} Your browser asks permission before every capture. }
+          @else { Your company does not require location for attendance. }</span
+        >
+      </div>
+      <div class="clock-actions">
+        @if (needsCorrection()) {
+          <p>A previous session is still open. Request a correction from Clock sessions in My services.</p>
+          <button mat-raised-button class="primary-button" routerLink="/my-services"><mat-icon>edit_calendar</mat-icon>Fix missed check-out</button>
+        } @else if (!dashboard()?.todayAttendance?.clockedInAt || dashboard()?.todayAttendance?.clockedOutAt) {
+          <button
+            mat-raised-button
+            class="primary-button"
+            [disabled]="clocking()"
+            (click)="clock('clock-in')"
+          >
+            @if (clocking()) {
+              <mat-spinner diameter="18"></mat-spinner>
+            } @else {
+              <span><mat-icon>login</mat-icon>Check in</span>
+            }
+          </button>
+        } @else if (!dashboard()?.todayAttendance?.clockedOutAt) {
+          <button
+            mat-raised-button
+            class="clock-out"
+            [disabled]="clocking()"
+            (click)="clock('clock-out')"
+          >
+            @if (clocking()) {
+              <mat-spinner diameter="18"></mat-spinner>
+            } @else {
+              <span><mat-icon>logout</mat-icon>Check out</span>
+            }
+          </button>
+        }
+      </div>
+    </article>
+    <article class="app-card profile-card">
+      <div class="profile-head">
+        <div class="profile-photo-wrap">
+          <span class="profile-photo">
+            @if (profilePhotoUrl()) {
+              <img [src]="profilePhotoUrl()" alt="Your profile photo" />
+            } @else {
+              {{ (dashboard()?.profile?.fullName ?? 'Employee').slice(0, 2).toUpperCase() }}
+            }
+          </span>
+        </div>
+        <div>
+          <h3>{{ dashboard()?.profile?.fullName }}</h3>
+          <p>{{ dashboard()?.profile?.workEmail }}</p>
+        </div>
+        <span class="status-pill success">{{ dashboard()?.profile?.status }}</span>
+      </div>
+      <div class="profile-details">
+        <div>
+          <span>Employee ID</span><b>{{ dashboard()?.profile?.employeeNumber }}</b>
+        </div>
+        <div>
+          <span>Employment</span><b>{{ dashboard()?.profile?.employmentType }}</b>
+        </div>
+        <div>
+          <span>Joined</span><b>{{ dashboard()?.profile?.hireDate | date: 'd MMM yyyy' }}</b>
+        </div>
+        <div>
+          <span>Phone</span><b>{{ dashboard()?.profile?.phone || 'Not provided' }}</b>
+        </div>
+      </div>
+    </article>
+  </section>
+
+  <section class="metric-grid self-metrics">
+    <a class="app-card metric-card" routerLink="/my-services"
+      ><div class="metric-label">Available leave</div>
+      <div class="metric-value">{{ dashboard()?.availableLeaveDays | number: '1.0-1' }}d</div>
+      <div class="metric-trend">Across active leave policies</div></a
+    ><a class="app-card metric-card" routerLink="/my-services"
+      ><div class="metric-label">Pending leave</div>
+      <div class="metric-value">{{ dashboard()?.pendingLeaveRequests }}</div>
+      <div class="metric-trend">Awaiting manager or HR</div></a
+    ><a class="app-card metric-card" routerLink="/my-services"
+      ><div class="metric-label">Pending timesheets</div>
+      <div class="metric-value">{{ dashboard()?.pendingTimesheets }}</div>
+      <div class="metric-trend">Submitted for approval</div></a
+    ><a class="app-card metric-card" routerLink="/my-services"
+      ><div class="metric-label">Learning due</div>
+      <div class="metric-value">{{ dashboard()?.trainingDue }}</div>
+      <div class="metric-trend">Open enrollments</div></a
+    >
+  </section>
+
+  <section class="bottom-grid">
+    <article class="app-card history-card">
+      <div class="card-head">
+        <div>
+          <h3>Recent punch sessions</h3>
+          <p>Your last ten check-in sessions</p>
+        </div>
+      </div>
+      @if (!history().length) {
+        <div class="empty-mini">No attendance has been recorded yet.</div>
+      }
+      @for (record of history(); track record.id) {
+        <div class="history-row">
+          <div class="history-date">
+            <b>{{ record.workDate | date: 'd' }}</b
+            ><span>{{ record.workDate | date: 'MMM' }}</span>
+          </div>
+          <div>
+            <b
+              >{{ record.clockedInAt | date: 'h:mm a' }} —
+              {{ record.clockedOutAt ? (record.clockedOutAt | date: 'h:mm a') : 'In progress' }}</b
+            ><span>{{ record.workHours | number: '1.1-2' }} hours · {{ record.sessionState }}</span>
+          </div>
+        </div>
+      }
+    </article>
+    <article class="app-card news-card">
+      <div class="card-head">
+        <div>
+          <h3>Company announcements</h3>
+          <p>Latest messages available to you</p>
+        </div>
+      </div>
+      @if (!dashboard()?.announcements?.length) {
+        <div class="empty-mini">No current announcements.</div>
+      }
+      @for (item of dashboard()?.announcements ?? []; track item.id) {
+        <div class="news-item">
+          <span><mat-icon>campaign</mat-icon></span>
+          <div>
+            <b>{{ item.title }}</b>
+            <p>{{ item.body }}</p>
+            <small>{{ item.publishedAt | date: 'd MMM yyyy, h:mm a' }}</small>
+          </div>
+        </div>
+      }
+    </article>
+  </section>
+</div>
