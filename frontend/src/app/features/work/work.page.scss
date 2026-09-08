@@ -5,6 +5,7 @@ app-work-page {
 .work-querybar { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; padding: 16px; margin-bottom: 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--card); }
 .work-querybar label, .detail-planning label, .sprint-create label, .sprint-complete label { display: flex; flex-direction: column; gap: 6px; color: var(--ink-muted); font-size: .75rem; font-weight: 600; }
 .work-querybar .work-search { flex: 1 1 220px; flex-direction: row; align-items: center; min-height: 42px; gap: 8px; }
+.work-querybar label:not(.work-search) { min-width: 160px; }
 .work-querybar input, .work-querybar select, .detail-planning select, .sprint-create input, .sprint-create textarea, .sprint-complete select { min-height: 42px; padding: 9px 12px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--card); color: var(--ink); font-size: .875rem; font-weight: 400; max-width: 100%; }
 .work-querybar .work-search input { width: 100%; }
 .board-help { color: var(--ink-muted); font-size: .8125rem; margin: 0 0 12px; }
@@ -150,6 +151,8 @@ app-work-page {
   min-width: 260px;
   gap: 9px;
 }
+
+.project-picker app-searchable-select { min-width: 230px; }
 
 .project-picker label {
   color: var(--ink-muted);
@@ -514,6 +517,22 @@ app-work-page {
   overflow-y: auto;
 }
 
+.assignee-search {
+  position: sticky;
+  z-index: 1;
+  top: 0;
+  min-height: 39px;
+  padding: 4px 9px;
+  border-bottom: 1px solid var(--border);
+  background: var(--card);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.assignee-search mat-icon { width: 18px; height: 18px; color: var(--ink-muted); font-size: 18px; }
+.assignee-search input { width: 100%; min-width: 0; height: 30px; padding: 0; border: 0; outline: 0; background: transparent; color: var(--ink); }
+
 .assignee-checklist.disabled {
   opacity: 0.58;
   pointer-events: none;
@@ -701,6 +720,8 @@ app-work-page {
 .work-filterbar {
   flex-wrap: wrap;
 }
+
+.work-filterbar app-searchable-select { min-width: 160px; }
 
 .work-filterbar .result-count {
   margin-left: auto;
@@ -936,6 +957,8 @@ app-work-page {
 .add-member {
   gap: 8px;
 }
+
+.add-member app-searchable-select { min-width: 230px; }
 
 .add-member select {
   min-width: 230px;
@@ -1362,13 +1385,13 @@ app-work-page {
   .work-metric:last-child { grid-column: 1 / -1; border: 0; }
   .work-controls { align-items: stretch; flex-direction: column; gap: 8px; }
   .project-picker { min-width: 0; }
-  .project-picker select { min-width: 0; flex: 1; }
+  .project-picker select, .project-picker app-searchable-select { min-width: 0; flex: 1; }
   .work-tabs { width: calc(100vw - 32px); overflow-x: auto; }
   .work-tabs button { min-width: 82px; height: 50px; padding-inline: 9px; }
   .work-tabs button span { white-space: nowrap; }
   .board { margin-inline: -16px; padding: 0 16px 12px; scroll-snap-type: x proximity; }
   .board-column { width: min(84vw, 310px); scroll-snap-align: start; }
-  .work-filterbar select { flex: 1; min-width: 130px; }
+  .work-filterbar select, .work-filterbar app-searchable-select { flex: 1; min-width: 130px; }
   .work-filterbar .result-count { width: 100%; margin-left: 0; }
   .report-head,
   .access-head { align-items: flex-start; flex-direction: column; }
@@ -1379,7 +1402,7 @@ app-work-page {
   .time-matrix .ticket-col { width: 220px; min-width: 220px; }
   .time-matrix .assignee-col { position: static; min-width: 140px; }
   .add-member { width: 100%; }
-  .add-member select { min-width: 0; flex: 1; }
+  .add-member select, .add-member app-searchable-select { min-width: 0; flex: 1; }
   .access-actions { align-items: stretch; flex-direction: column; }
   .access-actions button { width: 100%; }
   .detail-grid { grid-template-columns: 1fr; }

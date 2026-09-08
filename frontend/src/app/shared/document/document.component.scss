@@ -512,16 +512,12 @@
   z-index: 1100;
   inset: 0;
 
-  padding: 20px 20px 20px 284px;
+  padding: 20px;
 
   background: rgb(9 18 30 / 0.62);
 
   display: grid;
   place-items: center;
-}
-
-:host-context(.sidebar-collapsed) .preview-backdrop {
-  padding-left: 92px;
 }
 
 /* ========================================================================== */

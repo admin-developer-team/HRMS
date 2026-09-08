@@ -226,13 +226,13 @@ public sealed class WorkManagementService(
         {
             var parent = await RequireItemAsync(request.ParentId.Value, ct);
             if (parent.ProjectId != request.ProjectId)
-                throw new DomainException("Parent and child items must belong to the same project.");
+                throw new DomainException("Parent tickets and subtasks must belong to the same project.");
             if (parent.Status is WorkItemStatus.Done or WorkItemStatus.Cancelled)
                 throw new DomainException("Reopen the parent before adding child work.");
             if (parent.Type == WorkItemType.Subtask || request.Type == WorkItemType.Epic)
                 throw new DomainException("Epics cannot be children and subtasks cannot contain child work.");
         }
-        else if (request.Type == WorkItemType.Subtask) throw new DomainException("A subtask requires a parent item.");
+        else if (request.Type == WorkItemType.Subtask) throw new DomainException("A subtask requires a parent ticket.");
         ValidateEstimate(request.OriginalEstimateMinutes, request.StoryPoints);
         var number = project.NextItemNumber++;
         var item = new WorkItem
@@ -247,7 +247,7 @@ public sealed class WorkManagementService(
         await items.AddAsync(item, ct);
         await SetAssigneesAsync(item, assigneeIds, ct);
         await AddHistoryAsync(item.Id, "created", null, null, item.Key, ct);
-        await NotifyAsync(item, "Work item created", $"{item.Key} was created and requires your attention.",
+        await NotifyAsync(item, "Ticket created", $"{item.Key} was created and requires your attention.",
             assigneeIds.Select(x => (Guid?)x).Append(item.ReporterEmployeeId), ct);
         await unitOfWork.SaveChangesAsync(ct);
         return (await MapItemsAsync([item], ct))[0];
@@ -318,11 +318,11 @@ public sealed class WorkManagementService(
         await RequireProjectAccessAsync(item.ProjectId, AccessKind.Transition, ct);
         CheckVersion(item, request.Version);
         if (!WorkWorkflow.CanTransition(item.Status, request.Status))
-            throw new DomainException($"Items cannot move directly from {item.Status} to {request.Status}.");
+            throw new DomainException($"Tickets cannot move directly from {item.Status} to {request.Status}.");
         if (request.Resolution.HasValue && !Enum.IsDefined(request.Resolution.Value))
             throw new DomainException("Resolution is invalid.");
         if (request.Status == WorkItemStatus.Done && await items.AnyAsync(x => x.ParentId == id && x.Status != WorkItemStatus.Done && x.Status != WorkItemStatus.Cancelled, ct))
-            throw new DomainException("Complete or cancel all child items before completing the parent.");
+            throw new DomainException("Complete or cancel all subtasks before completing the parent ticket.");
         if (item.Status == request.Status) return (await MapItemsAsync([item], ct))[0];
         var before = item.Status;
         item.Status = request.Status;
@@ -534,7 +534,7 @@ public sealed class WorkManagementService(
         RequirePermission(Permissions.WorkRead);
         var project = await RequireProjectAsync(projectId, ct);
         if (kind != AccessKind.Read && !project.IsActive)
-            throw new DomainException("This project is inactive. Reactivate it before changing work items.");
+            throw new DomainException("This project is inactive. Reactivate it before changing tickets.");
         if (user.HasPermission(Permissions.WorkManage)) return null;
         var employeeId = user.EmployeeId ?? throw new DomainException("An employee profile is required for work access.");
         var access = await members.FirstOrDefaultAsync(x => x.ProjectId == projectId && x.EmployeeId == employeeId, ct)
@@ -558,7 +558,7 @@ public sealed class WorkManagementService(
         await RequireEmployeeAsync(employeeId, ct);
         if (!user.HasPermission(Permissions.WorkManage)
             && (actorAccess is null || !actorAccess.CanAssignItems || !user.HasPermission(Permissions.WorkAssign)))
-            throw new DomainException("You do not have permission to assign work items.");
+            throw new DomainException("You do not have permission to assign tickets.");
         if (!await members.AnyAsync(x => x.ProjectId == projectId && x.EmployeeId == employeeId, ct))
             throw new DomainException("The assignee is not a member of this project.");
     }
@@ -567,7 +567,7 @@ public sealed class WorkManagementService(
         await projects.GetByIdAsync(id, ct) ?? throw new DomainException("Project was not found.");
 
     private async Task<WorkItem> RequireItemAsync(Guid id, CancellationToken ct) =>
-        await items.GetByIdAsync(id, ct) ?? throw new DomainException("Work item was not found.");
+        await items.GetByIdAsync(id, ct) ?? throw new DomainException("Ticket was not found.");
 
     private async Task<Employee> RequireEmployeeAsync(Guid id, CancellationToken ct) =>
         await employees.FirstOrDefaultAsync(x => x.Id == id && (x.Status == EmploymentStatus.Active
@@ -738,7 +738,7 @@ public sealed class WorkManagementService(
     private static void ValidateItemEnums(WorkItemType type, WorkItemPriority priority)
     {
         if (!Enum.IsDefined(type) || !Enum.IsDefined(priority))
-            throw new DomainException("Work item type or priority is invalid.");
+            throw new DomainException("Ticket type or priority is invalid.");
     }
 
     private async Task ValidateDailyWorklogTotalAsync(Guid employeeId, DateOnly date, int minutes, Guid? excludeId, CancellationToken ct)

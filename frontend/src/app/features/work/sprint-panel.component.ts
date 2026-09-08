@@ -6,6 +6,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { finalize } from 'rxjs';
 import { ApiService } from '../../core/api.service';
+import { SearchableSelectComponent, SearchableSelectOption } from '../../shared/searchable-select/searchable-select.component';
 
 export interface WorkSprint {
   id: string; projectId: string; name: string; goal?: string; startsOn: string; endsOn: string;
@@ -15,7 +16,7 @@ export interface WorkSprint {
 
 @Component({
   selector: 'app-sprint-panel',
-  imports: [DatePipe, ReactiveFormsModule, MatButtonModule, MatIconModule, MatProgressBarModule],
+  imports: [DatePipe, ReactiveFormsModule, MatButtonModule, MatIconModule, MatProgressBarModule, SearchableSelectComponent],
   template: `
     <section class="sprint-panel" aria-label="Sprint planning">
       <div class="report-head"><div><h2>Plan a focused delivery cycle</h2><p>Create a sprint, add work from ticket details, then start when the team is ready.</p></div>
@@ -49,10 +50,8 @@ export interface WorkSprint {
       </div>
       @if (completing(); as sprint) {
         <div class="sprint-complete" role="region" aria-label="Complete sprint">
-          <h3>Complete {{ sprint.name }}</h3><p>Finished items remain in this sprint. Choose where unfinished work should go.</p>
-          <label>Move unfinished work to<select #destination><option value="">Unscheduled backlog</option>
-            @for (target of sprints(); track target.id) { @if (target.id !== sprint.id && target.status !== 'Completed') { <option [value]="target.id">{{ target.name }}</option> } }
-          </select></label>
+          <h3>Complete {{ sprint.name }}</h3><p>Finished tickets remain in this sprint. Choose where unfinished tickets should go.</p>
+          <label>Move unfinished tickets to<app-searchable-select #destination [options]="completionOptions(sprint.id)" placeholder="Unscheduled backlog" searchPlaceholder="Search sprints" /></label>
           <button mat-flat-button [disabled]="busy()" (click)="change(sprint, 'Completed', destination.value)">Confirm completion</button>
           <button mat-button (click)="completing.set(null)">Keep sprint active</button>
         </div>
@@ -76,6 +75,11 @@ export class SprintPanelComponent {
   readonly form = this.fb.nonNullable.group({ name: ['', Validators.required], goal: [''], startsOn: ['', Validators.required], endsOn: ['', Validators.required] });
 
   constructor() { effect(() => { const id = this.projectId(); this.completing.set(null); this.error.set(''); if (id) this.load(id); }); }
+  completionOptions(currentSprintId: string): SearchableSelectOption[] {
+    return [{ value: '', label: 'Unscheduled backlog' }, ...this.sprints()
+      .filter(sprint => sprint.id !== currentSprintId && sprint.status !== 'Completed')
+      .map(sprint => ({ value: sprint.id, label: sprint.name }))];
+  }
   load(id = this.projectId()): void {
     this.api.get<WorkSprint[]>(`/work/projects/${id}/sprints`).subscribe({ next: rows => { if (id === this.projectId()) this.sprints.set(rows); }, error: e => this.error.set(e.error?.detail ?? 'Unable to load sprints.') });
   }

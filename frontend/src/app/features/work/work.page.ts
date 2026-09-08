@@ -28,6 +28,7 @@ import {
   WorkTimeReport,
 } from '../../core/models';
 import { DocumentComponent } from '../../shared/document/document.component';
+import { SearchableSelectComponent, SearchableSelectOption } from '../../shared/searchable-select/searchable-select.component';
 
 type WorkTab = 'board' | 'list' | 'sprints' | 'report' | 'projects';
 
@@ -42,6 +43,7 @@ type WorkTab = 'board' | 'list' | 'sprints' | 'report' | 'projects';
     MatMenuModule,
     MatProgressSpinnerModule,
     DocumentComponent,
+    SearchableSelectComponent,
     A11yModule, DragDropModule, MatPaginatorModule, SprintPanelComponent,
   ],
   templateUrl: './work.page.html',
@@ -104,6 +106,44 @@ export class WorkPage implements OnInit {
   readonly success = signal('');
   readonly newMemberId = signal('');
   readonly detailAssigneeDraft = signal<string[]>([]);
+  readonly formAssigneeSearch = signal('');
+  readonly detailAssigneeSearch = signal('');
+  readonly parentCandidates = signal<WorkItem[]>([]);
+
+  readonly projectOptions = computed<SearchableSelectOption[]>(() =>
+    this.projects().map(project => ({ value: project.id, label: `${project.key} · ${project.name}` })),
+  );
+  readonly memberOptions = computed<SearchableSelectOption[]>(() =>
+    this.members().map(member => ({ value: member.employeeId, label: `${member.employeeName} · ${member.employeeNumber}` })),
+  );
+  readonly employeeOptions = computed<SearchableSelectOption[]>(() =>
+    this.employees().map(employee => ({ value: employee.id, label: `${employee.fullName} · ${employee.employeeNumber}` })),
+  );
+  readonly projectLeadOptions = computed<SearchableSelectOption[]>(() =>
+    [{ value: '', label: 'No lead' }, ...this.employeeOptions()],
+  );
+  readonly reporterOptions = computed<SearchableSelectOption[]>(() => {
+    const options = this.memberOptions();
+    const currentId = this.auth.user()?.employeeId;
+    const reporters = !currentId || options.some(option => option.value === currentId)
+      ? options
+      : [{ value: currentId, label: `${this.auth.user()?.displayName ?? 'Me'} · You` }, ...options];
+    return [{ value: '', label: 'No reporter' }, ...reporters];
+  });
+  readonly sprintOptions = computed<SearchableSelectOption[]>(() =>
+    this.sprints().map(sprint => ({ value: sprint.id, label: `${sprint.name} · ${sprint.status}`, disabled: sprint.status === 'Completed' })),
+  );
+  readonly parentTicketOptions = computed<SearchableSelectOption[]>(() => {
+    const candidates = [...this.parentCandidates()];
+    const current = this.detail()?.item;
+    if (current && !candidates.some(ticket => ticket.id === current.id)) candidates.unshift(current);
+    return candidates
+      .filter(ticket => ticket.type !== 'Subtask' && ticket.status !== 'Done' && ticket.status !== 'Cancelled' && ticket.id !== this.editing()?.id)
+      .map(ticket => ({ value: ticket.id, label: `${ticket.key} · ${ticket.summary}` }));
+  });
+  readonly typeOptions = this.types.map(value => ({ value, label: value }));
+  readonly priorityOptions = this.priorities.map(value => ({ value, label: value }));
+  readonly statusOptions = this.statuses.map(value => ({ value, label: this.statusLabel(value) }));
 
   readonly selectedProject = computed(() =>
     this.projects().find((project) => project.id === this.selectedProjectId()),
@@ -208,7 +248,7 @@ export class WorkPage implements OnInit {
       ...this.itemFilters(), page, pageSize: 25, status: this.statusFilter(),
     }).pipe(finalize(() => { if (generation === this.requestGeneration) this.itemsLoading.set(false); })).subscribe({
       next: (items) => { if (generation === this.requestGeneration) this.items.set(items); },
-      error: (error: HttpErrorResponse) => this.setError(error, 'Unable to load work items.'),
+      error: (error: HttpErrorResponse) => this.setError(error, 'Unable to load tickets.'),
     });
   }
 
@@ -305,21 +345,37 @@ export class WorkPage implements OnInit {
   createChild(): void {
     const parent = this.detail()?.item;
     if (!parent) return;
-    this.openCreate(); this.itemForm.patchValue({ parentId: parent.id, type: 'Subtask' });
+    this.detailOpen.set(false);
+    this.openCreate(parent);
   }
 
-  openCreate(): void {
+  openCreate(parent?: WorkItem): void {
     if (!this.selectedProjectId()) {
-      this.error.set('Create a project before adding work items.');
+      this.error.set('Create a project before adding tickets.');
       return;
     }
     this.editing.set(null);
     this.itemForm.reset({
-      projectId: this.selectedProjectId(), type: 'Task', summary: '', description: '',
+      projectId: this.selectedProjectId(), type: parent ? 'Subtask' : 'Task', summary: '', description: '',
       assigneeEmployeeId: '', assigneeEmployeeIds: [], reporterEmployeeId: this.auth.user()?.employeeId ?? '', parentId: '', priority: 'Medium', dueDate: '',
       originalEstimateMinutes: 0, remainingEstimateMinutes: 0, storyPoints: 0, labels: '', version: 0,
     });
+    this.itemForm.controls.parentId.setValue(parent?.id ?? '');
+    this.updateParentValidation(parent ? 'Subtask' : 'Task');
+    this.formAssigneeSearch.set('');
+    this.loadParentTickets();
     this.drawerOpen.set(true);
+  }
+
+  changeTicketType(type: string): void {
+    this.updateParentValidation(type);
+    if (type !== 'Subtask') this.itemForm.controls.parentId.setValue('');
+  }
+
+  filteredMembers(query: string): WorkProjectMember[] {
+    const normalized = query.trim().toLocaleLowerCase();
+    if (!normalized) return this.members();
+    return this.members().filter(member => `${member.employeeName} ${member.employeeNumber}`.toLocaleLowerCase().includes(normalized));
   }
 
   openEdit(): void {
@@ -337,6 +393,9 @@ export class WorkPage implements OnInit {
       remainingEstimateMinutes: item.remainingEstimateMinutes ?? 0,
       storyPoints: item.storyPoints ?? 0, labels: item.labels.join(', '), version: item.version,
     });
+    this.updateParentValidation(item.type);
+    this.formAssigneeSearch.set('');
+    this.loadParentTickets();
     this.drawerOpen.set(true);
   }
 
@@ -379,9 +438,10 @@ export class WorkPage implements OnInit {
           this.refreshDetail(item.id);
         } else {
           this.loadItems();
+          if (raw.parentId && this.detail()?.item.id === raw.parentId) this.loadChildren(raw.parentId);
         }
       },
-      error: (error: HttpErrorResponse) => this.setError(error, 'Unable to save the work item.'),
+      error: (error: HttpErrorResponse) => this.setError(error, 'Unable to save the ticket.'),
     });
   }
 
@@ -394,9 +454,9 @@ export class WorkPage implements OnInit {
       next: (detail) => {
         this.detail.set(detail);
         if (this.selectedProjectId() !== detail.item.projectId) this.selectProject(detail.item.projectId);
-        this.api.get<WorkItem[]>(`/work/items/${id}/children`).subscribe({ next: children => { if (this.detail()?.item.id === id) this.children.set(children); }, error: e => this.setError(e, 'Unable to load child work.') });
+        this.loadChildren(id);
       },
-      error: (error: HttpErrorResponse) => this.setError(error, 'Unable to load the work item.'),
+      error: (error: HttpErrorResponse) => this.setError(error, 'Unable to load the ticket.'),
     });
   }
 
@@ -435,7 +495,7 @@ export class WorkPage implements OnInit {
       this.applyItem(updated);
       this.detailAssigneeDraft.set(this.detailAssigneeIds(updated));
       this.refreshDetail(updated.id);
-    }, 'Unable to assign the work item.');
+    }, 'Unable to assign the ticket.');
   }
 
   isFormAssigneeSelected(employeeId: string): boolean {
@@ -469,6 +529,7 @@ export class WorkPage implements OnInit {
 
   beginDetailAssigneeEdit(item: WorkItem): void {
     this.detailAssigneeDraft.set(this.detailAssigneeIds(item));
+    this.detailAssigneeSearch.set('');
   }
 
   isDetailAssigneeSelected(employeeId: string): boolean {
@@ -700,6 +761,29 @@ export class WorkPage implements OnInit {
         if (this.detailOpen() && this.detail()?.item.id === id) this.detail.set(detail);
       },
     });
+  }
+
+  private loadChildren(id: string): void {
+    this.api.get<WorkItem[]>(`/work/items/${id}/children`).subscribe({
+      next: children => { if (this.detail()?.item.id === id) this.children.set(children); },
+      error: error => this.setError(error, 'Unable to load subtasks.'),
+    });
+  }
+
+  private loadParentTickets(): void {
+    const projectId = this.selectedProjectId();
+    if (!projectId) return;
+    this.api.get<PagedResult<WorkItem>>('/work/items', { projectId, page: 1, pageSize: 100 }).subscribe({
+      next: result => { if (projectId === this.selectedProjectId()) this.parentCandidates.set(result.items); },
+      error: () => this.parentCandidates.set([]),
+    });
+  }
+
+  private updateParentValidation(type: string): void {
+    const control = this.itemForm.controls.parentId;
+    if (type === 'Subtask') control.setValidators(Validators.required);
+    else control.clearValidators();
+    control.updateValueAndValidity();
   }
 
   private setError(error: HttpErrorResponse, fallback: string): void {

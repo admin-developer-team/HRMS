@@ -11,7 +11,7 @@
       }
       @if (canCreate()) {
         <button mat-raised-button class="primary-button" (click)="openCreate()" [disabled]="!projects().length">
-          <mat-icon>add</mat-icon>Create item
+          <mat-icon>add</mat-icon>Create ticket
         </button>
       }
     </div>
@@ -39,12 +39,8 @@
   <div class="work-controls">
     <div class="project-picker">
       <label for="project-select">Project</label>
-      <select id="project-select" [value]="selectedProjectId()" (change)="selectProject($any($event.target).value)">
-        @if (!projects().length) { <option value="">No projects available</option> }
-        @for (project of projects(); track project.id) {
-          <option [value]="project.id">{{ project.key }} · {{ project.name }}</option>
-        }
-      </select>
+      <app-searchable-select id="project-select" [options]="projectOptions()" [value]="selectedProjectId()"
+        (valueChange)="selectProject($event)" placeholder="No projects available" searchPlaceholder="Search projects" />
     </div>
     <div class="work-tabs" role="tablist" aria-label="Work views">
       @for (tab of tabs; track tab.key) {
@@ -63,9 +59,9 @@
   @if (projects().length && (activeTab() === 'board' || activeTab() === 'list')) {
     <div class="work-querybar">
       <label class="work-search"><mat-icon>search</mat-icon><input aria-label="Search work" [value]="search()" (input)="search.set($any($event.target).value)" (keydown.enter)="loadItems()" placeholder="Search key or summary"></label>
-      <label>Sprint<select [value]="sprintFilter()" (change)="sprintFilter.set($any($event.target).value); loadItems()"><option value="">All work</option><option value="backlog">Unscheduled backlog</option>@for (sprint of sprints(); track sprint.id) { <option [value]="sprint.id">{{ sprint.name }} · {{ sprint.status }}</option> }</select></label>
-      <label>Assignee<select [value]="assigneeFilter()" (change)="assigneeFilter.set($any($event.target).value); loadItems()"><option value="">Everyone</option>@for (member of members(); track member.employeeId) { <option [value]="member.employeeId">{{ member.employeeName }}</option> }</select></label>
-      <label>Type<select [value]="typeFilter()" (change)="typeFilter.set($any($event.target).value); loadItems()"><option value="">All types</option>@for (type of types; track type) { <option>{{ type }}</option> }</select></label>
+      <label>Sprint<app-searchable-select [options]="[{ value: '', label: 'All tickets' }, { value: 'backlog', label: 'Unscheduled backlog' }, ...sprintOptions()]" [value]="sprintFilter()" (valueChange)="sprintFilter.set($event); loadItems()" searchPlaceholder="Search sprints" /></label>
+      <label>Assignee<app-searchable-select [options]="[{ value: '', label: 'Everyone' }, ...memberOptions()]" [value]="assigneeFilter()" (valueChange)="assigneeFilter.set($event); loadItems()" searchPlaceholder="Search assignees" /></label>
+      <label>Type<app-searchable-select [options]="[{ value: '', label: 'All types' }, ...typeOptions]" [value]="typeFilter()" (valueChange)="typeFilter.set($event); loadItems()" searchPlaceholder="Search types" /></label>
       <button mat-stroked-button (click)="loadItems()" [disabled]="itemsLoading()"><mat-icon>search</mat-icon>Search</button>
     </div>
   }
@@ -105,7 +101,7 @@
                   </div>
                 </button>
               } @empty {
-                <div class="column-empty">No items</div>
+                <div class="column-empty">No tickets</div>
               }
               @if (itemsFor(status).length < (boardPages()[status]?.total ?? 0)) {
                 <button mat-stroked-button class="load-more" (click)="loadMore(status)" [disabled]="itemsLoading()">Load more · {{ itemsFor(status).length }} of {{ boardPages()[status]?.total }}</button>
@@ -126,14 +122,10 @@
           <div class="search-field"><mat-icon>search</mat-icon>
             <input [value]="search()" (input)="search.set($any($event.target).value)" (keydown.enter)="loadItems()" placeholder="Search key or summary" />
           </div>
-          <select [value]="statusFilter()" (change)="statusFilter.set($any($event.target).value); loadItems()">
-            <option value="">All statuses</option>@for (status of statuses; track status) { <option [value]="status">{{ statusLabel(status) }}</option> }
-          </select>
-          <select [value]="priorityFilter()" (change)="priorityFilter.set($any($event.target).value); loadItems()">
-            <option value="">All priorities</option>@for (priority of priorities; track priority) { <option>{{ priority }}</option> }
-          </select>
+          <app-searchable-select [options]="[{ value: '', label: 'All statuses' }, ...statusOptions]" [value]="statusFilter()" (valueChange)="statusFilter.set($event); loadItems()" searchPlaceholder="Search statuses" />
+          <app-searchable-select [options]="[{ value: '', label: 'All priorities' }, ...priorityOptions]" [value]="priorityFilter()" (valueChange)="priorityFilter.set($event); loadItems()" searchPlaceholder="Search priorities" />
           <button mat-stroked-button (click)="loadItems()"><mat-icon>filter_list</mat-icon>Apply</button>
-          <span class="result-count">{{ items().total }} items</span>
+          <span class="result-count">{{ items().total }} tickets</span>
         </div>
         <div class="table-scroll">
           <table class="data-table work-table">
@@ -147,9 +139,9 @@
                   <td><span class="priority-cell"><mat-icon>{{ priorityIcon(item.priority) }}</mat-icon>{{ item.priority }}</span></td>
                   <td>{{ assigneeLabel(item) }}</td><td>{{ item.dueDate ? (item.dueDate | date: 'd MMM yyyy') : '—' }}</td>
                   <td>{{ formatMinutes(item.loggedMinutes) }}</td>
-                  <td><button mat-icon-button (click)="$event.stopPropagation()" [matMenuTriggerFor]="transitionMenu" aria-label="Item actions"><mat-icon>more_horiz</mat-icon></button>
+                  <td><button mat-icon-button (click)="$event.stopPropagation()" [matMenuTriggerFor]="transitionMenu" aria-label="Ticket actions"><mat-icon>more_horiz</mat-icon></button>
                     <mat-menu #transitionMenu="matMenu">
-                      <button mat-menu-item (click)="openItem(item.id)"><mat-icon>open_in_new</mat-icon>Open item</button>
+                      <button mat-menu-item (click)="openItem(item.id)"><mat-icon>open_in_new</mat-icon>Open ticket</button>
                       @for (next of canMoveOnBoard() ? transitionOptions(item.status) : []; track next) {
                         <button mat-menu-item (click)="transition(item, next)"><mat-icon>arrow_forward</mat-icon>Move to {{ statusLabel(next) }}</button>
                       }
@@ -160,21 +152,21 @@
             </tbody>
           </table>
         </div>
-        <mat-paginator [length]="items().total" [pageSize]="25" [pageIndex]="items().page - 1" [disabled]="itemsLoading()" (page)="loadItems($event.pageIndex + 1)" aria-label="Work item pages"></mat-paginator>
+        <mat-paginator [length]="items().total" [pageSize]="25" [pageIndex]="items().page - 1" [disabled]="itemsLoading()" (page)="loadItems($event.pageIndex + 1)" aria-label="Ticket pages"></mat-paginator>
       </section>
     }
 
     @if (activeTab() === 'report') {
       <section class="report-panel">
         <div class="report-head">
-          <div><h2>Time by ticket and day</h2><p>Each row is a work item; each date shows the time logged that day.</p></div>
+          <div><h2>Time by ticket and day</h2><p>Each row is a ticket; each date shows the time logged that day.</p></div>
           <div class="preset-buttons"><button type="button" (click)="setReportPreset('week')">7 days</button><button type="button" (click)="setReportPreset('month')">This month</button><button type="button" (click)="setReportPreset('year')">This year</button></div>
         </div>
         <form class="report-filters" [formGroup]="reportForm" (ngSubmit)="loadReport()">
           <div class="field"><label>From</label><input type="date" formControlName="from" /></div>
           <div class="field"><label>To</label><input type="date" formControlName="to" /></div>
-          <div class="field"><label>Project</label><select formControlName="projectId"><option value="">All accessible projects</option>@for (project of projects(); track project.id) { <option [value]="project.id">{{ project.key }} · {{ project.name }}</option> }</select></div>
-          <div class="field"><label>Employee</label><select formControlName="employeeId"><option value="">All permitted worklogs</option>@for (member of members(); track member.employeeId) { <option [value]="member.employeeId">{{ member.employeeName }}</option> }</select></div>
+          <div class="field"><label>Project</label><app-searchable-select formControlName="projectId" [options]="[{ value: '', label: 'All accessible projects' }, ...projectOptions()]" searchPlaceholder="Search projects" /></div>
+          <div class="field"><label>Employee</label><app-searchable-select formControlName="employeeId" [options]="[{ value: '', label: 'All permitted worklogs' }, ...memberOptions()]" searchPlaceholder="Search employees" /></div>
           <button mat-raised-button class="primary-button" type="submit" [disabled]="reportLoading()">
             @if (reportLoading()) { <mat-spinner diameter="16"></mat-spinner> } @else { <mat-icon>refresh</mat-icon> }
             @if (!reportLoading()) { <span>Generate</span> }
@@ -203,7 +195,7 @@
     @if (activeTab() === 'projects' && canManage()) {
       <section class="access-panel">
         <div class="access-head"><div><h2>Project access</h2><p>Control what each employee can do inside {{ selectedProject()?.name }}.</p></div>
-          <div class="add-member"><select [value]="newMemberId()" (change)="newMemberId.set($any($event.target).value)"><option value="">Choose employee</option>@for (employee of employees(); track employee.id) { <option [value]="employee.id">{{ employee.fullName }} · {{ employee.employeeNumber }}</option> }</select><button mat-stroked-button (click)="addMember()"><mat-icon>person_add</mat-icon>Add</button></div>
+          <div class="add-member"><app-searchable-select [options]="employeeOptions()" [value]="newMemberId()" (valueChange)="newMemberId.set($event)" placeholder="Choose employee" searchPlaceholder="Search employees" /><button mat-stroked-button (click)="addMember()"><mat-icon>person_add</mat-icon>Add</button></div>
         </div>
         <div class="table-scroll"><table class="access-table"><thead><tr><th>Employee</th><th>Create</th><th>Assign</th><th>Transition</th><th>Log time</th><th>View all logs</th><th></th></tr></thead>
           <tbody>@for (member of memberDraft(); track member.employeeId) {
@@ -225,14 +217,17 @@
 
 @if (drawerOpen()) {
   <div class="drawer-overlay" (click)="drawerOpen.set(false)"></div>
-  <aside class="form-drawer work-form-drawer" aria-label="Work item form">
-    <div class="drawer-head"><div><small>{{ editing() ? editing()!.key : 'New work item' }}</small><h2>{{ editing() ? 'Edit work item' : 'Create work item' }}</h2></div><button mat-icon-button (click)="drawerOpen.set(false)"><mat-icon>close</mat-icon></button></div>
+  <aside class="form-drawer work-form-drawer" aria-label="Ticket form">
+    <div class="drawer-head"><div><small>{{ editing() ? editing()!.key : (itemForm.controls.type.value === 'Subtask' ? 'New subtask' : 'New ticket') }}</small><h2>{{ editing() ? 'Edit ticket' : (itemForm.controls.type.value === 'Subtask' ? 'Create subtask' : 'Create ticket') }}</h2></div><button mat-icon-button (click)="drawerOpen.set(false)"><mat-icon>close</mat-icon></button></div>
     <form class="drawer-body" [formGroup]="itemForm" id="item-form" (ngSubmit)="submitItem()">
       <div class="form-grid">
         <div class="field wide"><label for="work-summary">Summary</label><input id="work-summary" formControlName="summary" placeholder="What needs to be done?" /></div>
-        @if (itemForm.controls.parentId.value) { <p class="field wide">Child of an existing work item. Complete all child items before closing the parent.</p> }
-        <div class="field"><label>Type</label><select formControlName="type">@for (type of types; track type) { <option>{{ type }}</option> }</select></div>
-        <div class="field"><label>Priority</label><select formControlName="priority">@for (priority of priorities; track priority) { <option>{{ priority }}</option> }</select></div>
+        @if (itemForm.controls.parentId.value) { <p class="field wide">This subtask belongs to a parent ticket. Complete every subtask before closing the parent.</p> }
+        <div class="field"><label>Type</label><app-searchable-select formControlName="type" [options]="typeOptions" (valueChange)="changeTicketType($event)" searchPlaceholder="Search types" /></div>
+        <div class="field"><label>Priority</label><app-searchable-select formControlName="priority" [options]="priorityOptions" searchPlaceholder="Search priorities" /></div>
+        @if (!editing() && itemForm.controls.type.value === 'Subtask') {
+          <div class="field wide"><label>Parent ticket</label><app-searchable-select formControlName="parentId" [options]="parentTicketOptions()" placeholder="Choose a parent ticket" searchPlaceholder="Search tickets" /></div>
+        }
         <div class="field wide assignee-field">
           <div class="field-label-row">
             <label>Assignees</label>
@@ -242,7 +237,8 @@
           </div>
 
           <div class="assignee-checklist" [class.disabled]="!canAssign()">
-            @for (member of members(); track member.employeeId) {
+            <label class="assignee-search"><mat-icon>search</mat-icon><input type="search" [value]="formAssigneeSearch()" (input)="formAssigneeSearch.set($any($event.target).value)" placeholder="Search assignees" /></label>
+            @for (member of filteredMembers(formAssigneeSearch()); track member.employeeId) {
               <div
                 class="assignee-option"
                 [class.selected]="isFormAssigneeSelected(member.employeeId)"
@@ -273,7 +269,7 @@
             }
           </div>
         </div>
-        <div class="field"><label>Reporter</label><select formControlName="reporterEmployeeId"><option value="">No reporter</option>@for (member of members(); track member.employeeId) { <option [value]="member.employeeId">{{ member.employeeName }}</option> }</select></div>
+        <div class="field"><label>Reporter</label><app-searchable-select formControlName="reporterEmployeeId" [options]="reporterOptions()" placeholder="No reporter" searchPlaceholder="Search reporters" /></div>
         <div class="field"><label>Due date</label><input type="date" formControlName="dueDate" /></div>
         <div class="field"><label>Original estimate (minutes)</label><input type="number" min="0" formControlName="originalEstimateMinutes" /></div>
         @if (editing()) { <div class="field"><label>Remaining estimate (minutes)</label><input type="number" min="0" formControlName="remainingEstimateMinutes" /></div> }
@@ -295,24 +291,24 @@
       />
       </div>
     }
-    <div class="drawer-actions"><button mat-stroked-button (click)="drawerOpen.set(false)">Cancel</button><button mat-raised-button class="primary-button" form="item-form" [disabled]="saving()">@if (saving()) { <mat-spinner diameter="16"></mat-spinner> } @else { {{ editing() ? 'Save changes' : 'Create item' }} }</button></div>
+    <div class="drawer-actions"><button mat-stroked-button (click)="drawerOpen.set(false)">Cancel</button><button mat-raised-button class="primary-button" form="item-form" [disabled]="saving()">@if (saving()) { <mat-spinner diameter="16"></mat-spinner> } @else { {{ editing() ? 'Save changes' : (itemForm.controls.type.value === 'Subtask' ? 'Create subtask' : 'Create ticket') }} }</button></div>
   </aside>
 }
 
 @if (detailOpen()) {
   <div class="drawer-overlay" (click)="detailOpen.set(false)"></div>
-  <aside class="form-drawer detail-drawer" role="dialog" aria-modal="true" aria-label="Work item details" cdkTrapFocus [cdkTrapFocusAutoCapture]="true" (keydown.escape)="detailOpen.set(false)">
+  <aside class="form-drawer detail-drawer" role="dialog" aria-modal="true" aria-label="Ticket details" cdkTrapFocus [cdkTrapFocusAutoCapture]="true" (keydown.escape)="detailOpen.set(false)">
     @if (detailLoading()) { <div class="drawer-progress" role="progressbar" aria-label="Loading ticket"><span></span></div> }
     @if (detail(); as data) {
-      <div class="drawer-head"><div><small>{{ data.item.projectKey }} · {{ data.item.type }}</small><h2>{{ data.item.key }}</h2></div><button mat-icon-button aria-label="Close work item" (click)="detailOpen.set(false)"><mat-icon>close</mat-icon></button></div>
+      <div class="drawer-head"><div><small>{{ data.item.projectKey }} · {{ data.item.type }}</small><h2>{{ data.item.key }}</h2></div><button mat-icon-button aria-label="Close ticket" (click)="detailOpen.set(false)"><mat-icon>close</mat-icon></button></div>
       <div class="drawer-body detail-body">
         <div class="detail-title"><h3>{{ data.item.summary }}</h3>@if (canEdit()) { <button mat-stroked-button (click)="openEdit()"><mat-icon>edit</mat-icon>Edit</button> }</div>
         <div class="detail-planning">
-          <label>Sprint<select [value]="data.item.sprintId ?? ''" [disabled]="!canPlan() || !!actionBusy() || data.item.status === 'Done' || data.item.status === 'Cancelled'" (change)="planItem($any($event.target).value)"><option value="">Unscheduled backlog</option>@for (sprint of sprints(); track sprint.id) { <option [value]="sprint.id" [disabled]="sprint.status === 'Completed'">{{ sprint.name }} · {{ sprint.status }}</option> }</select></label>
+          <label>Sprint<app-searchable-select [options]="[{ value: '', label: 'Unscheduled backlog' }, ...sprintOptions()]" [value]="data.item.sprintId ?? ''" [disabled]="!canPlan() || !!actionBusy() || data.item.status === 'Done' || data.item.status === 'Cancelled'" (valueChange)="planItem($event)" searchPlaceholder="Search sprints" /></label>
           @if (data.item.parentId) { <button mat-button (click)="openItem(data.item.parentId)"><mat-icon>account_tree</mat-icon>Open parent</button> }
         </div>
-        <section class="child-work" aria-label="Child work">
-          <div class="activity-section-head"><h4>Child work <span>{{ children().length }}</span></h4>
+        <section class="child-work" aria-label="Subtasks">
+          <div class="activity-section-head"><h4>Subtasks <span>{{ children().length }}</span></h4>
             @if (canCreate() && data.item.type !== 'Subtask' && data.item.status !== 'Done' && data.item.status !== 'Cancelled') { <button mat-button (click)="createChild()"><mat-icon>add</mat-icon>Add subtask</button> }
           </div>
           @for (child of children(); track child.id) { <button class="child-work-row" (click)="openItem(child.id)"><code>{{ child.key }}</code><span>{{ child.summary }}</span><span class="work-status">{{ statusLabel(child.status) }}</span></button> }
@@ -367,7 +363,8 @@
                 </div>
 
                 <div class="assignee-menu-list">
-                  @for (member of members(); track member.employeeId) {
+                  <label class="assignee-search"><mat-icon>search</mat-icon><input type="search" [value]="detailAssigneeSearch()" (input)="detailAssigneeSearch.set($any($event.target).value)" placeholder="Search assignees" /></label>
+                  @for (member of filteredMembers(detailAssigneeSearch()); track member.employeeId) {
                     <div
                       class="assignee-option"
                       [class.selected]="isDetailAssigneeSelected(member.employeeId)"
@@ -486,7 +483,7 @@
 @if (projectDrawerOpen()) {
   <div class="drawer-overlay" (click)="projectDrawerOpen.set(false)"></div>
   <aside class="form-drawer"><div class="drawer-head"><div><small>Work configuration</small><h2>Create project</h2></div><button mat-icon-button (click)="projectDrawerOpen.set(false)"><mat-icon>close</mat-icon></button></div>
-    <form class="drawer-body" [formGroup]="projectForm" id="project-form" (ngSubmit)="createProject()"><div class="form-grid"><div class="field"><label>Project key</label><input formControlName="key" placeholder="ENG" maxlength="10" /></div><div class="field"><label>Project name</label><input formControlName="name" placeholder="Engineering delivery" /></div><div class="field wide"><label>Project lead</label><select formControlName="leadEmployeeId"><option value="">No lead</option>@for (employee of employees(); track employee.id) { <option [value]="employee.id">{{ employee.fullName }}</option> }</select></div><div class="field wide"><label>Description</label><textarea formControlName="description"></textarea></div></div></form>
+    <form class="drawer-body" [formGroup]="projectForm" id="project-form" (ngSubmit)="createProject()"><div class="form-grid"><div class="field"><label>Project key</label><input formControlName="key" placeholder="ENG" maxlength="10" /></div><div class="field"><label>Project name</label><input formControlName="name" placeholder="Engineering delivery" /></div><div class="field wide"><label>Project lead</label><app-searchable-select formControlName="leadEmployeeId" [options]="projectLeadOptions()" placeholder="No lead" searchPlaceholder="Search employees" /></div><div class="field wide"><label>Description</label><textarea formControlName="description"></textarea></div></div></form>
     <div class="drawer-actions"><button mat-stroked-button (click)="projectDrawerOpen.set(false)">Cancel</button><button mat-raised-button class="primary-button" form="project-form" [disabled]="saving()">@if (saving()) { <mat-spinner diameter="16"></mat-spinner> } @else { Create project }</button></div>
   </aside>
 }
