@@ -129,7 +129,8 @@ export class DocumentComponent implements OnChanges, OnDestroy {
   @Input() readonly = false;
   @Input() replaceMode = false;
   @Input() maxFiles = 10;
-  @Input() maxSizeMb = 15;
+  /** Set to a positive value to enforce a client-side limit; zero means unlimited. */
+  @Input() maxSizeMb = 0;
   @Input() allowedExtensions?: string[];
   @Input() showUploadButton = true;
   @Input() compact = false;
@@ -1100,6 +1101,7 @@ export class DocumentComponent implements OnChanges, OnDestroy {
       }
 
       if (
+        this.maxSizeMb > 0 &&
         file.size >
         this.maxSizeMb *
           1024 *

@@ -198,7 +198,7 @@
             </span>
             <div>
               <b>Profile photo</b>
-              <small>Optional · JPG, PNG, WebP, or AVIF · maximum 5 MB</small>
+              <small>Optional · JPG, PNG, WebP, or AVIF</small>
               <div class="new-employee-photo__actions">
                 <label class="photo-select-button"><mat-icon>photo_camera</mat-icon>{{ profilePhoto() ? 'Change photo' : 'Choose photo' }}<input type="file" accept="image/jpeg,image/png,image/webp,image/avif" (change)="selectProfilePhoto($event)" /></label>
                 @if (profilePhoto()) { <button mat-button type="button" (click)="removeProfilePhoto()">Remove</button> }

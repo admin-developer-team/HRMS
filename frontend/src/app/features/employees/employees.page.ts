@@ -339,10 +339,6 @@ export class EmployeesPage implements OnInit {
       this.error.set('Profile photos must be JPG, PNG, WebP, or AVIF images.');
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      this.error.set('Profile photos cannot be larger than 5 MB.');
-      return;
-    }
     this.clearProfilePhoto();
     this.profilePhoto.set(file);
     this.profilePhotoPreview.set(URL.createObjectURL(file));

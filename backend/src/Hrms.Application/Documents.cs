@@ -36,7 +36,6 @@ public sealed class DocumentService(
     IDocumentStorage storage,
     IUnitOfWork unitOfWork) : IDocumentService
 {
-    public const long MaxFileSize = 15 * 1024 * 1024;
     private static readonly HashSet<string> AllowedExtensions = new(StringComparer.OrdinalIgnoreCase)
 {
     // Images
@@ -136,7 +135,7 @@ public sealed class DocumentService(
         string contentType, long sizeBytes, Stream content, bool replace, CancellationToken ct)
     {
         await EnsureAccessAsync(ownerType, ownerId, true, ct);
-        if (sizeBytes is <= 0 or > MaxFileSize) throw new DomainException("File size must be between 1 byte and 15 MB.");
+        if (sizeBytes <= 0) throw new DomainException("The uploaded file cannot be empty.");
         var safeName = Path.GetFileName(fileName).Trim();
         var extension = Path.GetExtension(safeName).ToLowerInvariant();
         if (string.IsNullOrWhiteSpace(safeName) || !AllowedExtensions.Contains(extension))
@@ -151,8 +150,6 @@ public sealed class DocumentService(
             };
             if (!allowedProfileExtensions.Contains(extension))
                 throw new DomainException("Profile photos must be JPG, PNG, WebP, or AVIF images.");
-            if (sizeBytes > 5 * 1024 * 1024)
-                throw new DomainException("Profile photos cannot be larger than 5 MB.");
             replace = true;
         }
         var key = $"{TenantId:N}/{ownerType.ToString().ToLowerInvariant()}/{ownerId:N}/{Guid.NewGuid():N}{extension}";

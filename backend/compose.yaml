@@ -26,6 +26,9 @@ services:
       Bootstrap__PlatformAdminEmail: ${PLATFORM_ADMIN_EMAIL:?Set PLATFORM_ADMIN_EMAIL in .env}
       Bootstrap__PlatformAdminPassword: ${PLATFORM_ADMIN_PASSWORD:?Set PLATFORM_ADMIN_PASSWORD in .env}
       Cors__AllowedOrigins__0: ${FRONTEND_ORIGIN:-http://localhost:3000}
+      Documents__StoragePath: /var/lib/hrms/documents
+    volumes:
+      - hrms-documents:/var/lib/hrms/documents
     depends_on:
       postgres:
         condition: service_healthy
@@ -33,4 +36,5 @@ services:
 
 volumes:
   hrms-postgres:
+  hrms-documents:
 

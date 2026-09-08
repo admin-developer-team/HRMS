@@ -53,7 +53,7 @@
         </span>
 
         <small>
-          Max {{ maxSizeMb }} MB
+          {{ maxSizeMb > 0 ? 'Max ' + maxSizeMb + ' MB' : 'No file-size limit' }}
         </small>
       </div>
 

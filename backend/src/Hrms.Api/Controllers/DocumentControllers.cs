@@ -12,7 +12,7 @@ public sealed class DocumentsController(IDocumentService service) : ControllerBa
     public Task<IReadOnlyList<DocumentDto>> List([FromQuery] DocumentOwnerType ownerType, [FromQuery] Guid ownerId,
         [FromQuery] string? category, CancellationToken ct) => service.ListAsync(ownerType, ownerId, category, ct);
 
-    [HttpPost, RequestSizeLimit(DocumentService.MaxFileSize)]
+    [HttpPost, DisableRequestSizeLimit, RequestFormLimits(MultipartBodyLengthLimit = long.MaxValue)]
     public async Task<DocumentDto> Upload([FromQuery] DocumentOwnerType ownerType, [FromQuery] Guid ownerId,
         [FromQuery] string category, [FromQuery] bool replace, IFormFile file, CancellationToken ct)
     {

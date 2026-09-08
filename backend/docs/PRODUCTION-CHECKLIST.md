@@ -7,7 +7,8 @@
 - Add PostgreSQL row-level security as defense in depth if your threat model requires protection from application query mistakes.
 - Configure the frontend CORS allowlist exactly; never use wildcard origins with credentials.
 - Add KMS-backed encryption for tax, national ID, bank, health and other regulated fields.
-- Integrate malware scanning, content limits, retention and legal-hold policies for uploaded documents.
+- Store uploaded documents outside the application deployment directory (the Oracle workflow uses `/var/lib/hrms/documents`) and back it up independently.
+- The API accepts unbounded multipart uploads and the Oracle Nginx configuration uses `client_max_body_size 0`. Add a suitable proxy limit plus quotas/malware scanning before exposing document uploads to untrusted users.
 - Select and certify payroll/tax rules per country, legal entity and effective date. Reconcile totals before enabling payment.
 - Add MFA, enterprise SSO/SCIM, password reset/email verification and privileged-session controls.
 - Export structured logs, metrics and traces; alert on login abuse, cross-tenant rejections, payroll changes and outbox failures.

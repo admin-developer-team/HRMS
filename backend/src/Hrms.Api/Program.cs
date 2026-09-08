@@ -5,9 +5,14 @@ using Hrms.Api.Middleware;
 using Hrms.Application;
 using Hrms.Infrastructure;
 using Hrms.Infrastructure.Persistence;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.OpenApi;
 
 var builder = WebApplication.CreateBuilder(args);
+// Upload endpoints apply their own authorization and file-type validation. Leave the
+// transport unbounded so installations can choose their limit at the reverse proxy.
+builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = null);
+builder.Services.Configure<FormOptions>(options => options.MultipartBodyLengthLimit = long.MaxValue);
 builder.Logging.ClearProviders();
 builder.Logging.AddJsonConsole();
 builder.Logging.AddDebug();

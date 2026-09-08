@@ -85,6 +85,8 @@ A user needs both layers. After changing roles, the user must sign out and in ag
 
 Platform administrators use **Customer companies** to provision and search tenants. Company creation requires a unique name and slug, administrator identity and password, currency, time zone, and employee limit. Provisioning creates the subscription, Tenant Administrator, system roles, and default annual and sick leave types.
 
+Use a company row's **Manage company** action to convert a trial to an active customer, change the subscription plan and employee limit, extend dates, or suspend/cancel access. **Active** is the permanent/live customer state. Suspending or cancelling a company revokes its active sessions; an inactive or expired subscription also blocks sign-in and token refresh. The employee limit cannot be reduced below the current licensed workforce.
+
 Platform access is separate from customer-company administration.
 
 ## 7. Admin dashboard
@@ -118,6 +120,8 @@ Employee ID and work email must be unique in the company. Use stable IDs because
 5. Ask the employee to change the password from **My services**.
 
 Creating an employee does not automatically create credentials.
+
+Administrators can edit employee names, employee IDs, work email, hire date, employment type, organization assignment, manager, compensation, and lifecycle status. Setting an employee to **Inactive**, **Suspended**, **Terminated**, or **Resigned** disables the linked login and revokes active sessions; changing the employee back to **Active** re-enables it. The application prevents an administrator from deactivating their own employee record.
 
 ## 9. Organization
 
@@ -264,6 +268,8 @@ Create courses with provider, description, duration, mandatory flag, and expiry.
 Create a user with display name, email, temporary password, optional employee link, and roles. Use **Change roles** later.
 
 Custom permissions cover dashboard, employees, organization, leave, attendance, workforce, payroll, recruitment, performance, assets, expenses, learning, identity, audit, self-service, direct reports, and every Work capability.
+
+In **Access & roles > Users**, authorized administrators can change roles, reset temporary passwords, and activate or deactivate login accounts. Users without employee records, including the platform administrator, can change their own password from **Settings**. The system prevents self-deactivation and revokes existing sessions after password or access changes.
 
 Avoid `*` except for a small number of accountable tenant administrators. Review access regularly and remove it promptly when responsibilities change.
 
