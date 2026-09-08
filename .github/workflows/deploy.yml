@@ -1,0 +1,157 @@
+name: Deploy HRMS to Oracle
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: hrms-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # -----------------------------
+      # Checkout
+      # -----------------------------
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # -----------------------------
+      # Build .NET backend
+      # -----------------------------
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore backend
+        run: dotnet restore backend/src/Hrms.Api/Hrms.Api.csproj
+
+      - name: Publish backend
+        run: |
+          dotnet publish backend/src/Hrms.Api/Hrms.Api.csproj \
+            -c Release \
+            --no-restore \
+            -o "${{ github.workspace }}/artifacts/backend"
+
+      # -----------------------------
+      # Build Angular frontend
+      # -----------------------------
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.node-version'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build Angular
+        working-directory: frontend
+        run: npx ng build --configuration production
+
+      # -----------------------------
+      # Configure SSH
+      # -----------------------------
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+
+          printf '%s\n' "${{ secrets.ORACLE_SSH_KEY }}" > ~/.ssh/hrms_deploy_key
+          chmod 600 ~/.ssh/hrms_deploy_key
+
+          ssh-keyscan -H "${{ secrets.ORACLE_HOST }}" >> ~/.ssh/known_hosts
+
+      # -----------------------------
+      # Prepare Oracle staging
+      # -----------------------------
+      - name: Prepare deployment folders
+        run: |
+          ssh -i ~/.ssh/hrms_deploy_key \
+            "${{ secrets.ORACLE_USER }}@${{ secrets.ORACLE_HOST }}" \
+            "mkdir -p ~/deploy/hrms/backend ~/deploy/hrms/frontend && \
+             rm -rf ~/deploy/hrms/backend/* ~/deploy/hrms/frontend/*"
+
+      # -----------------------------
+      # Upload backend
+      # -----------------------------
+      - name: Upload backend
+        run: |
+          rsync -az --delete \
+            -e "ssh -i ~/.ssh/hrms_deploy_key" \
+            "${{ github.workspace }}/artifacts/backend/" \
+            "${{ secrets.ORACLE_USER }}@${{ secrets.ORACLE_HOST }}:/home/ubuntu/deploy/hrms/backend/"
+
+      # -----------------------------
+      # Upload frontend
+      # -----------------------------
+      - name: Upload frontend
+        run: |
+          rsync -az --delete \
+            -e "ssh -i ~/.ssh/hrms_deploy_key" \
+            "${{ github.workspace }}/frontend/dist/frontend/browser/" \
+            "${{ secrets.ORACLE_USER }}@${{ secrets.ORACLE_HOST }}:/home/ubuntu/deploy/hrms/frontend/"
+
+      # -----------------------------
+      # Deploy backend
+      # -----------------------------
+      - name: Deploy backend
+        run: |
+          ssh -i ~/.ssh/hrms_deploy_key \
+            "${{ secrets.ORACLE_USER }}@${{ secrets.ORACLE_HOST }}" << 'EOF'
+
+          set -e
+
+          echo "Stopping HRMS API..."
+          sudo systemctl stop hrms-api
+
+          echo "Deploying backend..."
+          rsync -a --delete \
+            /home/ubuntu/deploy/hrms/backend/ \
+            /opt/apps/hrms/backend/
+
+          echo "Starting HRMS API..."
+          sudo systemctl start hrms-api
+
+          sleep 5
+
+          echo "Checking HRMS API..."
+          systemctl is-active --quiet hrms-api
+
+          echo "Backend deployment successful."
+          EOF
+
+      # -----------------------------
+      # Deploy Angular
+      # -----------------------------
+      - name: Deploy frontend
+        run: |
+          ssh -i ~/.ssh/hrms_deploy_key \
+            "${{ secrets.ORACLE_USER }}@${{ secrets.ORACLE_HOST }}" << 'EOF'
+
+          set -e
+
+          echo "Deploying Angular..."
+          rsync -a --delete \
+            /home/ubuntu/deploy/hrms/frontend/ \
+            /var/www/hrms/
+
+          echo "Frontend deployment successful."
+          EOF
+
+      # -----------------------------
+      # Verify deployment
+      # -----------------------------
+      - name: Verify production website
+        run: |
+          sleep 5
+          curl --fail --silent --show-error \
+            https://hrms.avntechnologies.co.in/ > /dev/null
+
+          echo "HRMS deployment completed successfully."
