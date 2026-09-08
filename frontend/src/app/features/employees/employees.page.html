@@ -37,6 +37,7 @@
         <option>Active</option>
         <option>Probation</option>
         <option>NoticePeriod</option>
+        <option>Inactive</option>
         <option>Suspended</option>
         <option>Terminated</option>
         <option>Resigned</option></select
@@ -133,6 +134,15 @@
                         <mat-icon>password</mat-icon>Reset password
                       </button>
                     }
+                    @if (employee.status === 'Inactive') {
+                      <button mat-menu-item (click)="changeEmploymentStatus(employee, 'Active')">
+                        <mat-icon>person</mat-icon>Reactivate employee
+                      </button>
+                    } @else if (employee.status === 'Active' || employee.status === 'Probation' || employee.status === 'NoticePeriod') {
+                      <button mat-menu-item (click)="changeEmploymentStatus(employee, 'Inactive')" class="danger-action">
+                        <mat-icon>person_off</mat-icon>Deactivate employee
+                      </button>
+                    }
                     ><button mat-menu-item (click)="deleteEmployee(employee)" class="danger-action">
                       <mat-icon>delete</mat-icon>Delete employee
                     </button></mat-menu
@@ -210,11 +220,11 @@
         <div class="form-grid">
           <div class="field">
             <label>Employee ID *</label
-            ><input formControlName="employeeNumber" placeholder="EMP-001" [readOnly]="editing()" />
+            ><input formControlName="employeeNumber" placeholder="EMP-001" />
           </div>
           <div class="field">
             <label>Hire date *</label
-            ><input type="date" formControlName="hireDate" [readOnly]="editing()" />
+            ><input type="date" formControlName="hireDate" />
           </div>
           <div class="field">
             <label>Employment type *</label
@@ -233,6 +243,7 @@
                 <option>Active</option>
                 <option>Probation</option>
                 <option>NoticePeriod</option>
+                <option>Inactive</option>
                 <option>Suspended</option>
                 <option>Terminated</option>
                 <option>Resigned</option>

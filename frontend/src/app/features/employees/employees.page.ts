@@ -147,13 +147,12 @@ export class EmployeesPage implements OnInit {
 
   openEdit(employee: Employee): void {
     this.clearProfilePhoto();
-    const parts = employee.fullName.trim().split(/\s+/);
     this.editing.set(employee);
     this.error.set('');
     this.form.reset({
       employeeNumber: employee.employeeNumber,
-      firstName: parts.shift() ?? '',
-      lastName: parts.join(' '),
+      firstName: employee.firstName,
+      lastName: employee.lastName,
       workEmail: employee.workEmail,
       phone: employee.phone ?? '',
       hireDate: employee.hireDate,
@@ -246,10 +245,12 @@ export class EmployeesPage implements OnInit {
     const editing = this.editing();
     const request = editing
       ? this.api.put<Employee>(`/employees/${editing.id}`, {
+          employeeNumber: raw.employeeNumber,
           firstName: raw.firstName,
           lastName: raw.lastName,
           workEmail: raw.workEmail,
           phone: optional(raw.phone),
+          hireDate: raw.hireDate,
           status: raw.status,
           employmentType: raw.employmentType,
           departmentId: optional(raw.departmentId),
@@ -274,7 +275,7 @@ export class EmployeesPage implements OnInit {
           managerId: optional(raw.managerId),
           baseSalary: Number(raw.baseSalary),
           salaryCurrency: raw.salaryCurrency,
-        });
+      });
     const selectedPhoto = this.profilePhoto();
     request.pipe(
       switchMap((employee) => !editing && selectedPhoto
@@ -300,6 +301,32 @@ export class EmployeesPage implements OnInit {
         }
         this.error.set(error.error?.detail ?? `Unable to ${editing ? 'update' : 'create'} employee.`);
       },
+    });
+  }
+
+  changeEmploymentStatus(employee: Employee, status: 'Active' | 'Inactive'): void {
+    const verb = status === 'Active' ? 'reactivate' : 'deactivate';
+    if (!window.confirm(`${verb[0].toUpperCase() + verb.slice(1)} ${employee.fullName}? ${status === 'Inactive' ? 'Their login sessions will be revoked immediately.' : 'Their linked login account will be enabled again.'}`)) return;
+    this.saving.set(true);
+    this.api.put<Employee>(`/employees/${employee.id}`, {
+      employeeNumber: employee.employeeNumber,
+      firstName: employee.firstName,
+      lastName: employee.lastName,
+      workEmail: employee.workEmail,
+      phone: employee.phone ?? null,
+      hireDate: employee.hireDate,
+      status,
+      employmentType: employee.employmentType,
+      departmentId: employee.departmentId ?? null,
+      designationId: employee.designationId ?? null,
+      locationId: employee.locationId ?? null,
+      managerId: employee.managerId ?? null,
+      baseSalary: employee.baseSalary,
+      salaryCurrency: employee.salaryCurrency,
+      version: employee.version,
+    }).pipe(finalize(() => this.saving.set(false))).subscribe({
+      next: () => { this.success.set(`${employee.fullName} ${status === 'Active' ? 'reactivated' : 'deactivated'}.`); this.load(this.data().page); },
+      error: (error: HttpErrorResponse) => this.error.set(error.error?.detail ?? `Unable to ${verb} employee.`),
     });
   }
 

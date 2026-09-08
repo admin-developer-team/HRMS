@@ -96,6 +96,8 @@ export interface Dashboard {
 export interface Employee {
   id: string;
   employeeNumber: string;
+  firstName: string;
+  lastName: string;
   fullName: string;
   workEmail: string;
   phone?: string;

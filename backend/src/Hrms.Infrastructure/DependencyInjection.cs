@@ -84,6 +84,7 @@ public static class DependencyInjection
         services.AddScoped<ICompanyProfileService, CompanyProfileService>();
         services.AddScoped<DatabaseInitializer>();
         services.AddScoped<DemoCompanySeeder>();
+        services.AddScoped<MmDigitalTechSeeder>();
         return services;
     }
 }

@@ -43,7 +43,7 @@ public sealed class AttendanceCorrectionService(IRepository<AttendanceCorrection
         Required(r.Reason, "Correction reason");
         if (r.Reason.Trim().Length is < 10 or > 500) throw new DomainException("Explain the correction in 10 to 500 characters.");
         AttendanceCalendar.ValidateInterval(r.RequestedClockIn, r.RequestedClockOut);
-        if (person.Status is EmploymentStatus.Suspended or EmploymentStatus.Terminated or EmploymentStatus.Resigned)
+        if (person.Status is EmploymentStatus.Inactive or EmploymentStatus.Suspended or EmploymentStatus.Terminated or EmploymentStatus.Resigned)
             throw new DomainException("Corrections cannot be submitted for an inactive employee.");
         if (r.WorkDate < person.HireDate) throw new DomainException("Attendance cannot precede the employee's hire date.");
         var policy = await policies.FirstOrDefaultAsync(_ => true, ct) ?? new AttendancePolicy();

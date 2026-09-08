@@ -30,9 +30,17 @@
           />
           <div class="personal-fields">
             @if (profile(); as employee) {
-              <div class="field"><label>Full name</label><input [value]="employee.fullName" readonly /></div>
-              <div class="field"><label>Work email</label><input [value]="employee.workEmail" readonly /></div>
-              <div class="field"><label>Employee ID</label><input [value]="employee.employeeNumber" readonly /></div>
+              @if (managedEmployee()) {
+                <div class="field"><label>First name</label><input [ngModel]="firstName()" (ngModelChange)="firstName.set($event)" /></div>
+                <div class="field"><label>Last name</label><input [ngModel]="lastName()" (ngModelChange)="lastName.set($event)" /></div>
+                <div class="field"><label>Work email</label><input type="email" [ngModel]="workEmail()" (ngModelChange)="workEmail.set($event)" /></div>
+                <div class="field"><label>Employee ID</label><input [ngModel]="employeeNumber()" (ngModelChange)="employeeNumber.set($event)" /></div>
+                <div class="field"><label>Hire date</label><input type="date" [ngModel]="hireDate()" (ngModelChange)="hireDate.set($event)" /></div>
+              } @else {
+                <div class="field"><label>Full name</label><input [value]="employee.fullName" readonly /></div>
+                <div class="field"><label>Work email</label><input [value]="employee.workEmail" readonly /></div>
+                <div class="field"><label>Employee ID</label><input [value]="employee.employeeNumber" readonly /></div>
+              }
               <div class="field"><label>Phone</label><input [ngModel]="phone()" (ngModelChange)="phone.set($event)" maxlength="40" /></div>
               <div class="setting-actions profile-actions">
                 <button mat-raised-button class="primary-button" [disabled]="savingProfile()" (click)="saveProfile()">
@@ -48,7 +56,6 @@
         </div>
       </article>
 
-    @if (profile()) {
       <article class="app-card settings-card security-card">
         <div class="settings-head"><div><h2>Account security</h2><p>Change your password. All active refresh sessions will be revoked.</p></div></div>
         <div class="password-grid">
@@ -58,9 +65,8 @@
         </div>
         <div class="setting-actions"><button mat-raised-button class="primary-button" [disabled]="savingPassword() || !currentPassword() || !newPassword() || !confirmPassword()" (click)="changePassword()">@if (savingPassword()) { <mat-spinner diameter="17" /> } @else { <mat-icon>password</mat-icon> } Change password</button></div>
       </article>
-    }
 
-    @if (auth.hasPermission('identity.manage') && company.profile(); as profile) {
+    @if (!auth.isPlatformAdmin() && auth.hasPermission('identity.manage') && company.profile(); as profile) {
       <article class="app-card settings-card identity-card">
         <div class="settings-head">
           <div><h2>Company identity</h2><p>Your company name and logo appear in the application navigation.</p></div>

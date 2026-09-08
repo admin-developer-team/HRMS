@@ -260,11 +260,17 @@ public sealed class EnterpriseWorkflowTests
         h.Db.Users.Add(new UserAccount { Id = userId, TenantId = h.Id, Email = "session@example.test", IsActive = true });
         h.Db.Roles.Add(role); h.Db.UserRoles.Add(new UserRole { TenantId = h.Id, UserId = userId, RoleId = role.Id });
         var token = new RefreshToken { Id = sessionId, TenantId = h.Id, UserId = userId, ExpiresAt = DateTimeOffset.UtcNow.AddDays(1), TokenHash = "test" };
-        h.Db.RefreshTokens.Add(token); await h.Db.SaveChangesAsync();
+        h.Db.RefreshTokens.Add(token);
+        var subscription = new TenantSubscription { TenantId = h.Id, PlanCode = "test", EmployeeLimit = 10, StartsAt = DateTimeOffset.UtcNow.AddDays(-1), IsActive = true };
+        h.Db.TenantSubscriptions.Add(subscription);
+        await h.Db.SaveChangesAsync();
         var principal = new ClaimsPrincipal(new ClaimsIdentity([new(ClaimTypes.NameIdentifier, userId.ToString()), new("tenant_id", h.Id.ToString()), new("session_id", sessionId.ToString()), new("permission", "*")], "test"));
         var validator = new SessionValidator(h.Db);
         Assert.True(await validator.ValidateAsync(principal, Ct));
         Assert.False(principal.HasClaim("permission", "*")); Assert.True(principal.HasClaim("permission", Permissions.SelfService));
+        subscription.IsActive = false; await h.Db.SaveChangesAsync();
+        Assert.False(await validator.ValidateAsync(principal, Ct));
+        subscription.IsActive = true;
         token.RevokedAt = DateTimeOffset.UtcNow; await h.Db.SaveChangesAsync();
         Assert.False(await validator.ValidateAsync(principal, Ct));
     }

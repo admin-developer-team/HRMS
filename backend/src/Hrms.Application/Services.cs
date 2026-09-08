@@ -7,6 +7,7 @@ public interface ITenantService
 {
     Task<TenantDto> CreateAsync(CreateTenantRequest request, CancellationToken cancellationToken);
     Task<PagedResult<TenantDto>> SearchAsync(PagedRequest request, CancellationToken cancellationToken);
+    Task<TenantDto> UpdateAsync(Guid id, UpdateTenantRequest request, CancellationToken cancellationToken);
 }
 
 public interface IAuthService
@@ -24,6 +25,7 @@ public interface IIdentityAdminService
     Task<UserAdminDto> ProvisionEmployeeAsync(Guid employeeId, ProvisionEmployeeAccountRequest request, CancellationToken cancellationToken);
     Task<UserAdminDto> SetRolesAsync(Guid userId, SetUserRolesRequest request, CancellationToken cancellationToken);
     Task<UserAdminDto> ResetPasswordAsync(Guid userId, ResetUserPasswordRequest request, CancellationToken cancellationToken);
+    Task<UserAdminDto> SetActiveAsync(Guid userId, SetUserActiveRequest request, CancellationToken cancellationToken);
     Task<PagedResult<UserAdminDto>> SearchUsersAsync(PagedRequest request, CancellationToken cancellationToken);
 }
 
@@ -200,6 +202,7 @@ public abstract class ServiceBase(ICurrentTenant tenant)
 public sealed class TenantService(
     IRepository<Tenant> tenants, IRepository<TenantSubscription> subscriptions, IRepository<UserAccount> users,
     IRepository<Role> roles, IRepository<UserRole> userRoles, IRepository<LeaveType> leaveTypes,
+    IRepository<Employee> employees, IRepository<RefreshToken> refreshTokens,
     IPasswordHasher passwordHasher, IUnitOfWork unitOfWork, ICurrentTenant currentTenant) : ITenantService
 {
     public async Task<TenantDto> CreateAsync(CreateTenantRequest request, CancellationToken ct)
@@ -227,11 +230,12 @@ public sealed class TenantService(
             TenantId = tenant.Id, Email = request.AdminEmail.Trim().ToLowerInvariant(), DisplayName = request.AdminName.Trim(),
             PasswordHash = passwordHasher.Hash(request.AdminPassword), IsActive = true
         };
-        await subscriptions.AddAsync(new TenantSubscription
+        var subscription = new TenantSubscription
         {
             TenantId = tenant.Id, PlanCode = "trial", EmployeeLimit = Math.Max(1, request.EmployeeLimit),
             StartsAt = DateTimeOffset.UtcNow, EndsAt = tenant.TrialEndsAt
-        }, ct);
+        };
+        await subscriptions.AddAsync(subscription, ct);
         await roles.AddAsync(role, ct);
         foreach (var definition in Permissions.TenantSystemRoles)
             await roles.AddAsync(new Role { TenantId = tenant.Id, Name = definition.Name, NormalizedName = definition.NormalizedName, PermissionsCsv = string.Join(',', definition.Permissions), IsSystem = true }, ct);
@@ -240,30 +244,76 @@ public sealed class TenantService(
         await leaveTypes.AddAsync(new LeaveType { TenantId = tenant.Id, Name = "Annual Leave", Code = "ANNUAL", AnnualAllowance = 20, IsPaid = true }, ct);
         await leaveTypes.AddAsync(new LeaveType { TenantId = tenant.Id, Name = "Sick Leave", Code = "SICK", AnnualAllowance = 10, IsPaid = true }, ct);
         await unitOfWork.SaveChangesAsync(ct);
-        return new TenantDto(tenant.Id, tenant.Name, tenant.Slug, tenant.Status, tenant.DefaultCurrency, tenant.TimeZone, request.EmployeeLimit);
+        return Map(tenant, subscription);
     }
 
     public async Task<PagedResult<TenantDto>> SearchAsync(PagedRequest request, CancellationToken ct)
     {
         var q = request.Search?.Trim().ToLowerInvariant();
-        var predicate = string.IsNullOrEmpty(q) ? null : (System.Linq.Expressions.Expression<Func<Tenant, bool>>)(x => x.Name.ToLower().Contains(q) || x.Slug.Contains(q));
+        System.Linq.Expressions.Expression<Func<Tenant, bool>> predicate = x => x.Slug != "platform" &&
+            (string.IsNullOrEmpty(q) || x.Name.ToLower().Contains(q) || x.Slug.Contains(q));
         var total = await tenants.CountAsync(predicate, ct);
         var rows = await tenants.ListAsync(predicate, x => x.OrderBy(t => t.Name), request.Skip, request.SafePageSize, ct);
         var result = new List<TenantDto>();
         foreach (var t in rows)
         {
             currentTenant.Set(t.Id, t.Slug);
-            var sub = await subscriptions.FirstOrDefaultAsync(s => s.IsActive, ct);
-            result.Add(new TenantDto(t.Id, t.Name, t.Slug, t.Status, t.DefaultCurrency, t.TimeZone, sub?.EmployeeLimit ?? 0));
+            var sub = (await subscriptions.ListAsync(orderBy: q => q.OrderByDescending(x => x.CreatedAt), take: 1, cancellationToken: ct)).FirstOrDefault();
+            result.Add(Map(t, sub));
         }
         currentTenant.Clear();
         return new PagedResult<TenantDto>(result, request.SafePage, request.SafePageSize, total);
     }
+
+    public async Task<TenantDto> UpdateAsync(Guid id, UpdateTenantRequest r, CancellationToken ct)
+    {
+        var tenant = await tenants.GetByIdAsync(id, ct) ?? throw new KeyNotFoundException("Customer company not found.");
+        if (tenant.Slug == "platform") throw new DomainException("The platform tenant cannot be managed as a customer company.");
+        CheckVersion(tenant, r.Version);
+        Required(r.Name, "Company name"); Required(r.DefaultCurrency, "Currency"); Required(r.TimeZone, "Time zone"); Required(r.PlanCode, "Plan");
+        if (r.DefaultCurrency.Length != 3 || !r.DefaultCurrency.All(char.IsAsciiLetter)) throw new DomainException("Use a three-letter currency code.");
+        try { _ = TimeZoneInfo.FindSystemTimeZoneById(r.TimeZone); } catch (TimeZoneNotFoundException) { throw new DomainException("Time zone is invalid."); } catch (InvalidTimeZoneException) { throw new DomainException("Time zone is invalid."); }
+        if (!Enum.IsDefined(r.Status)) throw new DomainException("Company status is invalid.");
+        if (r.Status == TenantStatus.Trial && (!r.TrialEndsAt.HasValue || r.TrialEndsAt <= DateTimeOffset.UtcNow)) throw new DomainException("An active trial needs a future trial end date.");
+        if (r.EmployeeLimit < 1) throw new DomainException("Employee limit must be at least 1.");
+        if (r.SubscriptionEndsAt.HasValue && r.SubscriptionEndsAt < r.SubscriptionStartsAt) throw new DomainException("Subscription end date cannot be before its start date.");
+
+        currentTenant.Set(tenant.Id, tenant.Slug);
+        try
+        {
+            var subscription = (await subscriptions.ListAsync(orderBy: q => q.OrderByDescending(x => x.CreatedAt), take: 1, cancellationToken: ct)).FirstOrDefault()
+                ?? throw new DomainException("The company does not have a subscription record.");
+            CheckVersion(subscription, r.SubscriptionVersion);
+            var licensedEmployees = await employees.CountAsync(x => x.Status == EmploymentStatus.Active || x.Status == EmploymentStatus.Probation || x.Status == EmploymentStatus.NoticePeriod, ct);
+            if (r.EmployeeLimit < licensedEmployees) throw new DomainException($"Employee limit cannot be lower than the {licensedEmployees} currently active employees.");
+
+            tenant.Name = r.Name.Trim(); tenant.Status = r.Status; tenant.DefaultCurrency = r.DefaultCurrency.ToUpperInvariant();
+            tenant.TimeZone = r.TimeZone.Trim(); tenant.TrialEndsAt = r.Status == TenantStatus.Trial ? r.TrialEndsAt?.ToUniversalTime() : null;
+            subscription.PlanCode = r.PlanCode.Trim().ToLowerInvariant(); subscription.EmployeeLimit = r.EmployeeLimit;
+            subscription.StartsAt = r.SubscriptionStartsAt.ToUniversalTime(); subscription.EndsAt = r.SubscriptionEndsAt?.ToUniversalTime(); subscription.IsActive = r.SubscriptionActive;
+            if (r.Status is TenantStatus.Suspended or TenantStatus.Cancelled)
+            {
+                var userIds = (await users.ListAsync(cancellationToken: ct)).Select(x => x.Id).ToHashSet();
+                foreach (var token in await refreshTokens.ListAsync(x => userIds.Contains(x.UserId) && x.RevokedAt == null, cancellationToken: ct)) token.RevokedAt = DateTimeOffset.UtcNow;
+            }
+            await unitOfWork.SaveChangesAsync(ct);
+            return Map(tenant, subscription);
+        }
+        finally { currentTenant.Clear(); }
+    }
+
+    private static TenantDto Map(Tenant tenant, TenantSubscription? subscription) => new(
+        tenant.Id, tenant.Name, tenant.Slug, tenant.Status, tenant.DefaultCurrency, tenant.TimeZone,
+        subscription?.EmployeeLimit ?? 0, tenant.TrialEndsAt, subscription?.PlanCode ?? "unassigned",
+        subscription?.StartsAt ?? tenant.CreatedAt, subscription?.EndsAt, subscription?.IsActive ?? false,
+        tenant.Version, subscription?.Version ?? 0);
+    private static void Required(string value, string name) { if (string.IsNullOrWhiteSpace(value)) throw new DomainException($"{name} is required."); }
+    private static void CheckVersion(AuditableEntity entity, long version) { if (entity.Version != version) throw new DomainException("The record was changed by another user. Reload it and retry."); }
 }
 
 public sealed class AuthService(
     IRepository<Tenant> tenants, IRepository<UserAccount> users, IRepository<Role> roles, IRepository<UserRole> userRoles,
-    IRepository<RefreshToken> refreshTokens, IRepository<Employee> employees, IRepository<AuditLog> auditLogs, ICurrentTenant currentTenant, IPasswordHasher passwordHasher,
+    IRepository<RefreshToken> refreshTokens, IRepository<Employee> employees, IRepository<TenantSubscription> subscriptions, IRepository<AuditLog> auditLogs, ICurrentTenant currentTenant, IPasswordHasher passwordHasher,
     ITokenService tokenService, IUnitOfWork unitOfWork) : IAuthService
 {
     public async Task<TokenResponse> LoginAsync(LoginRequest request, string? ipAddress, string? userAgent, CancellationToken ct)
@@ -273,6 +323,11 @@ public sealed class AuthService(
         var tenant = await tenants.FirstOrDefaultAsync(x => x.Slug == slug && (x.Status == TenantStatus.Active || (x.Status == TenantStatus.Trial && x.TrialEndsAt > now)), ct)
             ?? throw new DomainException("Invalid tenant or credentials.");
         currentTenant.Set(tenant.Id, tenant.Slug);
+        if (tenant.Slug != "platform")
+        {
+            var subscription = await subscriptions.FirstOrDefaultAsync(x => x.IsActive && x.StartsAt <= now && (!x.EndsAt.HasValue || x.EndsAt > now), ct);
+            if (subscription is null) throw new DomainException("This company subscription is inactive or expired. Contact the platform administrator.");
+        }
         var email = request.Email.Trim().ToLowerInvariant();
         var user = await users.FirstOrDefaultAsync(x => x.Email == email, ct)
             ?? throw new DomainException("Invalid tenant or credentials.");
@@ -305,6 +360,13 @@ public sealed class AuthService(
     public async Task<TokenResponse> RefreshAsync(RefreshRequest request, CancellationToken ct)
     {
         if (currentTenant.TenantId is null) throw new DomainException("X-Tenant-ID is required to refresh a token.");
+        var now = DateTimeOffset.UtcNow;
+        var tenant = await tenants.GetByIdAsync(currentTenant.TenantId.Value, ct)
+            ?? throw new DomainException("Company is unavailable.");
+        if (tenant.Status is not (TenantStatus.Active or TenantStatus.Trial) || (tenant.Status == TenantStatus.Trial && tenant.TrialEndsAt <= now))
+            throw new DomainException("Company access is suspended, cancelled, or expired.");
+        if (tenant.Slug != "platform" && !await subscriptions.AnyAsync(x => x.IsActive && x.StartsAt <= now && (!x.EndsAt.HasValue || x.EndsAt > now), ct))
+            throw new DomainException("This company subscription is inactive or expired. Contact the platform administrator.");
         var hash = tokenService.HashRefreshToken(request.RefreshToken);
         var stored = await refreshTokens.FirstOrDefaultAsync(x => x.TokenHash == hash, ct);
         if (stored is null || !stored.IsActive) throw new DomainException("Refresh token is invalid or expired.");
@@ -408,6 +470,23 @@ public sealed class IdentityAdminService(IRepository<UserAccount> users, IReposi
         var roleIds = (await userRoles.ListAsync(x => x.UserId == userId, cancellationToken: ct)).Select(x => x.RoleId).ToArray();
         return Map(user, roleIds, (await employees.FirstOrDefaultAsync(x => x.UserId == user.Id, ct))?.Id);
     }
+    public async Task<UserAdminDto> SetActiveAsync(Guid userId, SetUserActiveRequest r, CancellationToken ct)
+    {
+        var user = await users.GetByIdAsync(userId, ct) ?? throw new KeyNotFoundException("User not found.");
+        CheckVersion(user, r.Version);
+        if (actor.UserId == userId && !r.IsActive) throw new DomainException("You cannot deactivate your own account.");
+        var targetRoleIds = (await userRoles.ListAsync(x => x.UserId == userId, cancellationToken: ct)).Select(x => x.RoleId).ToArray();
+        ValidateDelegation((await roles.ListAsync(x => targetRoleIds.Contains(x.Id), cancellationToken: ct)).SelectMany(x => x.PermissionsCsv.Split(',')));
+        var linkedEmployee = await employees.FirstOrDefaultAsync(x => x.UserId == userId, ct);
+        if (r.IsActive && linkedEmployee?.Status is EmploymentStatus.Inactive or EmploymentStatus.Suspended or EmploymentStatus.Terminated or EmploymentStatus.Resigned)
+            throw new DomainException("Reactivate the linked employee record before activating this login account.");
+        user.IsActive = r.IsActive; user.FailedLoginCount = 0; user.LockedUntil = null; user.UpdatedAt = DateTimeOffset.UtcNow;
+        if (!r.IsActive)
+            foreach (var token in await refreshTokens.ListAsync(x => x.UserId == userId && x.RevokedAt == null, cancellationToken: ct)) token.RevokedAt = DateTimeOffset.UtcNow;
+        await notifications.QueueForUsersAsync([userId], r.IsActive ? "Account activated" : "Account deactivated", r.IsActive ? "Your account was activated by an administrator." : "Your account was deactivated by an administrator.", "security", "/my", ct);
+        await unitOfWork.SaveChangesAsync(ct);
+        return Map(user, targetRoleIds, linkedEmployee?.Id);
+    }
     public async Task<PagedResult<UserAdminDto>> SearchUsersAsync(PagedRequest r, CancellationToken ct)
     {
         var q = r.Search?.Trim().ToLowerInvariant(); System.Linq.Expressions.Expression<Func<UserAccount, bool>> p = x => string.IsNullOrEmpty(q) || x.Email.ToLower().Contains(q) || x.DisplayName.ToLower().Contains(q);
@@ -424,7 +503,7 @@ public sealed class IdentityAdminService(IRepository<UserAccount> users, IReposi
     private static UserAdminDto Map(UserAccount x, IEnumerable<Guid> roleIds, Guid? employeeId = null) => new(x.Id, employeeId, x.DisplayName, x.Email, x.IsActive, roleIds.ToArray(), x.Version);
 }
 
-public sealed class EmployeeService(IRepository<Employee> employees, IRepository<UserAccount> users, IRepository<RefreshToken> refreshTokens, IRepository<TenantSubscription> subscriptions, IRepository<AuditLog> auditLogs, ICurrentTenant tenant, IUnitOfWork unitOfWork, IRepository<Department> departments, IRepository<Designation> designations, IRepository<Location> locations) : ServiceBase(tenant), IEmployeeService
+public sealed class EmployeeService(IRepository<Employee> employees, IRepository<UserAccount> users, IRepository<RefreshToken> refreshTokens, IRepository<TenantSubscription> subscriptions, IRepository<AuditLog> auditLogs, ICurrentTenant tenant, ICurrentUser actor, IUnitOfWork unitOfWork, IRepository<Department> departments, IRepository<Designation> designations, IRepository<Location> locations) : ServiceBase(tenant), IEmployeeService
 {
     public async Task<EmployeeDto> CreateAsync(CreateEmployeeRequest r, CancellationToken ct)
     {
@@ -434,7 +513,7 @@ public sealed class EmployeeService(IRepository<Employee> employees, IRepository
         if (await employees.AnyAsync(x => x.EmployeeNumber.ToLower() == employeeNumber || x.WorkEmail == email, ct))
             throw new DomainException("Employee number or work email already exists.");
         var sub = await subscriptions.FirstOrDefaultAsync(x => x.IsActive, ct);
-        if (sub is not null && await employees.CountAsync(x => x.Status != EmploymentStatus.Terminated, ct) >= sub.EmployeeLimit)
+        if (sub is not null && await employees.CountAsync(x => x.Status == EmploymentStatus.Active || x.Status == EmploymentStatus.Probation || x.Status == EmploymentStatus.NoticePeriod, ct) >= sub.EmployeeLimit)
             throw new DomainException("The subscription employee limit has been reached.");
         var e = new Employee
         {
@@ -459,17 +538,21 @@ public sealed class EmployeeService(IRepository<Employee> employees, IRepository
     public async Task<EmployeeDto> UpdateAsync(Guid id, UpdateEmployeeRequest r, CancellationToken ct)
     {
         var e = await employees.GetByIdAsync(id, ct) ?? throw new KeyNotFoundException("Employee not found."); CheckVersion(e, r.Version);
+        Required(r.EmployeeNumber, "Employee number");
         await ValidateEmployee(id, r.FirstName, r.WorkEmail, r.BaseSalary, r.SalaryCurrency, r.EmploymentType, r.DepartmentId, r.DesignationId, r.LocationId, r.ManagerId, ct);
         if (!Enum.IsDefined(r.Status)) throw new DomainException("Employment status is invalid.");
+        if (actor.EmployeeId == id && r.Status is EmploymentStatus.Inactive or EmploymentStatus.Suspended or EmploymentStatus.Terminated or EmploymentStatus.Resigned)
+            throw new DomainException("You cannot deactivate your own employee record. Ask another administrator to perform this action.");
+        var employeeNumber = r.EmployeeNumber.Trim().ToLowerInvariant();
         var email = r.WorkEmail.Trim().ToLowerInvariant();
-        if (await employees.AnyAsync(x => x.Id != id && x.WorkEmail == email, ct)
-            || await users.AnyAsync(x => x.Email == email && x.Id != e.UserId, ct)) throw new DomainException("Work email already exists.");
+        if (await employees.AnyAsync(x => x.Id != id && (x.EmployeeNumber.ToLower() == employeeNumber || x.WorkEmail == email), ct)
+            || await users.AnyAsync(x => x.Email == email && x.Id != e.UserId, ct)) throw new DomainException("Employee number or work email already exists.");
         if (r.Status is EmploymentStatus.Terminated or EmploymentStatus.Resigned) e.TerminationDate ??= DateOnly.FromDateTime(DateTime.UtcNow);
-        else if (r.Status is EmploymentStatus.Active or EmploymentStatus.Probation or EmploymentStatus.NoticePeriod) e.TerminationDate = null;
-        e.FirstName = r.FirstName.Trim(); e.LastName = r.LastName.Trim(); e.WorkEmail = r.WorkEmail.Trim().ToLowerInvariant(); e.Phone = r.Phone;
+        else if (r.Status is EmploymentStatus.Active or EmploymentStatus.Probation or EmploymentStatus.NoticePeriod or EmploymentStatus.Inactive) e.TerminationDate = null;
+        e.EmployeeNumber = r.EmployeeNumber.Trim(); e.FirstName = r.FirstName.Trim(); e.LastName = r.LastName.Trim(); e.WorkEmail = r.WorkEmail.Trim().ToLowerInvariant(); e.Phone = r.Phone; e.HireDate = r.HireDate;
         e.Status = r.Status; e.EmploymentType = r.EmploymentType; e.DepartmentId = r.DepartmentId; e.DesignationId = r.DesignationId;
         e.LocationId = r.LocationId; e.ManagerId = r.ManagerId; e.BaseSalary = r.BaseSalary; e.SalaryCurrency = r.SalaryCurrency.ToUpperInvariant();
-        if (e.UserId.HasValue && await users.GetByIdAsync(e.UserId.Value, ct) is { } account) { account.Email = e.WorkEmail; account.DisplayName = e.FullName; account.IsActive = r.Status is not (EmploymentStatus.Terminated or EmploymentStatus.Resigned or EmploymentStatus.Suspended); if (!account.IsActive) foreach (var token in await refreshTokens.ListAsync(x => x.UserId == account.Id && x.RevokedAt == null, cancellationToken: ct)) token.RevokedAt = DateTimeOffset.UtcNow; }
+        if (e.UserId.HasValue && await users.GetByIdAsync(e.UserId.Value, ct) is { } account) { account.Email = e.WorkEmail; account.DisplayName = e.FullName; account.IsActive = r.Status is not (EmploymentStatus.Inactive or EmploymentStatus.Terminated or EmploymentStatus.Resigned or EmploymentStatus.Suspended); if (!account.IsActive) foreach (var token in await refreshTokens.ListAsync(x => x.UserId == account.Id && x.RevokedAt == null, cancellationToken: ct)) token.RevokedAt = DateTimeOffset.UtcNow; }
         await unitOfWork.SaveChangesAsync(ct); return Map(e);
     }
     public async Task DeleteAsync(Guid id, CancellationToken ct) { var e = await employees.GetByIdAsync(id, ct) ?? throw new KeyNotFoundException("Employee not found."); if (e.UserId.HasValue && await users.GetByIdAsync(e.UserId.Value, ct) is { } account) { account.IsActive = false; foreach (var token in await refreshTokens.ListAsync(x => x.UserId == account.Id && x.RevokedAt == null, cancellationToken: ct)) token.RevokedAt = DateTimeOffset.UtcNow; } employees.Remove(e); await unitOfWork.SaveChangesAsync(ct); }
@@ -498,7 +581,7 @@ public sealed class EmployeeService(IRepository<Employee> employees, IRepository
         {
             if (!visited.Add(managerId.Value)) throw new DomainException("Reporting lines cannot contain a cycle or self-reporting relationship.");
             var manager = await employees.GetByIdAsync(managerId.Value, ct) ?? throw new DomainException("Select a manager in this company.");
-            if (manager.Status is EmploymentStatus.Suspended or EmploymentStatus.Terminated or EmploymentStatus.Resigned) throw new DomainException("The reporting manager must be active.");
+            if (manager.Status is EmploymentStatus.Inactive or EmploymentStatus.Suspended or EmploymentStatus.Terminated or EmploymentStatus.Resigned) throw new DomainException("The reporting manager must be active.");
             managerId = manager.ManagerId;
         }
     }
@@ -508,7 +591,7 @@ public sealed class EmployeeService(IRepository<Employee> employees, IRepository
         try { using var value = System.Text.Json.JsonDocument.Parse(json); return value.RootElement.TryGetProperty("UserAgent", out var agent) ? agent.GetString() : null; }
         catch (System.Text.Json.JsonException) { return null; }
     }
-    private static EmployeeDto Map(Employee e) => new(e.Id, e.EmployeeNumber, e.FullName, e.WorkEmail, e.Phone, e.HireDate, e.Status, e.EmploymentType, e.DepartmentId, e.DesignationId, e.LocationId, e.ManagerId, e.BaseSalary, e.SalaryCurrency, e.UserId, e.Version);
+    private static EmployeeDto Map(Employee e) => new(e.Id, e.EmployeeNumber, e.FirstName, e.LastName, e.FullName, e.WorkEmail, e.Phone, e.HireDate, e.Status, e.EmploymentType, e.DepartmentId, e.DesignationId, e.LocationId, e.ManagerId, e.BaseSalary, e.SalaryCurrency, e.UserId, e.Version);
 }
 
 public sealed class OrganizationService(IRepository<Department> departments, IRepository<Designation> designations, IRepository<Location> locations, ICurrentTenant tenant, IUnitOfWork unitOfWork) : ServiceBase(tenant), IOrganizationService
@@ -535,7 +618,7 @@ public sealed class LeaveService(IRepository<LeaveType> types, IRepository<Leave
         Required(r.Reason, "Leave reason");
         if (r.Reason.Trim().Length > 2000) throw new DomainException("Leave reason cannot exceed 2,000 characters.");
         var employee = await employees.GetByIdAsync(r.EmployeeId, ct) ?? throw new KeyNotFoundException("Employee not found.");
-        if (employee.Status is EmploymentStatus.Suspended or EmploymentStatus.Terminated or EmploymentStatus.Resigned || r.StartsOn < employee.HireDate)
+        if (employee.Status is EmploymentStatus.Inactive or EmploymentStatus.Suspended or EmploymentStatus.Terminated or EmploymentStatus.Resigned || r.StartsOn < employee.HireDate)
             throw new DomainException("Leave requires an active employee and cannot precede their hire date.");
         var type = await types.GetByIdAsync(r.LeaveTypeId, ct) ?? throw new KeyNotFoundException("Leave type not found.");
         if (!type.IsActive) throw new DomainException("This leave type is inactive.");
@@ -622,7 +705,7 @@ public sealed class AttendanceService(IRepository<AttendanceRecord> records, IRe
     {
         ValidateCoordinates(r);
         var employee = await employees.GetByIdAsync(r.EmployeeId, ct) ?? throw new KeyNotFoundException("Employee not found.");
-        if (employee.Status is EmploymentStatus.Suspended or EmploymentStatus.Terminated or EmploymentStatus.Resigned) throw new DomainException("Attendance cannot be recorded for an inactive employee.");
+        if (employee.Status is EmploymentStatus.Inactive or EmploymentStatus.Suspended or EmploymentStatus.Terminated or EmploymentStatus.Resigned) throw new DomainException("Attendance cannot be recorded for an inactive employee.");
         var at = r.Timestamp?.ToUniversalTime() ?? DateTimeOffset.UtcNow;
         if (at > DateTimeOffset.UtcNow.AddMinutes(5)) throw new DomainException("Check-in time cannot be in the future.");
         var policy = await Policy(ct);

@@ -60,3 +60,14 @@ public sealed class SelfServiceController(ISelfService service) : ControllerBase
 
     private string? IpAddress() => HttpContext.Connection.RemoteIpAddress?.ToString();
 }
+
+[ApiController, Route("api/v1/account"), Authorize]
+public sealed class AccountController(ISelfService service) : ControllerBase
+{
+    [HttpPost("change-password")]
+    public async Task<IActionResult> ChangePassword(ChangePasswordRequest request, CancellationToken ct)
+    {
+        await service.ChangePasswordAsync(request, ct);
+        return NoContent();
+    }
+}

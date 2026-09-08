@@ -96,6 +96,16 @@ if (args.Contains("--seed-demo", StringComparer.OrdinalIgnoreCase))
     return;
 }
 
+if (args.Contains("--seed-mm-digital-tech", StringComparer.OrdinalIgnoreCase))
+{
+    await using var scope = app.Services.CreateAsyncScope();
+    var result = await scope.ServiceProvider.GetRequiredService<MmDigitalTechSeeder>().SeedAsync();
+    Console.WriteLine(result.Created
+        ? $"Created tenant '{result.TenantSlug}' with {result.Accounts.Count} employee accounts."
+        : $"Tenant '{result.TenantSlug}' already exists; no data was changed.");
+    return;
+}
+
 await app.RunAsync();
 
 public partial class Program;

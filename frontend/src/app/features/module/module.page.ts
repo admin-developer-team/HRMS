@@ -380,7 +380,7 @@ export class ModulePage implements OnInit, OnDestroy {
     )
       return 'warning';
     if (
-      ['rejected', 'cancelled', 'terminated', 'lost', 'false', 'no', 'expired'].some((item) =>
+      ['rejected', 'cancelled', 'terminated', 'inactive', 'suspended', 'lost', 'false', 'no', 'expired'].some((item) =>
         text.includes(item),
       )
     )
@@ -566,7 +566,8 @@ export class ModulePage implements OnInit, OnDestroy {
       if (field.type === 'password') validators.push(Validators.minLength(8));
         const date = field.type === 'datetime-local' && initial ? new Date(String(initial)) : null;
         const value = date && !Number.isNaN(date.getTime())
-          ? new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16) : initial;
+          ? new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16)
+          : field.type === 'date' && initial ? String(initial).slice(0, 10) : initial;
         controls[field.key] = [value, validators];
     }
     this.form = this.fb.group(controls);

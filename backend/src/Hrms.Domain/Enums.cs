@@ -1,7 +1,8 @@
 namespace Hrms.Domain;
 
 public enum TenantStatus { Trial, Active, Suspended, Cancelled }
-public enum EmploymentStatus { Active, Probation, NoticePeriod, Suspended, Terminated, Resigned }
+// Keep existing numeric values stable because PostgreSQL stores this enum as an integer.
+public enum EmploymentStatus { Active, Probation, NoticePeriod, Suspended, Terminated, Resigned, Inactive }
 public enum EmploymentType { Permanent, Contract, Intern, Consultant, PartTime }
 public enum LeaveRequestStatus { Pending, Approved, Rejected, Cancelled }
 public enum AttendanceStatus { Present, Absent, HalfDay, OnLeave, Holiday, Remote }

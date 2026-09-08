@@ -17,10 +17,13 @@ public sealed class SessionValidator(HrmsDbContext db)
         // to the signed tenant and user; soft deletion still applies.
         var user = await db.Users.IgnoreQueryFilters().AsNoTracking().SingleOrDefaultAsync(x => x.Id == userId && x.TenantId == tenantId && !x.IsDeleted && x.IsActive, ct);
         if (user is null) return false;
-        if (!await db.Tenants.IgnoreQueryFilters().AnyAsync(x => x.Id == tenantId && !x.IsDeleted && (x.Status == TenantStatus.Active || x.Status == TenantStatus.Trial), ct)) return false;
+        var now = DateTimeOffset.UtcNow;
+        var tenant = await db.Tenants.IgnoreQueryFilters().SingleOrDefaultAsync(x => x.Id == tenantId && !x.IsDeleted, ct);
+        if (tenant is null || tenant.Status is not (TenantStatus.Active or TenantStatus.Trial) || (tenant.Status == TenantStatus.Trial && tenant.TrialEndsAt <= now)) return false;
+        if (tenant.Slug != "platform" && !await db.TenantSubscriptions.IgnoreQueryFilters().AnyAsync(x => x.TenantId == tenantId && !x.IsDeleted && x.IsActive && x.StartsAt <= now && (!x.EndsAt.HasValue || x.EndsAt > now), ct)) return false;
         if (!await db.RefreshTokens.IgnoreQueryFilters().AnyAsync(x => x.Id == sessionId && x.TenantId == tenantId && x.UserId == userId && !x.IsDeleted && x.RevokedAt == null && x.ExpiresAt > DateTimeOffset.UtcNow, ct)) return false;
         var employee = await db.Employees.IgnoreQueryFilters().AsNoTracking().SingleOrDefaultAsync(x => x.TenantId == tenantId && x.UserId == userId && !x.IsDeleted, ct);
-        if (employee?.Status is EmploymentStatus.Suspended or EmploymentStatus.Terminated or EmploymentStatus.Resigned) return false;
+        if (employee?.Status is EmploymentStatus.Inactive or EmploymentStatus.Suspended or EmploymentStatus.Terminated or EmploymentStatus.Resigned) return false;
         var roles = await (from link in db.UserRoles.IgnoreQueryFilters().AsNoTracking()
             join role in db.Roles.IgnoreQueryFilters().AsNoTracking() on link.RoleId equals role.Id
             where link.UserId == userId && link.TenantId == tenantId && role.TenantId == tenantId && !link.IsDeleted && !role.IsDeleted

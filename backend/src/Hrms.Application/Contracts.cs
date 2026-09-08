@@ -17,7 +17,12 @@ public sealed record PagedResult<T>(IReadOnlyList<T> Items, int Page, int PageSi
 public sealed record CreateTenantRequest(
     string Name, string Slug, string AdminName, string AdminEmail, string AdminPassword,
     string DefaultCurrency = "USD", string TimeZone = "UTC", int EmployeeLimit = 50);
-public sealed record TenantDto(Guid Id, string Name, string Slug, TenantStatus Status, string DefaultCurrency, string TimeZone, int EmployeeLimit);
+public sealed record TenantDto(Guid Id, string Name, string Slug, TenantStatus Status, string DefaultCurrency, string TimeZone,
+    int EmployeeLimit, DateTimeOffset? TrialEndsAt, string PlanCode, DateTimeOffset SubscriptionStartsAt,
+    DateTimeOffset? SubscriptionEndsAt, bool SubscriptionActive, long Version, long SubscriptionVersion);
+public sealed record UpdateTenantRequest(string Name, TenantStatus Status, string DefaultCurrency, string TimeZone,
+    DateTimeOffset? TrialEndsAt, string PlanCode, int EmployeeLimit, DateTimeOffset SubscriptionStartsAt,
+    DateTimeOffset? SubscriptionEndsAt, bool SubscriptionActive, long Version, long SubscriptionVersion);
 
 public sealed record LoginRequest(string TenantSlug, string Email, string Password);
 public sealed record RefreshRequest(string RefreshToken);
@@ -32,6 +37,7 @@ public sealed record ProvisionEmployeeAccountRequest(string Password, IReadOnlyL
 public sealed record UserAdminDto(Guid Id, Guid? EmployeeId, string DisplayName, string Email, bool IsActive, IReadOnlyList<Guid> RoleIds, long Version);
 public sealed record SetUserRolesRequest(IReadOnlyList<Guid> RoleIds, long Version);
 public sealed record ResetUserPasswordRequest(string Password);
+public sealed record SetUserActiveRequest(bool IsActive, long Version);
 
 public sealed record CreateEmployeeRequest(
     string EmployeeNumber, string FirstName, string LastName, string WorkEmail, DateOnly HireDate,
@@ -39,11 +45,11 @@ public sealed record CreateEmployeeRequest(
     Guid? DesignationId = null, Guid? LocationId = null, Guid? ManagerId = null,
     decimal BaseSalary = 0, string SalaryCurrency = "USD", string? Phone = null);
 public sealed record UpdateEmployeeRequest(
-    string FirstName, string LastName, string WorkEmail, string? Phone, EmploymentStatus Status,
+    string EmployeeNumber, string FirstName, string LastName, string WorkEmail, string? Phone, DateOnly HireDate, EmploymentStatus Status,
     EmploymentType EmploymentType, Guid? DepartmentId, Guid? DesignationId, Guid? LocationId,
     Guid? ManagerId, decimal BaseSalary, string SalaryCurrency, long Version);
 public sealed record EmployeeDto(
-    Guid Id, string EmployeeNumber, string FullName, string WorkEmail, string? Phone,
+    Guid Id, string EmployeeNumber, string FirstName, string LastName, string FullName, string WorkEmail, string? Phone,
     DateOnly HireDate, EmploymentStatus Status, EmploymentType EmploymentType, Guid? DepartmentId,
     Guid? DesignationId, Guid? LocationId, Guid? ManagerId, decimal BaseSalary,
     string SalaryCurrency, Guid? UserId, long Version);

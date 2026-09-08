@@ -9,7 +9,7 @@ import { ApiService } from '../../core/api.service';
 import { AuthService } from '../../core/auth.service';
 import { CompanyProfileService } from '../../core/company-profile.service';
 import { ToastService } from '../../core/toast.service';
-import { SelfDashboard } from '../../core/models';
+import { Employee, SelfDashboard } from '../../core/models';
 import { TenantTheme, ThemeService } from '../../core/theme.service';
 import { DocumentComponent } from '../../shared/document/document.component';
 
@@ -27,6 +27,12 @@ export class ThemeStudioPage {
   private readonly api = inject(ApiService);
   readonly savingCompany = signal(false);
   readonly profile = signal<SelfDashboard['profile'] | null>(null);
+  readonly managedEmployee = signal<Employee | null>(null);
+  readonly firstName = signal('');
+  readonly lastName = signal('');
+  readonly workEmail = signal('');
+  readonly employeeNumber = signal('');
+  readonly hireDate = signal('');
   readonly phone = signal('');
   readonly savingProfile = signal(false);
   readonly currentPassword = signal('');
@@ -51,11 +57,31 @@ export class ThemeStudioPage {
       this.companyName.set(profile.name); this.legalName.set(profile.legalName ?? '');
       this.currency.set(profile.defaultCurrency); this.timeZone.set(profile.timeZone); this.locale.set(profile.locale);
     }, error: () => this.toast.error('Could not load company settings.') });
-    if (this.auth.user()?.employeeId) this.loadProfile();
+    if (this.auth.user()?.employeeId) {
+      this.loadProfile();
+      if (this.auth.hasPermission('employees.manage')) this.loadManagedEmployee();
+    }
   }
 
   saveProfile(): void {
     this.savingProfile.set(true);
+    const employee = this.managedEmployee();
+    if (employee) {
+      this.api.put<Employee>(`/employees/${employee.id}`, {
+        employeeNumber: this.employeeNumber().trim(), firstName: this.firstName().trim(), lastName: this.lastName().trim(),
+        workEmail: this.workEmail().trim(), phone: this.phone().trim() || null, hireDate: this.hireDate(),
+        status: employee.status, employmentType: employee.employmentType, departmentId: employee.departmentId ?? null,
+        designationId: employee.designationId ?? null, locationId: employee.locationId ?? null, managerId: employee.managerId ?? null,
+        baseSalary: employee.baseSalary, salaryCurrency: employee.salaryCurrency, version: employee.version,
+      }).pipe(finalize(() => this.savingProfile.set(false))).subscribe({
+        next: (updated) => {
+          this.setManagedEmployee(updated); this.loadProfile();
+          this.auth.refreshSession().subscribe({ next: () => this.toast.success('Profile and login identity updated.'), error: () => this.toast.success('Profile updated. Sign in again to refresh your account header.') });
+        },
+        error: () => this.toast.error('Could not update your profile.'),
+      });
+      return;
+    }
     this.api.put<SelfDashboard['profile']>('/me', { phone: this.phone().trim() || null })
       .pipe(finalize(() => this.savingProfile.set(false))).subscribe({
         next: (profile) => { this.profile.set(profile); this.phone.set(profile.phone ?? ''); this.toast.success('Profile updated.'); },
@@ -67,7 +93,7 @@ export class ThemeStudioPage {
     if (this.newPassword().length < 8) { this.toast.error('New password must be at least 8 characters.'); return; }
     if (this.newPassword() !== this.confirmPassword()) { this.toast.error('New password and confirmation do not match.'); return; }
     this.savingPassword.set(true);
-    this.api.post<void>('/me/change-password', { currentPassword: this.currentPassword(), newPassword: this.newPassword() })
+    this.api.post<void>('/account/change-password', { currentPassword: this.currentPassword(), newPassword: this.newPassword() })
       .pipe(finalize(() => this.savingPassword.set(false))).subscribe({
         next: () => { this.toast.success('Password changed. Sign in again with your new password.'); this.auth.logout(false); },
         error: () => this.toast.error('Could not change your password. Check your current password.'),
@@ -122,6 +148,21 @@ export class ThemeStudioPage {
       next: (profile) => { this.profile.set(profile); this.phone.set(profile.phone ?? ''); },
       error: () => this.toast.error('Could not load your profile settings.'),
     });
+  }
+
+  private loadManagedEmployee(): void {
+    const id = this.auth.user()?.employeeId;
+    if (!id) return;
+    this.api.get<Employee>(`/employees/${id}`).subscribe({
+      next: (employee) => this.setManagedEmployee(employee),
+      error: () => this.toast.error('Could not load the administrative profile editor.'),
+    });
+  }
+
+  private setManagedEmployee(employee: Employee): void {
+    this.managedEmployee.set(employee); this.firstName.set(employee.firstName); this.lastName.set(employee.lastName);
+    this.workEmail.set(employee.workEmail); this.employeeNumber.set(employee.employeeNumber); this.hireDate.set(employee.hireDate);
+    this.phone.set(employee.phone ?? '');
   }
 
   private hexToRgb(hex: string): string {
