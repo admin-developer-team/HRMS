@@ -168,6 +168,11 @@
                           {{ hasAttendanceLocation(row) ? 'View locations' : 'Not captured' }}
                         </button>
                       }
+                      @case ('documents') {
+                        <button mat-stroked-button class="document-cell-button" (click)="openColumnDocuments(row, column)">
+                          <mat-icon>description</mat-icon>View files
+                        </button>
+                      }
                       @default {
                         <span
                           class="cell-value"
@@ -303,6 +308,14 @@
           <div class="derived-work-time wide"><span>Total work hours</span><strong>{{ attendanceDuration() }}</strong><small>Automatically calculated from office start and end time.</small></div>
         }
       </div>
+      @if (!actionRow() && view().createDocumentOwnerType) {
+        <section class="form-document-section">
+          <app-document #formDocuments [ownerType]="view().createDocumentOwnerType!" ownerId=""
+            [category]="view().createDocumentCategory ?? 'attachment'"
+            [label]="view().createDocumentLabel ?? 'Supporting documents'"
+            [allowedExtensions]="view().createDocumentAllowedExtensions" [maxFiles]="10" />
+        </section>
+      }
     </form>
     <div class="drawer-actions">
       <button mat-stroked-button (click)="closeDrawer()">Cancel</button

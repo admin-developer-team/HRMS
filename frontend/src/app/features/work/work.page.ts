@@ -2,7 +2,7 @@ import { DatePipe } from '@angular/common';
 import { A11yModule } from '@angular/cdk/a11y';
 import { CdkDragDrop, DragDropModule } from '@angular/cdk/drag-drop';
 import { MatPaginatorModule } from '@angular/material/paginator';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { SprintPanelComponent, WorkSprint } from './sprint-panel.component';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
@@ -52,6 +52,7 @@ export class WorkPage implements OnInit {
   private readonly api = inject(ApiService);
   private readonly fb = inject(FormBuilder);
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   readonly auth = inject(AuthService);
 
   readonly tabs: { key: WorkTab; label: string; icon: string }[] = [
@@ -204,6 +205,24 @@ export class WorkPage implements OnInit {
 
   ngOnInit(): void {
     this.loadWorkspace();
+    this.route.queryParamMap.subscribe(params => {
+      if (this.loading()) return;
+      let handled = false;
+      const projectId = params.get('project');
+      if (projectId && this.projects().some(project => project.id === projectId)) {
+        if (projectId !== this.selectedProjectId()) this.selectProject(projectId);
+        handled = true;
+      }
+      const itemId = params.get('item');
+      if (itemId) {
+        if (itemId !== this.detail()?.item.id || !this.detailOpen()) this.openItem(itemId);
+        handled = true;
+      } else if (params.get('action') === 'create') {
+        if (!this.drawerOpen()) this.openCreate();
+        handled = true;
+      }
+      if (handled) this.clearRouteIntent();
+    });
   }
 
   setTab(tab: WorkTab): void {
@@ -229,14 +248,27 @@ export class WorkPage implements OnInit {
         this.projects.set(projects);
         this.overview.set(result['overview'] as WorkOverview);
         if (result['employees']) this.employees.set((result['employees'] as PagedResult<Employee>).items);
-        if (!this.selectedProjectId() && projects.length) this.selectedProjectId.set(projects[0].id);
+        const requestedProject = this.route.snapshot.queryParamMap.get('project');
+        if (requestedProject && projects.some(project => project.id === requestedProject)) this.selectedProjectId.set(requestedProject);
+        else if (!this.selectedProjectId() && projects.length) this.selectedProjectId.set(projects[0].id);
         this.loadMembers();
         this.loadSprints();
         this.loadItems();
         const requestedItem = this.route.snapshot.queryParamMap.get('item');
         if (requestedItem) this.openItem(requestedItem);
+        else if (this.route.snapshot.queryParamMap.get('action') === 'create') setTimeout(() => this.openCreate());
+        if (requestedProject || requestedItem || this.route.snapshot.queryParamMap.get('action')) this.clearRouteIntent();
       },
       error: (error: HttpErrorResponse) => this.setError(error, 'Unable to load work management.'),
+    });
+  }
+
+  private clearRouteIntent(): void {
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { project: null, item: null, action: null },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
     });
   }
 

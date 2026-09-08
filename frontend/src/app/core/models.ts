@@ -115,7 +115,13 @@ export interface Employee {
 export interface ColumnDefinition {
   key: string;
   label: string;
-  type?: 'text' | 'date' | 'date-only' | 'datetime' | 'time' | 'duration' | 'minutes' | 'currency' | 'status' | 'number' | 'attendance-map';
+  type?: 'text' | 'date' | 'date-only' | 'datetime' | 'time' | 'duration' | 'minutes' | 'currency' | 'status' | 'number' | 'attendance-map' | 'documents';
+  documentOwnerType?: DocumentOwnerType;
+  documentCategory?: string;
+  documentLabel?: string;
+  documentReadonly?: boolean;
+  documentReadonlyStatuses?: string[];
+  documentAllowedExtensions?: string[];
 }
 
 export interface FormFieldDefinition {
@@ -196,6 +202,10 @@ export interface WorkspaceViewDefinition {
   rowActions?: RowActionDefinition[];
   toolbarActions?: RowActionDefinition[];
   emptyMessage?: string;
+  createDocumentOwnerType?: DocumentOwnerType;
+  createDocumentCategory?: string;
+  createDocumentLabel?: string;
+  createDocumentAllowedExtensions?: string[];
 }
 
 export interface ModuleDefinition {

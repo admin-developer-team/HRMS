@@ -139,11 +139,14 @@ export const MODULES: Record<string, ModuleDefinition> = {
         createLabel: 'Request leave',
         columns: [
           { key: 'leaveTypeId', label: 'Leave type' },
-          { key: 'startsOn', label: 'Starts', type: 'date' },
-          { key: 'endsOn', label: 'Ends', type: 'date' },
+          { key: 'startsOn', label: 'Starts', type: 'date-only' },
+          { key: 'endsOn', label: 'Ends', type: 'date-only' },
           { key: 'days', label: 'Days', type: 'number' },
           { key: 'reason', label: 'Reason' },
           { key: 'status', label: 'Status', type: 'status' },
+          { key: 'createdAt', label: 'Submitted', type: 'datetime' },
+          { key: 'reviewComment', label: 'Decision note' },
+          { key: 'documents', label: 'Documents', type: 'documents', documentOwnerType: 'LeaveRequest', documentCategory: 'supporting-document', documentLabel: 'Leave supporting documents', documentReadonlyStatuses: ['Approved', 'Rejected', 'Cancelled'], documentAllowedExtensions: ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'doc', 'docx'] },
         ],
         fields: [
           {
@@ -168,10 +171,12 @@ export const MODULES: Record<string, ModuleDefinition> = {
             options: options('Pending', 'Approved', 'Rejected', 'Cancelled'),
           },
         ],
+        createDocumentOwnerType: 'LeaveRequest',
+        createDocumentCategory: 'supporting-document',
+        createDocumentLabel: 'Supporting documents',
+        createDocumentAllowedExtensions: ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'doc', 'docx'],
         rowActions: [{
           label: 'Cancel leave', icon: 'cancel', method: 'put', path: '/me/leave/{id}/cancel?version={version}', visibleStatuses: ['Pending', 'Approved'], confirm: 'Cancel this leave request and restore its available balance?',
-        }, {
-          label: 'Supporting documents', icon: 'attach_file', method: 'documents', documentOwnerType: 'LeaveRequest', documentCategory: 'supporting-document', documentLabel: 'Leave supporting documents', documentMaxFiles: 10, documentReadonlyStatuses: ['Approved', 'Rejected', 'Cancelled'], documentAllowedExtensions: ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'doc', 'docx'],
         }],
       },
       {
@@ -479,11 +484,15 @@ export const MODULES: Record<string, ModuleDefinition> = {
         listShape: 'paged',
         columns: [
           { key: 'employeeId', label: 'Employee' },
-          { key: 'startsOn', label: 'Starts', type: 'date' },
-          { key: 'endsOn', label: 'Ends', type: 'date' },
+          { key: 'leaveTypeId', label: 'Leave type' },
+          { key: 'startsOn', label: 'Starts', type: 'date-only' },
+          { key: 'endsOn', label: 'Ends', type: 'date-only' },
           { key: 'days', label: 'Days', type: 'number' },
           { key: 'reason', label: 'Reason' },
           { key: 'status', label: 'Status', type: 'status' },
+          { key: 'createdAt', label: 'Submitted', type: 'datetime' },
+          { key: 'reviewComment', label: 'Decision note' },
+          { key: 'documents', label: 'Documents', type: 'documents', documentOwnerType: 'LeaveRequest', documentCategory: 'supporting-document', documentLabel: 'Leave supporting documents', documentReadonly: true, documentAllowedExtensions: ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'doc', 'docx'] },
         ],
         filters: [
           {
@@ -495,14 +504,20 @@ export const MODULES: Record<string, ModuleDefinition> = {
         ],
         rowActions: [
           {
-            label: 'Supporting documents', icon: 'attach_file', method: 'documents', documentOwnerType: 'LeaveRequest', documentCategory: 'supporting-document', documentLabel: 'Leave supporting documents', documentReadonly: true, documentMaxFiles: 10, documentAllowedExtensions: ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'doc', 'docx'],
-          },
-          {
-            label: 'Review leave',
-            icon: 'approval',
+            label: 'Approve leave',
+            icon: 'check_circle',
             method: 'put',
             path: '/me/team/leave/{id}/review',
-            fields: [...approveFields, { key: 'comment', label: 'Comment', type: 'textarea' }],
+            fields: [{ key: 'approve', label: 'Approve', type: 'checkbox', defaultValue: true, hidden: true }, versionField, { key: 'comment', label: 'Approval note', type: 'textarea', placeholder: 'Optional note for the employee' }],
+            visibleStatuses: ['Pending'],
+          },
+          {
+            label: 'Reject leave',
+            icon: 'cancel',
+            tone: 'danger',
+            method: 'put',
+            path: '/me/team/leave/{id}/review',
+            fields: [{ key: 'approve', label: 'Reject', type: 'checkbox', defaultValue: false, hidden: true }, versionField, { key: 'comment', label: 'Rejection reason', type: 'textarea', required: true, placeholder: 'Explain why this request cannot be approved' }],
             visibleStatuses: ['Pending'],
           },
         ],
@@ -757,10 +772,15 @@ export const MODULES: Record<string, ModuleDefinition> = {
         columns: [
           { key: 'employeeId', label: 'Employee' },
           { key: 'leaveTypeId', label: 'Leave type' },
-          { key: 'startsOn', label: 'Starts', type: 'date' },
-          { key: 'endsOn', label: 'Ends', type: 'date' },
+          { key: 'startsOn', label: 'Starts', type: 'date-only' },
+          { key: 'endsOn', label: 'Ends', type: 'date-only' },
           { key: 'days', label: 'Days', type: 'number' },
+          { key: 'reason', label: 'Employee reason' },
           { key: 'status', label: 'Status', type: 'status' },
+          { key: 'createdAt', label: 'Submitted', type: 'datetime' },
+          { key: 'reviewComment', label: 'Decision note' },
+          { key: 'reviewedAt', label: 'Reviewed', type: 'datetime' },
+          { key: 'documents', label: 'Documents', type: 'documents', documentOwnerType: 'LeaveRequest', documentCategory: 'supporting-document', documentLabel: 'Leave supporting documents', documentReadonlyStatuses: ['Approved', 'Rejected', 'Cancelled'], documentAllowedExtensions: ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'doc', 'docx'] },
         ],
         fields: [
           employeeField(),
@@ -773,8 +793,8 @@ export const MODULES: Record<string, ModuleDefinition> = {
           },
           { key: 'startsOn', label: 'Start date', type: 'date', required: true },
           { key: 'endsOn', label: 'End date', type: 'date', required: true },
-          { key: 'days', label: 'Number of days', type: 'number', required: true, min: 0 },
-          { key: 'reason', label: 'Reason', type: 'textarea', required: true },
+          { key: 'days', label: 'Working days', type: 'number', required: true, min: 0.5, help: 'Exclude weekends and company holidays. Use 0.5 only for a single half-day.' },
+          { key: 'reason', label: 'Employee reason or description', type: 'textarea', required: true, placeholder: 'Explain the reason and add any context the approver needs' },
         ],
         filters: [
           { key: 'employeeId', label: 'Employee', type: 'select', ...employees },
@@ -787,17 +807,20 @@ export const MODULES: Record<string, ModuleDefinition> = {
         ],
         rowActions: [
           {
-            label: 'Supporting documents', icon: 'attach_file', method: 'documents', documentOwnerType: 'LeaveRequest', documentCategory: 'supporting-document', documentLabel: 'Leave supporting documents', documentReadonlyStatuses: ['Approved', 'Rejected', 'Cancelled'], documentMaxFiles: 10, documentAllowedExtensions: ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'doc', 'docx'],
-          },
-          {
-            label: 'Review request',
-            icon: 'approval',
+            label: 'Approve request',
+            icon: 'check_circle',
             method: 'put',
             path: '/leave/requests/{id}/review',
-            fields: [
-              ...approveFields,
-              { key: 'comment', label: 'Review comment', type: 'textarea' },
-            ],
+            fields: [{ key: 'approve', label: 'Approve', type: 'checkbox', defaultValue: true, hidden: true }, versionField, { key: 'comment', label: 'Approval note', type: 'textarea', placeholder: 'Optional note for the employee' }],
+            visibleStatuses: ['Pending'],
+          },
+          {
+            label: 'Reject request',
+            icon: 'cancel',
+            tone: 'danger',
+            method: 'put',
+            path: '/leave/requests/{id}/review',
+            fields: [{ key: 'approve', label: 'Reject', type: 'checkbox', defaultValue: false, hidden: true }, versionField, { key: 'comment', label: 'Rejection reason', type: 'textarea', required: true, placeholder: 'Explain why this request cannot be approved' }],
             visibleStatuses: ['Pending'],
           },
           {
@@ -815,6 +838,10 @@ export const MODULES: Record<string, ModuleDefinition> = {
             ],
           },
         ],
+        createDocumentOwnerType: 'LeaveRequest',
+        createDocumentCategory: 'supporting-document',
+        createDocumentLabel: 'Supporting documents',
+        createDocumentAllowedExtensions: ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'doc', 'docx'],
       },
       {
         label: 'Leave types',

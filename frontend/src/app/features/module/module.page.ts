@@ -1,6 +1,6 @@
 import { CurrencyPipe, DatePipe, DecimalPipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import {
   ReactiveFormsModule,
@@ -12,8 +12,8 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { ActivatedRoute } from '@angular/router';
-import { Subject, finalize, forkJoin, of, takeUntil } from 'rxjs';
+import { ActivatedRoute, Router } from '@angular/router';
+import { Subject, combineLatest, finalize, forkJoin, map, of, switchMap, takeUntil } from 'rxjs';
 import { ApiService } from '../../core/api.service';
 import { ToastService } from '../../core/toast.service';
 import {
@@ -51,6 +51,7 @@ export class ModulePage implements OnInit, OnDestroy {
   private readonly api = inject(ApiService);
   private readonly toast = inject(ToastService);
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly fb = inject(UntypedFormBuilder);
   private readonly sanitizer = inject(DomSanitizer);
   private readonly destroy$ = new Subject<void>();
@@ -93,11 +94,25 @@ export class ModulePage implements OnInit, OnDestroy {
   readonly lookupLabels = signal<Record<string, string>>({});
   form: UntypedFormGroup = this.fb.group({});
   filterForm: UntypedFormGroup = this.fb.group({});
+  @ViewChild('formDocuments') private formDocuments?: DocumentComponent;
 
   ngOnInit(): void {
-    this.route.data.pipe(takeUntil(this.destroy$)).subscribe((data) => {
+    combineLatest([this.route.data, this.route.queryParamMap]).pipe(takeUntil(this.destroy$)).subscribe(([data, query]) => {
       this.definition.set(MODULES[data['module'] as string] ?? MODULES['organization']);
-      this.selectTab(0);
+      const requestedView = query.get('view')?.trim().toLocaleLowerCase();
+      const viewIndex = requestedView
+        ? this.definition().views.findIndex(view => view.label.toLocaleLowerCase() === requestedView)
+        : 0;
+      this.selectTab(viewIndex >= 0 ? viewIndex : 0);
+      if (query.get('action') === 'create' && this.view().createEndpoint) setTimeout(() => {
+        this.openCreate();
+        void this.router.navigate([], {
+          relativeTo: this.route,
+          queryParams: { action: null },
+          queryParamsHandling: 'merge',
+          replaceUrl: true,
+        });
+      });
     });
   }
 
@@ -242,6 +257,20 @@ export class ModulePage implements OnInit, OnDestroy {
   closeDocuments(): void {
     this.documentDialogOpen.set(false);
     this.documentOwnerId.set('');
+  }
+
+  openColumnDocuments(row: DataRow, column: ColumnDefinition): void {
+    const ownerId = String(row['id'] ?? '');
+    if (!ownerId || !column.documentOwnerType) return;
+    this.documentOwnerType.set(column.documentOwnerType);
+    this.documentOwnerId.set(ownerId);
+    this.documentCategory.set(column.documentCategory ?? 'attachment');
+    this.documentLabel.set(column.documentLabel ?? 'Documents');
+    this.documentReadonly.set(Boolean(column.documentReadonly) || Boolean(column.documentReadonlyStatuses?.includes(String(row['status'] ?? ''))));
+    this.documentMaxFiles.set(10);
+    this.documentReplaceMode.set(false);
+    this.documentAllowedExtensions.set(column.documentAllowedExtensions);
+    this.documentDialogOpen.set(true);
   }
 
   hasAttendanceLocation(row: DataRow): boolean {
@@ -486,7 +515,15 @@ export class ModulePage implements OnInit, OnDestroy {
           : action.method === 'put'
             ? this.api.put<unknown>(path, payload)
             : this.api.delete<unknown>(path);
-    request.pipe(finalize(() => this.saving.set(false))).subscribe({
+    request.pipe(
+      switchMap(response => {
+        const documents = action.method === 'post' && !row ? this.formDocuments : undefined;
+        const ownerId = this.asRow(response)['id'];
+        if (!documents || !ownerId) return of(response);
+        return documents.saveDocuments(String(ownerId)).pipe(map(() => response));
+      }),
+      finalize(() => this.saving.set(false)),
+    ).subscribe({
       next: (response) => {
         if (action.method === 'get') {
           const resultRows = Array.isArray(response)

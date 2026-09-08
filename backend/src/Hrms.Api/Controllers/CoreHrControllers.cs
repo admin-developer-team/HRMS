@@ -34,7 +34,7 @@ public sealed class LeaveController(ILeaveService service) : ControllerBase
     [HttpGet("types")] public Task<IReadOnlyList<LeaveTypeDto>> Types(CancellationToken ct) => service.ListTypesAsync(ct);
     [HttpPost("requests")] public Task<LeaveRequestDto> Submit(SubmitLeaveRequest request, CancellationToken ct) => service.SubmitAsync(request, ct);
     [HttpPut("requests/{id:guid}/review")] public Task<LeaveRequestDto> Review(Guid id, ReviewLeaveRequest request, CancellationToken ct) => service.ReviewAsync(id, request, ct);
-    [HttpGet("requests")] public Task<PagedResult<LeaveRequestDto>> Search([FromQuery] int page = 1, [FromQuery] int pageSize = 25, [FromQuery] Guid? employeeId = null, [FromQuery] LeaveRequestStatus? status = null, CancellationToken ct = default) => service.SearchAsync(new(page, pageSize), employeeId, status, ct);
+    [HttpGet("requests")] public Task<PagedResult<LeaveRequestDto>> Search([FromQuery] int page = 1, [FromQuery] int pageSize = 25, [FromQuery] string? search = null, [FromQuery] Guid? employeeId = null, [FromQuery] LeaveRequestStatus? status = null, CancellationToken ct = default) => service.SearchAsync(new(page, pageSize, search), employeeId, status, ct);
     [HttpGet("balances/{employeeId:guid}")] public Task<IReadOnlyList<LeaveBalanceDto>> Balances(Guid employeeId, [FromQuery] int? year = null, CancellationToken ct = default) => service.GetBalancesAsync(employeeId, year ?? DateTime.UtcNow.Year, ct);
 }
 

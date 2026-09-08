@@ -74,17 +74,35 @@
       >
         <mat-icon>menu</mat-icon>
       </button>
-      <div class="global-search">
+      <div class="global-search" (focusout)="closeGlobalSearchSoon()">
         <mat-icon>search</mat-icon>
         <input
           type="search"
-          [placeholder]="
-            auth.hasPermission('employees.read')
-              ? 'Search people by name, email or ID...'
-              : 'Open employee services...'
-          "
-          (keydown.enter)="navigateSearch($event)"
+          aria-label="Search the application"
+          placeholder="Search..."
+          [value]="globalSearchQuery()"
+          (focus)="showGlobalSearch()"
+          (input)="onGlobalSearch($any($event.target).value)"
+          (keydown)="globalSearchKeydown($event)"
         />
+        @if (globalSearchOpen()) {
+          <section class="global-search-panel" aria-label="Search results">
+            <header><span>{{ globalSearchQuery() ? 'Search results' : 'Quick actions' }}</span><kbd>↑↓</kbd><kbd>Enter</kbd></header>
+            @if (globalSearchBusy()) { <div class="global-search-loading"><span></span></div> }
+            <div class="global-search-results" role="listbox">
+              @for (result of globalSearchResults(); track result.kind + result.title; let index = $index) {
+                <button type="button" role="option" [attr.aria-selected]="globalSearchActive() === index"
+                  [class.active]="globalSearchActive() === index" (mousedown)="$event.preventDefault()" (click)="openGlobalSearchResult(result)">
+                  <span class="search-result-icon"><mat-icon>{{ result.icon }}</mat-icon></span>
+                  <span class="search-result-copy"><b>{{ result.title }}</b><small>{{ result.subtitle }}</small></span>
+                  <em>{{ result.kind }}</em>
+                </button>
+              } @empty {
+                @if (!globalSearchBusy()) { <div class="global-search-empty"><mat-icon>search_off</mat-icon><span>No accessible results found</span></div> }
+              }
+            </div>
+          </section>
+        }
       </div>
       <div class="topbar-actions">
         <button class="notification-trigger" mat-icon-button [matMenuTriggerFor]="notificationMenu" aria-label="Open notifications">

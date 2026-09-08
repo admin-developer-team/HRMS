@@ -533,6 +533,7 @@ public sealed class LeaveService(IRepository<LeaveType> types, IRepository<Leave
         if (r.EndsOn < r.StartsOn || r.Days <= 0) throw new DomainException("Leave dates or day count are invalid.");
         if (r.StartsOn.Year != r.EndsOn.Year) throw new DomainException("Submit separate requests for each leave year so balances are charged correctly.");
         Required(r.Reason, "Leave reason");
+        if (r.Reason.Trim().Length > 2000) throw new DomainException("Leave reason cannot exceed 2,000 characters.");
         var employee = await employees.GetByIdAsync(r.EmployeeId, ct) ?? throw new KeyNotFoundException("Employee not found.");
         if (employee.Status is EmploymentStatus.Suspended or EmploymentStatus.Terminated or EmploymentStatus.Resigned || r.StartsOn < employee.HireDate)
             throw new DomainException("Leave requires an active employee and cannot precede their hire date.");
@@ -562,12 +563,13 @@ public sealed class LeaveService(IRepository<LeaveType> types, IRepository<Leave
         if (x.Status != LeaveRequestStatus.Pending) throw new DomainException("Only pending requests can be reviewed.");
         if (user.EmployeeId == x.EmployeeId) throw new UnauthorizedAccessException("You cannot review your own leave request.");
         if (!r.Approve && string.IsNullOrWhiteSpace(r.Comment)) throw new DomainException("A rejection reason is required.");
+        if (r.Comment?.Trim().Length > 2000) throw new DomainException("Review comment cannot exceed 2,000 characters.");
         var type = await types.GetByIdAsync(x.LeaveTypeId, ct) ?? throw new KeyNotFoundException("Leave type not found.");
         if (r.Approve && type.RequiresDocument && !await documents.AnyAsync(d => d.OwnerType == DocumentOwnerType.LeaveRequest && d.OwnerId == x.Id && d.Category == "supporting-document", ct))
             throw new DomainException($"A supporting document is required before {type.Name} can be approved.");
         var balance = await GetOrCreateBalance(x.EmployeeId, type, x.StartsOn.Year, ct); balance.Pending = Math.Max(0, balance.Pending - x.Days);
         if (r.Approve) { x.Status = LeaveRequestStatus.Approved; balance.Used += x.Days; } else x.Status = LeaveRequestStatus.Rejected;
-        x.ReviewedBy = user.UserId; x.ReviewedAt = DateTimeOffset.UtcNow; x.ReviewComment = r.Comment;
+        x.ReviewedBy = user.UserId; x.ReviewedAt = DateTimeOffset.UtcNow; x.ReviewComment = string.IsNullOrWhiteSpace(r.Comment) ? null : r.Comment.Trim();
         await notifications.QueueForEmployeesAsync([x.EmployeeId], $"Leave request {x.Status.ToString().ToLowerInvariant()}",
             $"Your {type.Name} leave request for {x.StartsOn:dd MMM yyyy} to {x.EndsOn:dd MMM yyyy} was {x.Status.ToString().ToLowerInvariant()}.",
             "leave", "/my-services", ct);
@@ -575,8 +577,12 @@ public sealed class LeaveService(IRepository<LeaveType> types, IRepository<Leave
     }
     public async Task<PagedResult<LeaveRequestDto>> SearchAsync(PagedRequest r, Guid? employeeId, LeaveRequestStatus? status, CancellationToken ct)
     {
-        System.Linq.Expressions.Expression<Func<LeaveRequest, bool>> p = x => (!employeeId.HasValue || x.EmployeeId == employeeId) && (!status.HasValue || x.Status == status);
-        var total = await requests.CountAsync(p, ct); var rows = await requests.ListAsync(p, q => q.OrderByDescending(x => x.StartsOn), r.Skip, r.SafePageSize, ct); return new(rows.Select(Map).ToArray(), r.SafePage, r.SafePageSize, total);
+        var query = r.Search?.Trim().ToLowerInvariant();
+        System.Linq.Expressions.Expression<Func<LeaveRequest, bool>> p = x => (!employeeId.HasValue || x.EmployeeId == employeeId) && (!status.HasValue || x.Status == status)
+            && (string.IsNullOrEmpty(query) || x.Reason.ToLower().Contains(query));
+        var total = await requests.CountAsync(p, ct);
+        var rows = await requests.ListAsync(p, q => q.OrderBy(x => x.Status == LeaveRequestStatus.Pending ? 0 : 1).ThenByDescending(x => x.CreatedAt), r.Skip, r.SafePageSize, ct);
+        return new(rows.Select(Map).ToArray(), r.SafePage, r.SafePageSize, total);
     }
     public async Task<IReadOnlyList<LeaveBalanceDto>> GetBalancesAsync(Guid employeeId, int year, CancellationToken ct)
     {
@@ -606,7 +612,7 @@ public sealed class LeaveService(IRepository<LeaveType> types, IRepository<Leave
         return Map(row);
     }
     private static LeaveTypeDto Map(LeaveType x) => new(x.Id, x.Name, x.Code, x.AnnualAllowance, x.IsPaid, x.RequiresDocument, x.MaxConsecutiveDays);
-    private static LeaveRequestDto Map(LeaveRequest x) => new(x.Id, x.EmployeeId, x.LeaveTypeId, x.StartsOn, x.EndsOn, x.Days, x.Reason, x.Status, x.ReviewComment, x.Version);
+    private static LeaveRequestDto Map(LeaveRequest x) => new(x.Id, x.EmployeeId, x.LeaveTypeId, x.StartsOn, x.EndsOn, x.Days, x.Reason, x.Status, x.ReviewComment, x.CreatedAt, x.ReviewedAt, x.Version);
     private static LeaveBalanceDto Map(LeaveBalance x) => new(x.LeaveTypeId, x.Year, x.Entitled, x.Used, x.Pending, x.Available);
 }
 

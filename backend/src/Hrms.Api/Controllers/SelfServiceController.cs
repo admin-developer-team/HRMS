@@ -26,7 +26,7 @@ public sealed class SelfServiceController(ISelfService service) : ControllerBase
 
     [HttpPost("leave")] public Task<LeaveRequestDto> SubmitLeave(SelfLeaveRequest request, CancellationToken ct) => service.SubmitLeaveAsync(request, ct);
     [HttpGet("leave-types")] public Task<IReadOnlyList<LeaveTypeDto>> LeaveTypes(CancellationToken ct) => service.GetLeaveTypesAsync(ct);
-    [HttpGet("leave")] public Task<PagedResult<LeaveRequestDto>> Leave([FromQuery] int page = 1, [FromQuery] int pageSize = 25, [FromQuery] LeaveRequestStatus? status = null, CancellationToken ct = default) => service.GetLeaveAsync(new(page, pageSize), status, ct);
+    [HttpGet("leave")] public Task<PagedResult<LeaveRequestDto>> Leave([FromQuery] int page = 1, [FromQuery] int pageSize = 25, [FromQuery] string? search = null, [FromQuery] LeaveRequestStatus? status = null, CancellationToken ct = default) => service.GetLeaveAsync(new(page, pageSize, search), status, ct);
     [HttpGet("leave-balances")] public Task<IReadOnlyList<LeaveBalanceDto>> LeaveBalances([FromQuery] int? year = null, CancellationToken ct = default) => service.GetLeaveBalancesAsync(year ?? DateTime.UtcNow.Year, ct);
 
     [HttpPost("timesheets")] public Task<TimesheetDto> SubmitTimesheet(SelfTimesheetRequest request, CancellationToken ct) => service.SubmitTimesheetAsync(request, ct);
@@ -48,7 +48,7 @@ public sealed class SelfServiceController(ISelfService service) : ControllerBase
     [HttpPost("change-password")] public async Task<IActionResult> ChangePassword(ChangePasswordRequest request, CancellationToken ct) { await service.ChangePasswordAsync(request, ct); return NoContent(); }
 
     [HttpGet("team"), Authorize(Policy = Permissions.TeamRead)] public Task<IReadOnlyList<TeamMemberDto>> Team(CancellationToken ct) => service.GetTeamAsync(ct);
-    [HttpGet("team/leave"), Authorize(Policy = Permissions.TeamRead)] public Task<PagedResult<LeaveRequestDto>> TeamLeave([FromQuery] int page = 1, [FromQuery] int pageSize = 25, [FromQuery] LeaveRequestStatus? status = null, CancellationToken ct = default) => service.GetTeamLeaveAsync(new(page, pageSize), status, ct);
+    [HttpGet("team/leave"), Authorize(Policy = Permissions.TeamRead)] public Task<PagedResult<LeaveRequestDto>> TeamLeave([FromQuery] int page = 1, [FromQuery] int pageSize = 25, [FromQuery] string? search = null, [FromQuery] LeaveRequestStatus? status = null, CancellationToken ct = default) => service.GetTeamLeaveAsync(new(page, pageSize, search), status, ct);
     [HttpPut("team/leave/{id:guid}/review"), Authorize(Policy = Permissions.TeamApprove)] public Task<LeaveRequestDto> ReviewTeamLeave(Guid id, ReviewLeaveRequest request, CancellationToken ct) => service.ReviewTeamLeaveAsync(id, request, ct);
     [HttpGet("team/attendance"), Authorize(Policy = Permissions.TeamRead)] public Task<PagedResult<AttendanceDto>> TeamAttendance([FromQuery] int page = 1, [FromQuery] int pageSize = 25, [FromQuery] DateOnly? from = null, [FromQuery] DateOnly? to = null, CancellationToken ct = default) => service.GetTeamAttendanceAsync(new(page, pageSize), from, to, ct);
     [HttpGet("team/timesheets"), Authorize(Policy = Permissions.TeamRead)] public Task<PagedResult<TimesheetDto>> TeamTimesheets([FromQuery] int page = 1, [FromQuery] int pageSize = 25, [FromQuery] WorkflowStatus? status = null, CancellationToken ct = default) => service.GetTeamTimesheetsAsync(new(page, pageSize), status, ct);

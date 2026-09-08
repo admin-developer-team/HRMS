@@ -60,7 +60,7 @@ public sealed record CreateLeaveTypeRequest(string Name, string Code, decimal An
 public sealed record LeaveTypeDto(Guid Id, string Name, string Code, decimal AnnualAllowance, bool IsPaid, bool RequiresDocument, int MaxConsecutiveDays);
 public sealed record SubmitLeaveRequest(Guid EmployeeId, Guid LeaveTypeId, DateOnly StartsOn, DateOnly EndsOn, decimal Days, string Reason);
 public sealed record ReviewLeaveRequest(bool Approve, string? Comment, long Version);
-public sealed record LeaveRequestDto(Guid Id, Guid EmployeeId, Guid LeaveTypeId, DateOnly StartsOn, DateOnly EndsOn, decimal Days, string Reason, LeaveRequestStatus Status, string? ReviewComment, long Version);
+public sealed record LeaveRequestDto(Guid Id, Guid EmployeeId, Guid LeaveTypeId, DateOnly StartsOn, DateOnly EndsOn, decimal Days, string Reason, LeaveRequestStatus Status, string? ReviewComment, DateTimeOffset CreatedAt, DateTimeOffset? ReviewedAt, long Version);
 public sealed record LeaveBalanceDto(Guid LeaveTypeId, int Year, decimal Entitled, decimal Used, decimal Pending, decimal Available);
 
 public sealed record ClockRequest(Guid EmployeeId, DateTimeOffset? Timestamp = null, string Source = "web", string? Notes = null,
