@@ -28,6 +28,7 @@ public sealed class DatabaseInitializer(HrmsDbContext db, ICurrentTenant current
             db.UserRoles.Add(new UserRole { TenantId = PlatformTenantId, UserId = PlatformUserId, RoleId = PlatformRoleId });
             await db.SaveChangesAsync(ct);
         }
+        await EnsurePlatformEmailSettingsAsync(ct);
         var tenants = await db.Tenants.IgnoreQueryFilters().Where(x => x.Id != PlatformTenantId).ToListAsync(ct);
         foreach (var tenant in tenants)
         {
@@ -43,5 +44,42 @@ public sealed class DatabaseInitializer(HrmsDbContext db, ICurrentTenant current
             await db.SaveChangesAsync(ct);
         }
         currentTenant.Clear();
+    }
+
+    private async Task EnsurePlatformEmailSettingsAsync(CancellationToken ct)
+    {
+        currentTenant.Set(PlatformTenantId, "platform");
+        var allConfigurations = await db.EmailConfigurations.IgnoreQueryFilters()
+            .Where(x => !x.IsDeleted).OrderByDescending(x => x.UpdatedAt ?? x.CreatedAt).ToListAsync(ct);
+        var platformConfiguration = allConfigurations.FirstOrDefault(x => x.TenantId == PlatformTenantId);
+        if (platformConfiguration is null)
+        {
+            var previous = allConfigurations.FirstOrDefault(x => x.IsEnabled);
+            if (previous is not null)
+            {
+                db.EmailConfigurations.Add(new EmailConfiguration
+                {
+                    TenantId = PlatformTenantId,
+                    IsEnabled = previous.IsEnabled,
+                    Host = previous.Host,
+                    Port = previous.Port,
+                    Username = previous.Username,
+                    EncryptedPassword = previous.EncryptedPassword,
+                    UseTls = previous.UseTls,
+                    FromEmail = previous.FromEmail,
+                    FromName = previous.FromName,
+                    ReplyToEmail = previous.ReplyToEmail,
+                    ApplicationBaseUrl = previous.ApplicationBaseUrl
+                });
+            }
+        }
+        foreach (var obsolete in allConfigurations.Where(x => x.TenantId != PlatformTenantId && x.IsEnabled))
+            obsolete.IsEnabled = false;
+
+        var existingKeys = await db.EmailTemplates.IgnoreQueryFilters()
+            .Where(x => x.TenantId == PlatformTenantId && !x.IsDeleted).Select(x => x.Key).ToListAsync(ct);
+        var keySet = existingKeys.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        db.EmailTemplates.AddRange(EmailTemplateCatalog.CreateDefaults(PlatformTenantId).Where(x => !keySet.Contains(x.Key)));
+        await db.SaveChangesAsync(ct);
     }
 }

@@ -17,6 +17,7 @@ ENV ASPNETCORE_ENVIRONMENT=Production \
     ASPNETCORE_HTTP_PORTS=8080 \
     DOTNET_EnableDiagnostics=0
 COPY --from=build --chown=app:app /app/publish .
+RUN mkdir -p /var/lib/hrms/documents /var/lib/hrms/keys && chown -R app:app /var/lib/hrms
 USER app
 EXPOSE 8080 10000
 ENTRYPOINT ["dotnet", "Hrms.Api.dll"]

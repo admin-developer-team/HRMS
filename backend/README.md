@@ -87,6 +87,14 @@ Use the returned bearer token to call `POST /api/v1/platform/tenants`. Tenant pr
 
 Creating an employee record does not silently create credentials. An authorized administrator should provision the linked account from the employee UI or through `POST /api/v1/identity/employees/{employeeId}/account`. The login email must match the employee work email.
 
+## Email notifications
+
+Only the platform superadmin configures email from **Settings → Platform email notifications**. That one provider-neutral SMTP connection and shared template catalog serve every company, so providers can be changed without code changes. The public application URL is taken from the deployed frontend origin when settings are saved; links include the target company slug and return to the intended HRMS screen after sign-in. For Brevo, enter the SMTP relay host, port `587`, the SMTP login as the username, and an SMTP key as the password; use a verified sender address and keep TLS enabled.
+
+SMTP passwords are encrypted with ASP.NET Core Data Protection and are never returned by the API or written to audit payloads. Temporary account passwords exist in the retry outbox only until successful delivery and are then erased. In containers, persist the configured key ring (`DataProtection__KeysPath`; the included Compose file mounts `/var/lib/hrms/keys`) or saved SMTP credentials cannot be decrypted after the key ring is replaced.
+
+Email templates are stored per tenant in the database and can be edited from Settings. Workflow notifications are written to `EmailOutboxItems` in the same transaction as the HRMS change, then delivered by a background worker with exponential retry. Account creation, password/security changes, leave, attendance corrections, timesheets, documents, announcements, payroll, recruitment/candidate updates, performance, assets, expenses, training, and work management are covered. The administrator can send a test message before enabling delivery.
+
 Use the system roles as follows:
 
 | Role | Intended user |

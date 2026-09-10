@@ -239,6 +239,39 @@
   .profile-settings-layout { grid-template-columns: 1fr; }
 }
 
+.email-card,
+.email-template-card { grid-column: 1 / -1; }
+
+.email-grid {
+  display: grid;
+  grid-template-columns: 2fr 0.7fr 1.3fr 1.3fr;
+  gap: 14px;
+}
+
+.email-grid .wide { grid-column: span 2; }
+
+.compact-row { min-height: 56px; }
+
+.email-actions {
+  margin-top: 16px;
+  display: flex;
+  align-items: end;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.test-recipient { margin-right: auto; min-width: 260px; }
+
+.email-template-card textarea {
+  width: 100%;
+  resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.email-template-card .field { margin-bottom: 14px; }
+
 @media (max-width: 620px) {
   .preset-grid,
   .setting-grid,
@@ -247,6 +280,11 @@
   .password-grid {
     grid-template-columns: 1fr;
   }
+
+  .email-grid { grid-template-columns: 1fr; }
+  .email-grid .wide { grid-column: span 1; }
+  .email-actions { align-items: stretch; flex-direction: column; }
+  .test-recipient { width: 100%; min-width: 0; }
 
   .setting-actions {
     display: grid;

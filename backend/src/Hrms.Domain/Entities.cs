@@ -461,6 +461,45 @@ public sealed class WorkItem : TenantEntity
     public DateTimeOffset? ResolvedAt { get; set; }
 }
 
+// Provider-neutral, platform-owned email configuration. Credentials are encrypted by
+// the application and one superadmin-managed SMTP account serves every company.
+public sealed class EmailConfiguration : TenantEntity
+{
+    public bool IsEnabled { get; set; }
+    public string Host { get; set; } = string.Empty;
+    public int Port { get; set; } = 587;
+    public string? Username { get; set; }
+    public string? EncryptedPassword { get; set; }
+    public bool UseTls { get; set; } = true;
+    public string FromEmail { get; set; } = string.Empty;
+    public string FromName { get; set; } = string.Empty;
+    public string? ReplyToEmail { get; set; }
+    public string? ApplicationBaseUrl { get; set; }
+}
+
+public sealed class EmailTemplate : TenantEntity
+{
+    public string Key { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string SubjectTemplate { get; set; } = string.Empty;
+    public string HtmlTemplate { get; set; } = string.Empty;
+    public string? TextTemplate { get; set; }
+    public bool IsEnabled { get; set; } = true;
+    public bool IsSystem { get; set; } = true;
+}
+
+public sealed class EmailOutboxItem : TenantEntity
+{
+    public string ToEmail { get; set; } = string.Empty;
+    public string? ToName { get; set; }
+    public string TemplateKey { get; set; } = string.Empty;
+    public string ModelJson { get; set; } = "{}";
+    public int AttemptCount { get; set; }
+    public DateTimeOffset NextAttemptAt { get; set; }
+    public DateTimeOffset? SentAt { get; set; }
+    public string? LastError { get; set; }
+}
+
 public sealed class AttendanceCorrection : TenantEntity
 {
     public Guid EmployeeId { get; set; }

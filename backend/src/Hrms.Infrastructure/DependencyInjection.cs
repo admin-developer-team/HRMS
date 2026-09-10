@@ -10,6 +10,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.AspNetCore.DataProtection;
 
 namespace Hrms.Infrastructure;
 
@@ -21,6 +22,13 @@ public static class DependencyInjection
         if (string.IsNullOrWhiteSpace(configuredConnection)) throw new InvalidOperationException("ConnectionStrings:Hrms is required.");
         var connectionString = PostgresConnectionString.Normalize(configuredConnection);
         services.AddHttpContextAccessor();
+        var dataProtection = services.AddDataProtection().SetApplicationName("PeopleFlow.HRMS");
+        var keyPath = configuration["DataProtection:KeysPath"];
+        if (!string.IsNullOrWhiteSpace(keyPath))
+        {
+            Directory.CreateDirectory(keyPath);
+            dataProtection.PersistKeysToFileSystem(new DirectoryInfo(keyPath));
+        }
         services.AddScoped<ICurrentTenant, CurrentTenant>();
         services.AddScoped<ICurrentUser, CurrentUser>();
         services.AddDbContext<HrmsDbContext>(options => options.UseNpgsql(connectionString, npgsql => npgsql.MigrationsAssembly(typeof(HrmsDbContext).Assembly.FullName)));
@@ -81,6 +89,12 @@ public static class DependencyInjection
         services.AddScoped<IWorkManagementService, WorkManagementService>();
         services.AddScoped<IDocumentService, DocumentService>();
         services.AddScoped<INotificationService, NotificationService>();
+        services.AddScoped<IEmailQueue, EmailQueue>();
+        services.AddScoped<IGlobalEmailConfigurationReader, GlobalEmailConfigurationReader>();
+        services.AddScoped<IEmailAdministrationService, EmailAdministrationService>();
+        services.AddSingleton<IEmailSecretProtector, DataProtectionEmailSecretProtector>();
+        services.AddSingleton<IEmailTransport, SmtpEmailTransport>();
+        services.AddHostedService<EmailOutboxWorker>();
         services.AddScoped<ICompanyProfileService, CompanyProfileService>();
         services.AddScoped<DatabaseInitializer>();
         services.AddScoped<DemoCompanySeeder>();

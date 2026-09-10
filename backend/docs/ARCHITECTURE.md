@@ -31,7 +31,7 @@ Controllers translate HTTP only. Services own validation and state transitions. 
 
 - Payroll: replace the default base-pay calculator with country/version-specific rule services.
 - Files: issue object-storage upload URLs and persist only `StorageKey` through the document endpoints.
-- Notifications: publish transactional outbox records to email/SMS/push workers.
+- Notifications: tenant events enqueue company-scoped outbox records; one platform-owned SMTP configuration and shared template catalog deliver them with retry, company branding, and tenant-aware application links.
 - Enterprise identity: map OIDC/SAML/SCIM identities to `UserAccount` and tenant roles.
 - Reporting: use read replicas/materialized views rather than bypassing tenant filters in request code.
 

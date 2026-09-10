@@ -28,6 +28,9 @@ public sealed class HrmsDbContext(DbContextOptions<HrmsDbContext> options, ICurr
     public DbSet<EmployeeDocument> EmployeeDocuments => Set<EmployeeDocument>();
     public DbSet<StoredDocument> StoredDocuments => Set<StoredDocument>();
     public DbSet<UserNotification> UserNotifications => Set<UserNotification>();
+    public DbSet<EmailConfiguration> EmailConfigurations => Set<EmailConfiguration>();
+    public DbSet<EmailTemplate> EmailTemplates => Set<EmailTemplate>();
+    public DbSet<EmailOutboxItem> EmailOutboxItems => Set<EmailOutboxItem>();
     public DbSet<Shift> Shifts => Set<Shift>();
     public DbSet<AttendancePolicy> AttendancePolicies => Set<AttendancePolicy>();
     public DbSet<AttendanceRecord> AttendanceRecords => Set<AttendanceRecord>();
@@ -116,6 +119,9 @@ public sealed class HrmsDbContext(DbContextOptions<HrmsDbContext> options, ICurr
         modelBuilder.Entity<WorkItemHistory>().HasIndex(x => new { x.TenantId, x.WorkItemId, x.CreatedAt });
         modelBuilder.Entity<StoredDocument>().HasIndex(x => new { x.TenantId, x.OwnerType, x.OwnerId, x.Category, x.CreatedAt });
         modelBuilder.Entity<UserNotification>().HasIndex(x => new { x.TenantId, x.UserId, x.ReadAt, x.CreatedAt });
+        modelBuilder.Entity<EmailConfiguration>().HasIndex(x => x.TenantId).IsUnique();
+        modelBuilder.Entity<EmailTemplate>().HasIndex(x => new { x.TenantId, x.Key }).IsUnique();
+        modelBuilder.Entity<EmailOutboxItem>().HasIndex(x => new { x.SentAt, x.NextAttemptAt });
 
         foreach (var property in modelBuilder.Model.GetEntityTypes().SelectMany(x => x.GetProperties()).Where(x => x.ClrType == typeof(decimal) || x.ClrType == typeof(decimal?)))
         {
@@ -139,7 +145,9 @@ public sealed class HrmsDbContext(DbContextOptions<HrmsDbContext> options, ICurr
             .Select(x => x.Entity.UserId).Distinct().ToArray();
         var changed = ChangeTracker.Entries<AuditableEntity>()
             .Where(x => x.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
-            .Where(x => x.Entity is not AuditLog)
+            // Delivery attempts are operational telemetry, not business changes;
+            // auditing each retry would duplicate message content and grow logs rapidly.
+            .Where(x => x.Entity is not AuditLog and not EmailOutboxItem)
             .ToArray();
 
         foreach (var entry in changed)

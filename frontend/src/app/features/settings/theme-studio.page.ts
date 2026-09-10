@@ -39,6 +39,28 @@ export class ThemeStudioPage {
   readonly newPassword = signal('');
   readonly confirmPassword = signal('');
   readonly savingPassword = signal(false);
+  readonly emailConfiguration = signal<EmailConfiguration | null>(null);
+  readonly emailTemplates = signal<EmailTemplate[]>([]);
+  readonly selectedEmailTemplateId = signal('');
+  readonly smtpEnabled = signal(false);
+  readonly smtpHost = signal('');
+  readonly smtpPort = signal(587);
+  readonly smtpUsername = signal('');
+  readonly smtpPassword = signal('');
+  readonly smtpUseTls = signal(true);
+  readonly smtpFromEmail = signal('');
+  readonly smtpFromName = signal('');
+  readonly smtpReplyTo = signal('');
+  readonly applicationBaseUrl = signal('');
+  readonly testRecipient = signal('');
+  readonly savingEmail = signal(false);
+  readonly testingEmail = signal(false);
+  readonly savingTemplate = signal(false);
+  readonly selectedEmailTemplate = computed(() => this.emailTemplates().find(x => x.id === this.selectedEmailTemplateId()) ?? null);
+  readonly templateSubject = signal('');
+  readonly templateHtml = signal('');
+  readonly templateText = signal('');
+  readonly templateEnabled = signal(true);
   readonly profileOwnerType = computed(() => this.auth.user()?.employeeId ? 'Employee' as const : 'User' as const);
   readonly profileOwnerId = computed(() => this.auth.user()?.employeeId ?? this.auth.user()?.id ?? '');
   readonly companyName = signal('');
@@ -61,6 +83,7 @@ export class ThemeStudioPage {
       this.loadProfile();
       if (this.auth.hasPermission('employees.manage')) this.loadManagedEmployee();
     }
+    if (this.auth.isPlatformAdmin()) this.loadEmailSettings();
   }
 
   saveProfile(): void {
@@ -139,6 +162,55 @@ export class ThemeStudioPage {
       });
   }
 
+  saveEmailConfiguration(): void {
+    const current = this.emailConfiguration();
+    if (!current) return;
+    this.savingEmail.set(true);
+    this.api.put<EmailConfiguration>('/email-settings', {
+      isEnabled: this.smtpEnabled(), host: this.smtpHost().trim(), port: this.smtpPort(),
+      username: this.smtpUsername().trim() || null, password: this.smtpPassword() || null,
+      useTls: this.smtpUseTls(), fromEmail: this.smtpFromEmail().trim(), fromName: this.smtpFromName().trim(),
+      replyToEmail: this.smtpReplyTo().trim() || null, applicationBaseUrl: this.applicationBaseUrl().trim() || null,
+      version: current.version,
+    }).pipe(finalize(() => this.savingEmail.set(false))).subscribe({
+      next: value => { this.setEmailConfiguration(value); this.smtpPassword.set(''); this.loadTemplates(); this.toast.success('Email configuration saved.'); },
+      error: () => this.toast.error('Could not save email configuration.'),
+    });
+  }
+
+  sendTestEmail(): void {
+    this.testingEmail.set(true);
+    this.api.post<void>('/email-settings/test', { recipientEmail: this.testRecipient().trim() || null })
+      .pipe(finalize(() => this.testingEmail.set(false))).subscribe({
+        next: () => this.toast.success('Test email sent.'),
+        error: () => this.toast.error('Test email failed. Check the SMTP host, port, credentials, sender verification, and TLS setting.'),
+      });
+  }
+
+  selectEmailTemplate(id: string): void {
+    this.selectedEmailTemplateId.set(id);
+    const template = this.emailTemplates().find(x => x.id === id);
+    if (!template) return;
+    this.templateSubject.set(template.subjectTemplate); this.templateHtml.set(template.htmlTemplate);
+    this.templateText.set(template.textTemplate ?? ''); this.templateEnabled.set(template.isEnabled);
+  }
+
+  saveEmailTemplate(): void {
+    const template = this.selectedEmailTemplate();
+    if (!template) return;
+    this.savingTemplate.set(true);
+    this.api.put<EmailTemplate>(`/email-settings/templates/${template.id}`, {
+      subjectTemplate: this.templateSubject(), htmlTemplate: this.templateHtml(), textTemplate: this.templateText() || null,
+      isEnabled: this.templateEnabled(), version: template.version,
+    }).pipe(finalize(() => this.savingTemplate.set(false))).subscribe({
+      next: updated => {
+        this.emailTemplates.update(rows => rows.map(x => x.id === updated.id ? updated : x));
+        this.selectEmailTemplate(updated.id); this.toast.success('Email template saved.');
+      },
+      error: () => this.toast.error('Could not save email template.'),
+    });
+  }
+
   refreshCompanyBranding(): void {
     this.company.load().subscribe({ error: () => this.toast.error('Could not refresh company branding.') });
   }
@@ -157,6 +229,30 @@ export class ThemeStudioPage {
       next: (employee) => this.setManagedEmployee(employee),
       error: () => this.toast.error('Could not load the administrative profile editor.'),
     });
+  }
+
+  private loadEmailSettings(): void {
+    this.api.get<EmailConfiguration>('/email-settings').subscribe({
+      next: value => { this.setEmailConfiguration(value); this.testRecipient.set(this.auth.user()?.email ?? ''); },
+      error: () => this.toast.error('Could not load email configuration.'),
+    });
+    this.loadTemplates();
+  }
+
+  private loadTemplates(): void {
+    this.api.get<EmailTemplate[]>('/email-settings/templates').subscribe({
+      next: rows => { this.emailTemplates.set(rows); if (rows.length) this.selectEmailTemplate(rows[0].id); },
+      error: () => this.toast.error('Could not load email templates.'),
+    });
+  }
+
+  private setEmailConfiguration(value: EmailConfiguration): void {
+    this.emailConfiguration.set(value); this.smtpEnabled.set(value.isEnabled); this.smtpHost.set(value.host);
+    this.smtpPort.set(value.port); this.smtpUsername.set(value.username ?? ''); this.smtpUseTls.set(value.useTls);
+    this.smtpFromEmail.set(value.fromEmail); this.smtpFromName.set(value.fromName); this.smtpReplyTo.set(value.replyToEmail ?? '');
+    // The settings screen is served by the public frontend, so its origin is the
+    // authoritative deployment URL (localhost in development, the server in production).
+    this.applicationBaseUrl.set(globalThis.location?.origin ?? value.applicationBaseUrl ?? '');
   }
 
   private setManagedEmployee(employee: Employee): void {
@@ -178,4 +274,14 @@ export class ThemeStudioPage {
     );
     return `${(value >> 16) & 255} ${(value >> 8) & 255} ${value & 255}`;
   }
+}
+
+interface EmailConfiguration {
+  isEnabled: boolean; host: string; port: number; username?: string; hasPassword: boolean; useTls: boolean;
+  fromEmail: string; fromName: string; replyToEmail?: string; applicationBaseUrl?: string; version: number;
+}
+
+interface EmailTemplate {
+  id: string; key: string; name: string; subjectTemplate: string; htmlTemplate: string; textTemplate?: string;
+  isEnabled: boolean; isSystem: boolean; version: number;
 }

@@ -17,7 +17,7 @@ public interface INotificationService
     Task MarkReadAsync(Guid id, CancellationToken ct);
     Task MarkAllReadAsync(CancellationToken ct);
     Task QueueForEmployeesAsync(IEnumerable<Guid?> employeeIds, string title, string message, string kind, string? link, CancellationToken ct);
-    Task QueueForUsersAsync(IEnumerable<Guid> userIds, string title, string message, string kind, string? link, CancellationToken ct);
+    Task QueueForUsersAsync(IEnumerable<Guid> userIds, string title, string message, string kind, string? link, CancellationToken ct, bool sendEmail = true);
     Task QueueForPermissionAsync(string permission, string title, string message, string kind, string? link, CancellationToken ct);
     Task QueueForAllUsersAsync(string title, string message, string kind, string? link, CancellationToken ct);
 }
@@ -30,7 +30,8 @@ public sealed class NotificationService(
     IRepository<UserRole> userRoles,
     ICurrentTenant tenant,
     ICurrentUser user,
-    IUnitOfWork unitOfWork) : INotificationService
+    IUnitOfWork unitOfWork,
+    IEmailQueue? emailQueue = null) : INotificationService
 {
     private Guid UserId => user.UserId ?? throw new UnauthorizedAccessException("User identity is missing.");
     private Guid TenantId => tenant.TenantId ?? throw new UnauthorizedAccessException("Tenant identity is missing.");
@@ -63,26 +64,18 @@ public sealed class NotificationService(
     {
         var ids = employeeIds.Where(x => x.HasValue).Select(x => x!.Value).Distinct().ToArray();
         if (ids.Length == 0) return;
-        var recipients = await employees.ListAsync(x => ids.Contains(x.Id) && x.UserId != null, cancellationToken: ct);
-        foreach (var recipientId in recipients.Select(x => x.UserId!.Value).Distinct().Where(x => x != user.UserId))
-            await notifications.AddAsync(new UserNotification
-            {
-                TenantId = TenantId, UserId = recipientId, Title = title.Trim(), Message = message.Trim(),
-                Kind = string.IsNullOrWhiteSpace(kind) ? "info" : kind.Trim().ToLowerInvariant(), Link = link
-            }, ct);
+        var linked = await employees.ListAsync(x => ids.Contains(x.Id) && x.UserId != null, cancellationToken: ct);
+        var userIds = linked.Select(x => x.UserId!.Value).Distinct().Where(x => x != user.UserId).ToArray();
+        var recipients = await users.ListAsync(x => userIds.Contains(x.Id) && x.IsActive, cancellationToken: ct);
+        foreach (var recipient in recipients) await AddAsync(recipient, title, message, kind, link, ct);
     }
 
-    public async Task QueueForUsersAsync(IEnumerable<Guid> userIds, string title, string message, string kind, string? link, CancellationToken ct)
+    public async Task QueueForUsersAsync(IEnumerable<Guid> userIds, string title, string message, string kind, string? link, CancellationToken ct, bool sendEmail = true)
     {
         var ids = userIds.Distinct().Where(x => x != user.UserId).ToArray();
         if (ids.Length == 0) return;
         var recipients = await users.ListAsync(x => ids.Contains(x.Id) && x.IsActive, cancellationToken: ct);
-        foreach (var recipientId in recipients.Select(x => x.Id))
-            await notifications.AddAsync(new UserNotification
-            {
-                TenantId = TenantId, UserId = recipientId, Title = title.Trim(), Message = message.Trim(),
-                Kind = string.IsNullOrWhiteSpace(kind) ? "info" : kind.Trim().ToLowerInvariant(), Link = link
-            }, ct);
+        foreach (var recipient in recipients) await AddAsync(recipient, title, message, kind, link, ct, sendEmail);
     }
 
     public async Task QueueForPermissionAsync(string permission, string title, string message, string kind, string? link, CancellationToken ct)
@@ -97,23 +90,26 @@ public sealed class NotificationService(
             .Select(x => x.UserId).Distinct().ToArray();
         if (recipientUserIds.Length == 0) return;
         var recipients = await users.ListAsync(x => recipientUserIds.Contains(x.Id) && x.IsActive, cancellationToken: ct);
-        foreach (var recipientId in recipients.Select(x => x.Id).Distinct().Where(x => x != user.UserId))
-            await notifications.AddAsync(new UserNotification
-            {
-                TenantId = TenantId, UserId = recipientId, Title = title.Trim(), Message = message.Trim(),
-                Kind = string.IsNullOrWhiteSpace(kind) ? "info" : kind.Trim().ToLowerInvariant(), Link = link
-            }, ct);
+        foreach (var recipient in recipients.Where(x => x.Id != user.UserId)) await AddAsync(recipient, title, message, kind, link, ct);
     }
 
     public async Task QueueForAllUsersAsync(string title, string message, string kind, string? link, CancellationToken ct)
     {
         var recipients = await users.ListAsync(x => x.IsActive, cancellationToken: ct);
-        foreach (var recipientId in recipients.Select(x => x.Id).Distinct().Where(x => x != user.UserId))
-            await notifications.AddAsync(new UserNotification
-            {
-                TenantId = TenantId, UserId = recipientId, Title = title.Trim(), Message = message.Trim(),
-                Kind = string.IsNullOrWhiteSpace(kind) ? "info" : kind.Trim().ToLowerInvariant(), Link = link
-            }, ct);
+        foreach (var recipient in recipients.Where(x => x.Id != user.UserId)) await AddAsync(recipient, title, message, kind, link, ct);
+    }
+
+    private async Task AddAsync(UserAccount recipient, string title, string message, string kind, string? link, CancellationToken ct, bool sendEmail = true)
+    {
+        var normalizedKind = string.IsNullOrWhiteSpace(kind) ? "info" : kind.Trim().ToLowerInvariant();
+        await notifications.AddAsync(new UserNotification
+        {
+            TenantId = TenantId, UserId = recipient.Id, Title = title.Trim(), Message = message.Trim(),
+            Kind = normalizedKind, Link = link
+        }, ct);
+        if (sendEmail && emailQueue is not null)
+            await emailQueue.QueueAsync(recipient.Email, recipient.DisplayName, EmailTemplateKeys.ForNotification(normalizedKind),
+                new Dictionary<string, string?> { ["title"] = title.Trim(), ["message"] = message.Trim(), ["link"] = link }, ct);
     }
 
     private static NotificationDto Map(UserNotification x) => new(x.Id, x.Title, x.Message, x.Kind, x.Link, x.ReadAt.HasValue, x.CreatedAt);

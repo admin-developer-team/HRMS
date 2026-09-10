@@ -27,7 +27,8 @@ public sealed class SelfService(
     ITrainingService trainingService,
     IPerformanceService performanceService,
     IPasswordHasher passwordHasher,
-    IUnitOfWork unitOfWork) : ISelfService
+    IUnitOfWork unitOfWork,
+    IEmailQueue? emailQueue = null) : ISelfService
 {
     private Guid EmployeeId => currentUser.EmployeeId ?? throw new UnauthorizedAccessException("This account is not linked to an employee record.");
 
@@ -169,6 +170,8 @@ public sealed class SelfService(
         if (!passwordHasher.Verify(r.CurrentPassword, user.PasswordHash)) throw new DomainException("Current password is incorrect.");
         user.PasswordHash = passwordHasher.Hash(r.NewPassword);
         foreach (var token in await refreshTokens.ListAsync(x => x.UserId == user.Id && x.RevokedAt == null, cancellationToken: ct)) token.RevokedAt = DateTimeOffset.UtcNow;
+        if (emailQueue is not null) await emailQueue.QueueAsync(user.Email, user.DisplayName, EmailTemplateKeys.ForNotification("security"),
+            new Dictionary<string, string?> { ["title"] = "Password changed", ["message"] = "Your HRMS password was changed and all other sessions were signed out. If this was not you, contact your administrator immediately.", ["link"] = "/login" }, ct);
         await unitOfWork.SaveChangesAsync(ct);
     }
 

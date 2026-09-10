@@ -12,6 +12,6 @@
 - Select and certify payroll/tax rules per country, legal entity and effective date. Reconcile totals before enabling payment.
 - Add MFA, enterprise SSO/SCIM, password reset/email verification and privileged-session controls.
 - Export structured logs, metrics and traces; alert on login abuse, cross-tenant rejections, payroll changes and outbox failures.
-- Add background workers for the outbox, scheduled accruals, expiry reminders and notification delivery.
+- Persist the Data Protection key ring used to encrypt the platform SMTP credential, verify sender domains, set the public frontend URL in superadmin email settings, and monitor failed email outbox deliveries. Scheduled accruals and expiry reminders remain separate operational jobs.
 - Run load, penetration, dependency, container and migration rollback tests in CI.
 - Complete privacy/DPA, data residency, retention, subject-access/deletion and employee-consent requirements for each sales region.

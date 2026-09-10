@@ -203,7 +203,8 @@ public sealed class TenantService(
     IRepository<Tenant> tenants, IRepository<TenantSubscription> subscriptions, IRepository<UserAccount> users,
     IRepository<Role> roles, IRepository<UserRole> userRoles, IRepository<LeaveType> leaveTypes,
     IRepository<Employee> employees, IRepository<RefreshToken> refreshTokens,
-    IPasswordHasher passwordHasher, IUnitOfWork unitOfWork, ICurrentTenant currentTenant) : ITenantService
+    IPasswordHasher passwordHasher, IUnitOfWork unitOfWork, ICurrentTenant currentTenant,
+    IEmailQueue? emailQueue = null) : ITenantService
 {
     public async Task<TenantDto> CreateAsync(CreateTenantRequest request, CancellationToken ct)
     {
@@ -243,6 +244,15 @@ public sealed class TenantService(
         await userRoles.AddAsync(new UserRole { TenantId = tenant.Id, UserId = admin.Id, RoleId = role.Id }, ct);
         await leaveTypes.AddAsync(new LeaveType { TenantId = tenant.Id, Name = "Annual Leave", Code = "ANNUAL", AnnualAllowance = 20, IsPaid = true }, ct);
         await leaveTypes.AddAsync(new LeaveType { TenantId = tenant.Id, Name = "Sick Leave", Code = "SICK", AnnualAllowance = 10, IsPaid = true }, ct);
+        if (emailQueue is not null) await emailQueue.QueueAsync(admin.Email, admin.DisplayName, EmailTemplateKeys.AccountCreated,
+            new Dictionary<string, string?>
+            {
+                ["email"] = admin.Email,
+                ["temporaryPassword"] = request.AdminPassword,
+                ["title"] = "Your company HRMS account is ready",
+                ["message"] = "Your company workspace and administrator account have been created.",
+                ["link"] = "/dashboard"
+            }, ct);
         await unitOfWork.SaveChangesAsync(ct);
         return Map(tenant, subscription);
     }
@@ -408,7 +418,7 @@ public sealed class AuthService(
     }
 }
 
-public sealed class IdentityAdminService(IRepository<UserAccount> users, IRepository<Role> roles, IRepository<UserRole> userRoles, IRepository<Employee> employees, IRepository<RefreshToken> refreshTokens, IPasswordHasher passwordHasher, ICurrentTenant tenant, IUnitOfWork unitOfWork, INotificationService notifications, ICurrentUser actor) : ServiceBase(tenant), IIdentityAdminService
+public sealed class IdentityAdminService(IRepository<UserAccount> users, IRepository<Role> roles, IRepository<UserRole> userRoles, IRepository<Employee> employees, IRepository<RefreshToken> refreshTokens, IPasswordHasher passwordHasher, ICurrentTenant tenant, IUnitOfWork unitOfWork, INotificationService notifications, ICurrentUser actor, IEmailQueue? emailQueue = null) : ServiceBase(tenant), IIdentityAdminService
 {
     public async Task<RoleDto> CreateRoleAsync(CreateRoleRequest r, CancellationToken ct)
     {
@@ -431,6 +441,16 @@ public sealed class IdentityAdminService(IRepository<UserAccount> users, IReposi
         var user = new UserAccount { TenantId = TenantId, DisplayName = r.DisplayName.Trim(), Email = email, PasswordHash = passwordHasher.Hash(r.Password), IsActive = true };
         await users.AddAsync(user, ct); foreach (var roleId in r.RoleIds.Distinct()) await userRoles.AddAsync(new UserRole { TenantId = TenantId, UserId = user.Id, RoleId = roleId }, ct);
         if (employee is not null) employee.UserId = user.Id;
+        if (emailQueue is not null) await emailQueue.QueueAsync(user.Email, user.DisplayName, EmailTemplateKeys.AccountCreated,
+            new Dictionary<string, string?>
+            {
+                ["displayName"] = user.DisplayName,
+                ["email"] = user.Email,
+                ["temporaryPassword"] = r.Password,
+                ["title"] = "Your HRMS account is ready",
+                ["message"] = "Your account has been created. Sign in with the temporary password, then change it from Settings.",
+                ["link"] = employee is null ? "/dashboard" : "/my"
+            }, ct);
         await unitOfWork.SaveChangesAsync(ct); return Map(user, r.RoleIds, employee?.Id);
     }
     public async Task<UserAdminDto> ProvisionEmployeeAsync(Guid employeeId, ProvisionEmployeeAccountRequest r, CancellationToken ct)
@@ -465,10 +485,20 @@ public sealed class IdentityAdminService(IRepository<UserAccount> users, IReposi
         user.LockedUntil = null;
         user.UpdatedAt = DateTimeOffset.UtcNow;
         foreach (var token in await refreshTokens.ListAsync(x => x.UserId == userId && x.RevokedAt == null, cancellationToken: ct)) token.RevokedAt = DateTimeOffset.UtcNow;
-        await notifications.QueueForUsersAsync([userId], "Password reset", "Your account password was reset by an administrator. Other sessions were signed out.", "security", "/my", ct);
+        var linkedEmployee = await employees.FirstOrDefaultAsync(x => x.UserId == user.Id, ct);
+        await notifications.QueueForUsersAsync([userId], "Password reset", "Your account password was reset by an administrator. Other sessions were signed out.", "security", "/my", ct, sendEmail: false);
+        if (emailQueue is not null) await emailQueue.QueueAsync(user.Email, user.DisplayName, EmailTemplateKeys.PasswordReset,
+            new Dictionary<string, string?>
+            {
+                ["email"] = user.Email,
+                ["temporaryPassword"] = r.Password,
+                ["title"] = "Your password was reset",
+                ["message"] = "An administrator reset your password. Sign in with the temporary password, then change it from Settings.",
+                ["link"] = linkedEmployee is null ? "/dashboard" : "/my"
+            }, ct);
         await unitOfWork.SaveChangesAsync(ct);
         var roleIds = (await userRoles.ListAsync(x => x.UserId == userId, cancellationToken: ct)).Select(x => x.RoleId).ToArray();
-        return Map(user, roleIds, (await employees.FirstOrDefaultAsync(x => x.UserId == user.Id, ct))?.Id);
+        return Map(user, roleIds, linkedEmployee?.Id);
     }
     public async Task<UserAdminDto> SetActiveAsync(Guid userId, SetUserActiveRequest r, CancellationToken ct)
     {
@@ -484,6 +514,8 @@ public sealed class IdentityAdminService(IRepository<UserAccount> users, IReposi
         if (!r.IsActive)
             foreach (var token in await refreshTokens.ListAsync(x => x.UserId == userId && x.RevokedAt == null, cancellationToken: ct)) token.RevokedAt = DateTimeOffset.UtcNow;
         await notifications.QueueForUsersAsync([userId], r.IsActive ? "Account activated" : "Account deactivated", r.IsActive ? "Your account was activated by an administrator." : "Your account was deactivated by an administrator.", "security", "/my", ct);
+        if (!r.IsActive && emailQueue is not null) await emailQueue.QueueAsync(user.Email, user.DisplayName, EmailTemplateKeys.ForNotification("security"),
+            new Dictionary<string, string?> { ["title"] = "Account deactivated", ["message"] = "Your HRMS account was deactivated by an administrator.", ["link"] = "/login" }, ct);
         await unitOfWork.SaveChangesAsync(ct);
         return Map(user, targetRoleIds, linkedEmployee?.Id);
     }
@@ -503,7 +535,7 @@ public sealed class IdentityAdminService(IRepository<UserAccount> users, IReposi
     private static UserAdminDto Map(UserAccount x, IEnumerable<Guid> roleIds, Guid? employeeId = null) => new(x.Id, employeeId, x.DisplayName, x.Email, x.IsActive, roleIds.ToArray(), x.Version);
 }
 
-public sealed class EmployeeService(IRepository<Employee> employees, IRepository<UserAccount> users, IRepository<RefreshToken> refreshTokens, IRepository<TenantSubscription> subscriptions, IRepository<AuditLog> auditLogs, ICurrentTenant tenant, ICurrentUser actor, IUnitOfWork unitOfWork, IRepository<Department> departments, IRepository<Designation> designations, IRepository<Location> locations) : ServiceBase(tenant), IEmployeeService
+public sealed class EmployeeService(IRepository<Employee> employees, IRepository<UserAccount> users, IRepository<RefreshToken> refreshTokens, IRepository<TenantSubscription> subscriptions, IRepository<AuditLog> auditLogs, ICurrentTenant tenant, ICurrentUser actor, IUnitOfWork unitOfWork, IRepository<Department> departments, IRepository<Designation> designations, IRepository<Location> locations, IEmailQueue? emailQueue = null) : ServiceBase(tenant), IEmployeeService
 {
     public async Task<EmployeeDto> CreateAsync(CreateEmployeeRequest r, CancellationToken ct)
     {
@@ -538,6 +570,7 @@ public sealed class EmployeeService(IRepository<Employee> employees, IRepository
     public async Task<EmployeeDto> UpdateAsync(Guid id, UpdateEmployeeRequest r, CancellationToken ct)
     {
         var e = await employees.GetByIdAsync(id, ct) ?? throw new KeyNotFoundException("Employee not found."); CheckVersion(e, r.Version);
+        var previousStatus = e.Status;
         Required(r.EmployeeNumber, "Employee number");
         await ValidateEmployee(id, r.FirstName, r.WorkEmail, r.BaseSalary, r.SalaryCurrency, r.EmploymentType, r.DepartmentId, r.DesignationId, r.LocationId, r.ManagerId, ct);
         if (!Enum.IsDefined(r.Status)) throw new DomainException("Employment status is invalid.");
@@ -552,7 +585,7 @@ public sealed class EmployeeService(IRepository<Employee> employees, IRepository
         e.EmployeeNumber = r.EmployeeNumber.Trim(); e.FirstName = r.FirstName.Trim(); e.LastName = r.LastName.Trim(); e.WorkEmail = r.WorkEmail.Trim().ToLowerInvariant(); e.Phone = r.Phone; e.HireDate = r.HireDate;
         e.Status = r.Status; e.EmploymentType = r.EmploymentType; e.DepartmentId = r.DepartmentId; e.DesignationId = r.DesignationId;
         e.LocationId = r.LocationId; e.ManagerId = r.ManagerId; e.BaseSalary = r.BaseSalary; e.SalaryCurrency = r.SalaryCurrency.ToUpperInvariant();
-        if (e.UserId.HasValue && await users.GetByIdAsync(e.UserId.Value, ct) is { } account) { account.Email = e.WorkEmail; account.DisplayName = e.FullName; account.IsActive = r.Status is not (EmploymentStatus.Inactive or EmploymentStatus.Terminated or EmploymentStatus.Resigned or EmploymentStatus.Suspended); if (!account.IsActive) foreach (var token in await refreshTokens.ListAsync(x => x.UserId == account.Id && x.RevokedAt == null, cancellationToken: ct)) token.RevokedAt = DateTimeOffset.UtcNow; }
+        if (e.UserId.HasValue && await users.GetByIdAsync(e.UserId.Value, ct) is { } account) { account.Email = e.WorkEmail; account.DisplayName = e.FullName; account.IsActive = r.Status is not (EmploymentStatus.Inactive or EmploymentStatus.Terminated or EmploymentStatus.Resigned or EmploymentStatus.Suspended); if (!account.IsActive) { foreach (var token in await refreshTokens.ListAsync(x => x.UserId == account.Id && x.RevokedAt == null, cancellationToken: ct)) token.RevokedAt = DateTimeOffset.UtcNow; if (previousStatus != r.Status && emailQueue is not null) await emailQueue.QueueAsync(account.Email, account.DisplayName, EmailTemplateKeys.ForNotification("security"), new Dictionary<string, string?> { ["title"] = "Employment status updated", ["message"] = $"Your employment status was changed to {r.Status}. Your HRMS account access is now disabled.", ["link"] = "/login" }, ct); } }
         await unitOfWork.SaveChangesAsync(ct); return Map(e);
     }
     public async Task DeleteAsync(Guid id, CancellationToken ct) { var e = await employees.GetByIdAsync(id, ct) ?? throw new KeyNotFoundException("Employee not found."); if (e.UserId.HasValue && await users.GetByIdAsync(e.UserId.Value, ct) is { } account) { account.IsActive = false; foreach (var token in await refreshTokens.ListAsync(x => x.UserId == account.Id && x.RevokedAt == null, cancellationToken: ct)) token.RevokedAt = DateTimeOffset.UtcNow; } employees.Remove(e); await unitOfWork.SaveChangesAsync(ct); }
@@ -691,6 +724,8 @@ public sealed class LeaveService(IRepository<LeaveType> types, IRepository<Leave
         if (row.Status == LeaveRequestStatus.Pending) balance.Pending = Math.Max(0, balance.Pending - row.Days);
         else balance.Used = Math.Max(0, balance.Used - row.Days);
         row.Status = LeaveRequestStatus.Cancelled;
+        await notifications.QueueForPermissionAsync(Permissions.LeaveManage, "Leave request cancelled",
+            $"A {type.Name} leave request for {row.StartsOn:dd MMM yyyy} to {row.EndsOn:dd MMM yyyy} was cancelled.", "leave", "/leave", ct);
         await unitOfWork.SaveChangesAsync(ct);
         return Map(row);
     }
@@ -916,13 +951,13 @@ public sealed class PayrollService(IRepository<PayrollRun> runs, IRepository<Pay
     private static PayrollRunDto Map(PayrollRun x) => new(x.Id, x.Name, x.PeriodStart, x.PeriodEnd, x.PaymentDate, x.Status, x.Currency, x.GrossTotal, x.DeductionTotal, x.NetTotal, x.Version);
 }
 
-public sealed class RecruitmentService(IRepository<JobOpening> jobs, IRepository<Candidate> candidates, IRepository<JobApplication> applications, ICurrentTenant tenant, IUnitOfWork unitOfWork, INotificationService notifications) : ServiceBase(tenant), IRecruitmentService
+public sealed class RecruitmentService(IRepository<JobOpening> jobs, IRepository<Candidate> candidates, IRepository<JobApplication> applications, ICurrentTenant tenant, IUnitOfWork unitOfWork, INotificationService notifications, IEmailQueue? emailQueue = null) : ServiceBase(tenant), IRecruitmentService
 {
     public async Task<JobDto> CreateJobAsync(CreateJobRequest r, CancellationToken ct) { if (await jobs.AnyAsync(x => x.Code == r.Code.ToUpper(), ct)) throw new DomainException("Job code already exists."); var x = new JobOpening { TenantId = TenantId, Title = r.Title.Trim(), Code = r.Code.Trim().ToUpperInvariant(), Description = r.Description, DepartmentId = r.DepartmentId, HiringManagerId = r.HiringManagerId, Openings = Math.Max(1, r.Openings), ClosesOn = r.ClosesOn, Status = JobStatus.Open }; await jobs.AddAsync(x, ct); await notifications.QueueForEmployeesAsync([x.HiringManagerId], "Hiring responsibility assigned", $"You are the hiring manager for {x.Title} ({x.Code}).", "recruitment", "/recruitment", ct); await unitOfWork.SaveChangesAsync(ct); return Map(x); }
     public async Task<CandidateDto> CreateCandidateAsync(CreateCandidateRequest r, CancellationToken ct) { var email = r.Email.Trim().ToLowerInvariant(); if (await candidates.AnyAsync(x => x.Email == email, ct)) throw new DomainException("Candidate email already exists."); var x = new Candidate { TenantId = TenantId, FirstName = r.FirstName.Trim(), LastName = r.LastName.Trim(), Email = email, Phone = r.Phone, ResumeStorageKey = r.ResumeStorageKey, Source = r.Source }; await candidates.AddAsync(x, ct); await unitOfWork.SaveChangesAsync(ct); return Map(x); }
     public async Task<IReadOnlyList<CandidateDto>> ListCandidatesAsync(CancellationToken ct) => (await candidates.ListAsync(orderBy: q => q.OrderByDescending(x => x.CreatedAt), cancellationToken: ct)).Select(Map).ToArray();
-    public async Task<JobApplicationDto> ApplyAsync(ApplyCandidateRequest r, CancellationToken ct) { var job = await jobs.GetByIdAsync(r.JobOpeningId, ct) ?? throw new KeyNotFoundException("Job not found."); if (job.Status != JobStatus.Open) throw new DomainException("Job is not open."); var candidate = await candidates.GetByIdAsync(r.CandidateId, ct) ?? throw new KeyNotFoundException("Candidate not found."); if (await applications.AnyAsync(x => x.JobOpeningId == r.JobOpeningId && x.CandidateId == r.CandidateId, ct)) throw new DomainException("Candidate already applied to this job."); var x = new JobApplication { TenantId = TenantId, JobOpeningId = r.JobOpeningId, CandidateId = r.CandidateId, AppliedAt = DateTimeOffset.UtcNow }; await applications.AddAsync(x, ct); await notifications.QueueForEmployeesAsync([job.HiringManagerId], "New job application", $"{candidate.FirstName} {candidate.LastName} applied for {job.Title}.", "recruitment", "/recruitment", ct); await unitOfWork.SaveChangesAsync(ct); return Map(x); }
-    public async Task<JobApplicationDto> MoveAsync(Guid id, MoveCandidateRequest r, CancellationToken ct) { var x = await applications.GetByIdAsync(id, ct) ?? throw new KeyNotFoundException("Application not found."); x.Stage = r.Stage; x.Rating = r.Rating; x.Notes = r.Notes; await unitOfWork.SaveChangesAsync(ct); return Map(x); }
+    public async Task<JobApplicationDto> ApplyAsync(ApplyCandidateRequest r, CancellationToken ct) { var job = await jobs.GetByIdAsync(r.JobOpeningId, ct) ?? throw new KeyNotFoundException("Job not found."); if (job.Status != JobStatus.Open) throw new DomainException("Job is not open."); var candidate = await candidates.GetByIdAsync(r.CandidateId, ct) ?? throw new KeyNotFoundException("Candidate not found."); if (await applications.AnyAsync(x => x.JobOpeningId == r.JobOpeningId && x.CandidateId == r.CandidateId, ct)) throw new DomainException("Candidate already applied to this job."); var x = new JobApplication { TenantId = TenantId, JobOpeningId = r.JobOpeningId, CandidateId = r.CandidateId, AppliedAt = DateTimeOffset.UtcNow }; await applications.AddAsync(x, ct); await notifications.QueueForEmployeesAsync([job.HiringManagerId], "New job application", $"{candidate.FirstName} {candidate.LastName} applied for {job.Title}.", "recruitment", "/recruitment", ct); if (emailQueue is not null) await emailQueue.QueueAsync(candidate.Email, $"{candidate.FirstName} {candidate.LastName}".Trim(), EmailTemplateKeys.CandidateApplicationReceived, new Dictionary<string, string?> { ["title"] = "Application received", ["message"] = $"We received your application for {job.Title} ({job.Code}).", ["jobTitle"] = job.Title, ["jobCode"] = job.Code }, ct); await unitOfWork.SaveChangesAsync(ct); return Map(x); }
+    public async Task<JobApplicationDto> MoveAsync(Guid id, MoveCandidateRequest r, CancellationToken ct) { var x = await applications.GetByIdAsync(id, ct) ?? throw new KeyNotFoundException("Application not found."); x.Stage = r.Stage; x.Rating = r.Rating; x.Notes = r.Notes; if (emailQueue is not null) { var candidate = await candidates.GetByIdAsync(x.CandidateId, ct) ?? throw new KeyNotFoundException("Candidate not found."); var job = await jobs.GetByIdAsync(x.JobOpeningId, ct) ?? throw new KeyNotFoundException("Job not found."); await emailQueue.QueueAsync(candidate.Email, $"{candidate.FirstName} {candidate.LastName}".Trim(), EmailTemplateKeys.CandidateStageChanged, new Dictionary<string, string?> { ["title"] = "Application update", ["message"] = $"Your application for {job.Title} is now at the {r.Stage} stage.", ["jobTitle"] = job.Title, ["jobCode"] = job.Code, ["stage"] = r.Stage.ToString() }, ct); } await unitOfWork.SaveChangesAsync(ct); return Map(x); }
     public async Task<IReadOnlyList<JobDto>> ListJobsAsync(JobStatus? status, CancellationToken ct) => (await jobs.ListAsync(x => !status.HasValue || x.Status == status, q => q.OrderByDescending(x => x.CreatedAt), cancellationToken: ct)).Select(Map).ToArray();
     public async Task<IReadOnlyList<JobApplicationDto>> ListApplicationsAsync(Guid jobId, CancellationToken ct) => (await applications.ListAsync(x => x.JobOpeningId == jobId, q => q.OrderByDescending(x => x.AppliedAt), cancellationToken: ct)).Select(Map).ToArray();
     private static JobDto Map(JobOpening x) => new(x.Id, x.Title, x.Code, x.Openings, x.Status, x.ClosesOn); private static CandidateDto Map(Candidate x) => new(x.Id, x.FirstName, x.LastName, x.Email, x.Phone, x.Source); private static JobApplicationDto Map(JobApplication x) => new(x.Id, x.JobOpeningId, x.CandidateId, x.Stage, x.Rating, x.Notes, x.AppliedAt);

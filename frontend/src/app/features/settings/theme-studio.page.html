@@ -107,6 +107,45 @@
         />
         </div>
       </article>
+
+    }
+
+    @if (auth.isPlatformAdmin()) {
+      <article class="app-card settings-card email-card">
+        <div class="settings-head"><div><h2>Platform email notifications</h2><p>One superadmin-managed SMTP connection sends email for every company. Passwords are encrypted and never returned to the browser.</p></div></div>
+        <div class="preference-row">
+          <div><b>Enable email delivery</b><span>New HRMS events will be queued and delivered in the background.</span></div>
+          <mat-slide-toggle aria-label="Enable email delivery" [checked]="smtpEnabled()" (change)="smtpEnabled.set($event.checked)" />
+        </div>
+        <div class="email-grid">
+          <div class="field wide"><label>SMTP host</label><input placeholder="smtp.example.com" [ngModel]="smtpHost()" (ngModelChange)="smtpHost.set($event)" /></div>
+          <div class="field"><label>Port</label><input type="number" min="1" max="65535" [ngModel]="smtpPort()" (ngModelChange)="smtpPort.set(+$event)" /></div>
+          <div class="field"><label>Username</label><input autocomplete="username" [ngModel]="smtpUsername()" (ngModelChange)="smtpUsername.set($event)" /></div>
+          <div class="field"><label>Password / SMTP key</label><input type="password" autocomplete="new-password" [placeholder]="emailConfiguration()?.hasPassword ? 'Saved — enter only to replace' : 'Required by your provider'" [ngModel]="smtpPassword()" (ngModelChange)="smtpPassword.set($event)" /></div>
+          <div class="field"><label>From email</label><input type="email" [ngModel]="smtpFromEmail()" (ngModelChange)="smtpFromEmail.set($event)" /></div>
+          <div class="field"><label>From name</label><input [ngModel]="smtpFromName()" (ngModelChange)="smtpFromName.set($event)" /></div>
+          <div class="field"><label>Reply-to email (optional)</label><input type="email" [ngModel]="smtpReplyTo()" (ngModelChange)="smtpReplyTo.set($event)" /></div>
+          <div class="field wide"><label>Public application base URL</label><input placeholder="https://hr.example.com" [ngModel]="applicationBaseUrl()" (ngModelChange)="applicationBaseUrl.set($event)" /><small>Automatically uses this deployed application's origin. Company workspace and destination are added to every link.</small></div>
+        </div>
+        <div class="preference-row compact-row"><div><b>TLS encryption</b><span>Keep enabled for ports 587 or 465 unless your server explicitly requires plain SMTP.</span></div><mat-slide-toggle aria-label="Use TLS" [checked]="smtpUseTls()" (change)="smtpUseTls.set($event.checked)" /></div>
+        <div class="email-actions">
+          <div class="field test-recipient"><label>Test recipient</label><input type="email" [ngModel]="testRecipient()" (ngModelChange)="testRecipient.set($event)" /></div>
+          <button mat-stroked-button [disabled]="testingEmail()" (click)="sendTestEmail()">@if (testingEmail()) { <mat-spinner diameter="17" /> } @else { <mat-icon>send</mat-icon> } Send test</button>
+          <button mat-raised-button class="primary-button" [disabled]="savingEmail() || !smtpHost().trim() || !smtpFromEmail().trim()" (click)="saveEmailConfiguration()">@if (savingEmail()) { <mat-spinner diameter="17" /> } @else { <mat-icon>save</mat-icon> } Save email settings</button>
+        </div>
+      </article>
+
+      <article class="app-card settings-card email-template-card">
+        <div class="settings-head"><div><h2>Platform email templates</h2><p>These shared templates apply to every company while company name and links are filled per message. Available variables: {{ '{{title}}' }}, {{ '{{message}}' }}, {{ '{{recipientName}}' }}, {{ '{{companyName}}' }}, {{ '{{tenantSlug}}' }}, {{ '{{actionUrl}}' }}, {{ '{{email}}' }}, and {{ '{{temporaryPassword}}' }}.</p></div></div>
+        <div class="field"><label>Template</label><select [ngModel]="selectedEmailTemplateId()" (ngModelChange)="selectEmailTemplate($event)">@for (template of emailTemplates(); track template.id) { <option [value]="template.id">{{ template.name }} ({{ template.key }})</option> }</select></div>
+        @if (selectedEmailTemplate(); as template) {
+          <div class="preference-row compact-row"><div><b>Enabled</b><span>Disabled event templates fall back to the general notification template.</span></div><mat-slide-toggle aria-label="Enable template" [checked]="templateEnabled()" (change)="templateEnabled.set($event.checked)" /></div>
+          <div class="field"><label>Subject</label><input [ngModel]="templateSubject()" (ngModelChange)="templateSubject.set($event)" /></div>
+          <div class="field"><label>HTML body</label><textarea rows="12" [ngModel]="templateHtml()" (ngModelChange)="templateHtml.set($event)"></textarea></div>
+          <div class="field"><label>Plain-text body</label><textarea rows="7" [ngModel]="templateText()" (ngModelChange)="templateText.set($event)"></textarea></div>
+          <div class="setting-actions"><button mat-raised-button class="primary-button" [disabled]="savingTemplate() || !templateSubject().trim() || !templateHtml().trim()" (click)="saveEmailTemplate()">@if (savingTemplate()) { <mat-spinner diameter="17" /> } @else { <mat-icon>save</mat-icon> } Save template</button></div>
+        }
+      </article>
     }
 
     <article class="app-card settings-card appearance-card">

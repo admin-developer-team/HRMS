@@ -203,7 +203,7 @@ export class EmployeesPage implements OnInit {
       .subscribe({
         next: () => {
           this.accountDrawerOpen.set(false);
-          this.success.set(`Login account created for ${this.accountEmployee()!.fullName}.`);
+          this.success.set(`Login account created for ${this.accountEmployee()!.fullName}; the sign-in email was queued.`);
           this.load(this.data().page);
         },
         error: (error: HttpErrorResponse) =>

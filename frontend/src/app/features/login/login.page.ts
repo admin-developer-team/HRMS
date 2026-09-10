@@ -4,7 +4,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 
 @Component({
@@ -17,6 +17,7 @@ export class LoginPage {
   private readonly fb = inject(FormBuilder);
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
   readonly loading = signal(false);
   readonly error = signal('');
   readonly passwordVisible = signal(false);
@@ -26,6 +27,12 @@ export class LoginPage {
     password: ['', [Validators.required, Validators.minLength(8)]],
     remember: [true],
   });
+
+  constructor() {
+    const tenant = this.route.snapshot.queryParamMap.get('tenant');
+    const email = this.route.snapshot.queryParamMap.get('email');
+    this.form.patchValue({ ...(tenant ? { tenantSlug: tenant } : {}), ...(email ? { email } : {}) });
+  }
 
   submit(): void {
     if (this.form.invalid) {
@@ -38,7 +45,10 @@ export class LoginPage {
     this.auth.login({ tenantSlug, email, password }, remember).subscribe({
       next: () => {
         this.loading.set(false);
-        void this.router.navigate([this.auth.isEmployee() ? '/my' : '/dashboard']);
+        const requested = this.route.snapshot.queryParamMap.get('returnUrl');
+        const safeReturnUrl = requested?.startsWith('/') && !requested.startsWith('//') ? requested : null;
+        if (safeReturnUrl) void this.router.navigateByUrl(safeReturnUrl);
+        else void this.router.navigate([this.auth.isEmployee() ? '/my' : '/dashboard']);
       },
       error: (error: HttpErrorResponse) => {
         this.loading.set(false);
