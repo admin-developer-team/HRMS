@@ -7,8 +7,8 @@
 }
 
 .login-brand {
-  min-height: 100dvh;
-  padding: 40px clamp(36px, 5vw, 72px);
+  min-width: 0;
+  padding: clamp(20px, 4dvh, 40px) clamp(36px, 5vw, 72px);
   background: #0b1f33;
   color: #ffffff;
   display: flex;
@@ -78,7 +78,7 @@
 .brand-message {
   max-width: 520px;
   margin: auto 0;
-  padding: 72px 0;
+  padding: clamp(24px, 5dvh, 72px) 0;
 }
 
 .brand-message > span,
@@ -117,12 +117,17 @@
 }
 
 .brand-security mat-icon {
+  flex: 0 0 24px;
+  width: 24px;
+  height: 24px;
+  font-size: 24px;
+  line-height: 24px;
   color: #72c79f;
 }
 
 .login-form-side {
-  min-height: 100dvh;
-  padding: 48px clamp(28px, 8vw, 120px);
+  min-width: 0;
+  padding: clamp(20px, 4dvh, 48px) clamp(28px, 8vw, 120px);
   display: grid;
   place-items: center;
 }
@@ -285,9 +290,11 @@
   font-size: 19px;
 }
 
-.login-submit mat-spinner {
+.login-submit.mat-mdc-button-base mat-spinner {
+  width: 20px !important;
+  height: 20px !important;
   margin: auto;
-  --mdc-circular-progress-active-indicator-color: #ffffff;
+  --mat-progress-spinner-active-indicator-color: #ffffff;
 }
 
 .access-help {
@@ -350,5 +357,31 @@
 
   .form-heading h2 {
     font-size: 1.75rem;
+  }
+}
+
+@media (max-height: 700px) {
+  .form-heading {
+    margin-bottom: 20px;
+  }
+
+  .form-field {
+    margin-bottom: 12px;
+  }
+
+  .remember {
+    margin-bottom: 16px;
+  }
+
+  .access-help {
+    margin-top: 16px;
+  }
+
+  .login-card {
+    margin-top: 0;
+  }
+
+  .mobile-brand {
+    margin-bottom: 24px;
   }
 }

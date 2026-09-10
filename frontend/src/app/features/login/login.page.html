@@ -12,7 +12,10 @@
       <h1>One workspace for your people and processes.</h1>
       <p>Sign in with the workspace assigned by your organization.</p>
     </div>
-    <div class="brand-security"><mat-icon>verified_user</mat-icon>Tenant-isolated access</div>
+    <div class="brand-security">
+      <mat-icon aria-hidden="true">verified_user</mat-icon>
+      <span>Tenant-isolated access</span>
+    </div>
   </aside>
 
   <section class="login-form-side">
@@ -86,7 +89,7 @@
               (click)="passwordVisible.set(!passwordVisible())"
               [attr.aria-label]="passwordVisible() ? 'Hide password' : 'Show password'"
             >
-              <mat-icon>{{ passwordVisible() ? 'visibility_off' : 'visibility' }}</mat-icon>
+              <mat-icon class="pt-1">{{ passwordVisible() ? 'visibility_off' : 'visibility' }}</mat-icon>
             </button>
           </div>
           @if (form.controls.password.touched && form.controls.password.invalid) {
@@ -99,9 +102,9 @@
           <span>Keep me signed in on this device</span>
         </label>
 
-        <button mat-raised-button class="login-submit" type="submit" [disabled]="loading()">
+        <button mat-raised-button class="login-submit" type="submit" [disabled]="loading()" [attr.aria-busy]="loading()" [attr.aria-label]="loading() ? 'Signing in' : 'Sign in'">
           @if (loading()) {
-            <mat-spinner diameter="20"></mat-spinner>
+            <mat-spinner diameter="20" aria-label="Signing in"></mat-spinner>
           } @else {
             <span>Sign in</span>
           }
