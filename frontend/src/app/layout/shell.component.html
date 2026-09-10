@@ -130,7 +130,7 @@
         >
           <mat-icon>apps</mat-icon>
         </button>
-        <mat-menu #quickActionsMenu="matMenu">
+        <mat-menu #quickActionsMenu="matMenu" class="navbar-menu">
           <div class="menu-heading">Quick actions</div>
           @if (auth.isEmployee()) {
             @if (auth.hasPermission('work.read')) {
@@ -173,7 +173,7 @@
             ><small>{{ auth.user()?.email }}</small></span
           ><mat-icon>expand_more</mat-icon>
         </button>
-        <mat-menu #userMenu="matMenu">
+        <mat-menu #userMenu="matMenu" class="navbar-menu">
           <button mat-menu-item routerLink="/settings">
             <mat-icon>settings</mat-icon>Settings
           </button>
