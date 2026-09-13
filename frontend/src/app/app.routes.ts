@@ -40,6 +40,11 @@ export const routes: Routes = [
         title: 'My services · PeopleFlow',
       },
       {
+        path: 'calendar',
+        loadComponent: () => import('./features/calendar/calendar.page').then((m) => m.CalendarPage),
+        title: 'Calendar · PeopleFlow',
+      },
+      {
         path: 'my-team',
         canActivate: [permissionGuard('team.read')],
         data: { module: 'team' },

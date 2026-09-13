@@ -75,6 +75,13 @@ export class AuthService {
     this.clearSession();
   }
 
+  clearMismatchedWorkspace(): void {
+    localStorage.removeItem(SESSION_KEY);
+    sessionStorage.removeItem(SESSION_KEY);
+    this.state.set(null);
+    void this.router.navigate(['/login'], { queryParams: { workspaceMismatch: '1' } });
+  }
+
   private clearSession(): void {
     localStorage.removeItem(SESSION_KEY);
     sessionStorage.removeItem(SESSION_KEY);

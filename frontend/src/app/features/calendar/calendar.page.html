@@ -1,0 +1,84 @@
+<div class="calendar-page">
+  <header class="hero">
+    <div>
+      <p class="eyebrow">PEOPLE · TIME & CULTURE</p>
+      <h1>Company calendar</h1>
+      <p>See what is observed, what your office has approved, and the days that matter to you.</p>
+    </div>
+    @if (canManage()) { <button class="primary" type="button" (click)="openCreate()"><span class="material-symbols-rounded">add</span> Add holiday</button> }
+  </header>
+
+  <div class="stats">
+    <div class="stat"><span class="stat-icon office">◈</span><div><strong>{{ officeCount() }}</strong><span>Office holidays</span></div></div>
+    <div class="stat"><span class="stat-icon optional">✦</span><div><strong>{{ optionalCount() }}</strong><span>Optional choices</span></div></div>
+    <div class="stat"><span class="stat-icon public">☼</span><div><strong>{{ publicCount() }}</strong><span>Public holidays listed</span></div></div>
+    <div class="stat location"><span class="material-symbols-rounded">location_on</span><div><strong>{{ month()?.locationName || 'All locations' }}</strong><span>Your calendar location</span></div></div>
+  </div>
+
+  <div class="workspace">
+    <section class="calendar-card">
+      <div class="toolbar">
+        <div><span class="eyebrow">YOUR MONTH AT A GLANCE</span><h2>{{ title() }}</h2></div>
+        <div class="toolbar-actions">@if (canManage()) { <select aria-label="Calendar location" [ngModel]="filterLocationId()" (ngModelChange)="changeLocation($event)"><option value="">All locations</option>@for (location of locations(); track location.id) { <option [value]="location.id">{{ location.name }}</option> }</select> }<button type="button" class="today" (click)="jumpToday()">Today</button><button type="button" aria-label="Previous month" (click)="move(-1)"><span class="material-symbols-rounded">chevron_left</span></button><button type="button" aria-label="Next month" (click)="move(1)"><span class="material-symbols-rounded">chevron_right</span></button></div>
+      </div>
+      @if (error()) { <p class="error">{{ error() }} <button type="button" (click)="load()">Retry</button></p> }
+      @if (loading()) { <div class="loading">Loading calendar…</div> }
+      <div class="weekday-row"><span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span></div>
+      <div class="grid">
+        @for (day of days(); track day.date) {
+          <button type="button" class="day" [class.muted]="!day.inMonth" [class.selected]="selectedDate() === day.date" [class.weekend]="day.isWeekend" [class.today-cell]="day.isToday" (click)="choose(day)" [attr.aria-label]="day.date">
+            <span class="day-number">{{ day.day }}</span>
+            @if (day.office.length) { <span class="event office-event">{{ day.office[0].name }}</span> }
+            @if (day.optional.length) { <span class="event optional-event">{{ day.optional[0].name }}</span> }
+            @if (day.suggested.length && !day.office.length && !day.optional.length) { <span class="event public-event">{{ day.suggested[0].name }}</span> }
+            @if (day.leave.length) { <span class="event leave-event">Leave · {{ day.leave[0].status }}</span> }
+            @if (day.attendance.length) { <span class="attendance-dot" title="Attendance recorded"></span> }
+          </button>
+        }
+      </div>
+      <div class="legend"><span><i class="office-dot"></i> Office closed</span><span><i class="optional-dot"></i> Optional</span><span><i class="public-dot"></i> Public calendar</span><span><i class="leave-dot"></i> Leave</span><span><i class="attendance-legend"></i> Attendance</span></div>
+    </section>
+
+    <aside class="details">
+      <div class="details-heading"><span class="eyebrow">SELECTED DAY</span><h2>{{ selectedDate() | date:'EEEE, d MMMM' }}</h2><p>{{ selectedDate() | date:'yyyy' }}</p></div>
+      @if (selectedDay(); as day) {
+        @if (day.isWeekend) { <div class="detail-item rest"><span class="material-symbols-rounded">weekend</span><div><strong>Scheduled rest day</strong><p>Based on your company's working days.</p></div></div> }
+        @for (holiday of day.office; track holiday.id) {
+          <div class="detail-item office-detail"><span class="material-symbols-rounded">celebration</span><div><strong>{{ holiday.name }}</strong><p>Office holiday{{ holiday.locationName ? ' · ' + holiday.locationName : ' · All locations' }}</p>
+            @if (canManage()) { <div class="inline-actions"><button type="button" (click)="openEdit(holiday)">Edit</button><button type="button" (click)="remove(holiday)">Remove</button></div> }
+          </div></div>
+        }
+        @for (holiday of day.optional; track holiday.id) {
+          <div class="detail-item optional-detail"><span class="material-symbols-rounded">auto_awesome</span><div><strong>{{ holiday.name }}</strong><p>Optional holiday{{ holiday.locationName ? ' · ' + holiday.locationName : '' }}</p>
+            @if (auth.isEmployee() && holiday.appliesToMe) { <button class="choice" type="button" [disabled]="saving() || holiday.date < today" (click)="select(holiday)">{{ holiday.selected ? 'Selected ✓ · Remove choice' : 'Choose this day off' }}</button> }
+            @if (canManage()) { <div class="inline-actions"><button type="button" (click)="openEdit(holiday)">Edit</button><button type="button" (click)="remove(holiday)">Remove</button></div> }
+          </div></div>
+        }
+        @for (observance of day.suggested; track observance.name) {
+          <div class="detail-item public-detail"><span class="material-symbols-rounded">event</span><div><strong>{{ observance.name }}</strong><p>{{ observance.isPublicHoliday ? 'Public holiday suggestion' : 'Cultural observance' }} · Not an office day off unless HR adds it</p>
+            @if (canManage() && !day.office.length && !day.optional.length) { <button class="suggestion-action" type="button" (click)="openCreate(observance.name, day.date)">Add to company calendar</button> }
+          </div></div>
+        }
+        @for (leave of day.leave; track leave.startsOn) { <div class="detail-item leave-detail"><span class="material-symbols-rounded">beach_access</span><div><strong>Leave {{ leave.status.toLowerCase() }}</strong><p>{{ leave.startsOn | date:'d MMM' }} – {{ leave.endsOn | date:'d MMM' }}</p></div></div> }
+        @for (attendance of day.attendance; track attendance.date) { <div class="detail-item attendance-detail"><span class="material-symbols-rounded">schedule</span><div><strong>Attendance recorded</strong><p>{{ attendance.workHours }} hours · {{ attendance.status }}</p></div></div> }
+        @if (!day.isWeekend && !day.office.length && !day.optional.length && !day.suggested.length && !day.leave.length && !day.attendance.length) { <div class="empty-day"><span class="material-symbols-rounded">wb_sunny</span><strong>Nothing planned for this day</strong><p>Enjoy the space on your calendar.</p></div> }
+      }
+      <div class="source-note"><span class="material-symbols-rounded">info_outline</span><p>@if (month()?.suggestionsAvailable) { Public dates for {{ month()?.countryCode }} are suggested from {{ month()?.countryCode === 'IN' ? 'Google Calendar' : 'Nager.Date' }}. HR confirms office holidays. } @else { Public suggestions are unavailable for this location or moment. Your company calendar still works. }</p></div>
+    </aside>
+  </div>
+</div>
+
+@if (editorOpen()) {
+  <div class="dialog-backdrop" (click)="editorOpen.set(false)"></div>
+  <section class="editor" role="dialog" aria-modal="true" aria-labelledby="editor-title">
+    <div class="editor-heading"><div><span class="eyebrow">COMPANY SCHEDULE</span><h2 id="editor-title">{{ editingId() ? 'Edit holiday' : 'Add a holiday' }}</h2></div><button type="button" aria-label="Close" (click)="editorOpen.set(false)"><span class="material-symbols-rounded">close</span></button></div>
+    <p>Office holidays close the workplace. Optional holidays let employees choose the date for themselves.</p>
+    <form (ngSubmit)="save()">
+      <label>Holiday name<input name="name" [(ngModel)]="form.name" required maxlength="120" placeholder="e.g. Diwali" /></label>
+      <label>Date<input name="date" [(ngModel)]="form.date" required type="date" /></label>
+      <label>Applies to<select name="locationId" [(ngModel)]="form.locationId"><option value="">All locations</option>@for (location of locations(); track location.id) { <option [value]="location.id">{{ location.name }}</option> }</select></label>
+      <div class="type-choices"><label [class.active]="!form.isOptional"><input type="radio" name="kind" [value]="false" [(ngModel)]="form.isOptional" /><strong>Office holiday</strong><small>Everyone at this location is off</small></label><label [class.active]="form.isOptional"><input type="radio" name="kind" [value]="true" [(ngModel)]="form.isOptional" /><strong>Optional holiday</strong><small>Employees may choose this day</small></label></div>
+      <div class="editor-actions"><button type="button" (click)="editorOpen.set(false)">Cancel</button><button class="primary" type="submit" [disabled]="saving()">{{ saving() ? 'Saving…' : 'Save holiday' }}</button></div>
+    </form>
+  </section>
+}

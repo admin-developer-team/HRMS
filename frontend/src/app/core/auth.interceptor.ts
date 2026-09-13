@@ -12,8 +12,10 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
   const token = auth.accessToken();
   const tenantId = auth.tenantId();
   const emailRedemption = request.url.endsWith('/auth/email-link/redeem');
+  const publicAuthRequest = emailRedemption || request.url.endsWith('/auth/login')
+    || request.url.endsWith('/auth/workspace') || request.url.endsWith('/auth/email-link/tenant');
 
-  const secured = token && !emailRedemption
+  const secured = token && !publicAuthRequest
     ? request.clone({
         setHeaders: {
           Authorization: `Bearer ${token}`,
@@ -26,6 +28,10 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
   if (showGlobalLoading) loading.begin();
   return next(secured).pipe(
     catchError((error: HttpErrorResponse) => {
+      if (error.status === 403 && error.error?.title === 'Tenant mismatch') {
+        auth.clearMismatchedWorkspace();
+        return throwError(() => error);
+      }
       if (
         error.status === 401 &&
         !request.url.endsWith('/auth/login') &&

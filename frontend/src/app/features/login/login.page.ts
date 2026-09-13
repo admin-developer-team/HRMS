@@ -33,6 +33,9 @@ export class LoginPage {
   });
 
   constructor() {
+    if (this.route.snapshot.queryParamMap.get('workspaceMismatch') === '1') {
+      this.error.set('This session belongs to a different workspace. Open your company subdomain and sign in there.');
+    }
     const legacyTenant = this.route.snapshot.queryParamMap.get('tenant');
     if (this.workspace === 'platform' && legacyTenant && legacyTenant !== 'platform'
       && /^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/.test(legacyTenant)) {

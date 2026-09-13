@@ -4,6 +4,7 @@ using Hrms.Domain;
 using Hrms.Domain.Common;
 using Hrms.Infrastructure.Identity;
 using Hrms.Infrastructure.Persistence;
+using Hrms.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 
 namespace Hrms.Tests;
@@ -221,6 +222,56 @@ public sealed class EnterpriseWorkflowTests
     }
 
     [Fact]
+    public async Task Optional_holiday_affects_only_the_employee_who_selected_it()
+    {
+        using var h = new Harness();
+        var holiday = new Holiday { TenantId = h.Id, Name = "Choice day", Date = Day, IsOptional = true };
+        var type = new LeaveType { TenantId = h.Id, Code = "AL", Name = "Annual", AnnualAllowance = 20 };
+        h.Db.Holidays.Add(holiday); h.Db.LeaveTypes.Add(type);
+        h.Db.HolidaySelections.Add(new HolidaySelection { TenantId = h.Id, HolidayId = holiday.Id, EmployeeId = h.A });
+        await h.Db.SaveChangesAsync();
+        var chosen = await h.Attendance.ReportAsync(new(), h.A, Day, Day, Ct);
+        var notChosen = await h.Attendance.ReportAsync(new(), h.B, Day, Day, Ct);
+        Assert.Equal("Optional holiday", Assert.Single(chosen.Items).Status);
+        Assert.Equal("Absent", Assert.Single(notChosen.Items).Status);
+        h.AsEmployee(h.A);
+        await Assert.ThrowsAsync<DomainException>(() => h.Leave.SubmitAsync(new(h.A, type.Id, Day, Day, 1, "Annual leave"), Ct));
+        var request = await h.Leave.SubmitAsync(new(h.A, type.Id, Day, Day.AddDays(1), 1, "Annual leave"), Ct);
+        Assert.Equal(1, request.Days);
+    }
+
+    [Fact]
+    public void India_calendar_parser_distinguishes_public_holidays_from_observances()
+    {
+        const string ics = "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nDTSTART;VALUE=DATE:20261108\r\nSUMMARY:Diwali/Deepavali\r\nDESCRIPTION:Public holiday\r\nEND:VEVENT\r\nBEGIN:VEVENT\r\nDTSTART;VALUE=DATE:20261109\r\nSUMMARY:Observance\r\nDESCRIPTION:Observance\r\nEND:VEVENT\r\nEND:VCALENDAR";
+        var dates = PublicHolidaySource.Parse(ics);
+        Assert.Equal(new DateOnly(2026, 11, 8), dates[0].Date);
+        Assert.True(dates[0].IsPublicHoliday);
+        Assert.False(dates[1].IsPublicHoliday);
+    }
+
+    [Fact]
+    public async Task Optional_selection_is_limited_to_the_linked_employee_and_applicable_location()
+    {
+        using var h = new Harness();
+        var date = new DateOnly(2027, 11, 8);
+        var location = new Location { TenantId = h.Id, Name = "Bengaluru", Code = "BLR", CountryCode = "IN" };
+        var holiday = new Holiday { TenantId = h.Id, Name = "Festival choice", Date = date, LocationId = location.Id, IsOptional = true };
+        h.Db.Locations.Add(location); h.Db.Holidays.Add(holiday);
+        (await h.Db.Employees.FindAsync(h.A))!.LocationId = location.Id;
+        await h.Db.SaveChangesAsync();
+        h.AsEmployee(h.B);
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => h.Calendar.SelectAsync(holiday.Id, true, Ct));
+        h.AsEmployee(h.A);
+        await h.Calendar.SelectAsync(holiday.Id, true, Ct);
+        Assert.Equal(h.A, (await h.Db.HolidaySelections.SingleAsync()).EmployeeId);
+        var view = await h.Calendar.GetAsync(date.Year, date.Month, null, Ct);
+        Assert.True(Assert.Single(view.Holidays).Selected);
+        await h.Calendar.SelectAsync(holiday.Id, false, Ct);
+        Assert.Empty(await h.Db.HolidaySelections.ToListAsync());
+    }
+
+    [Fact]
     public async Task Hr_cannot_create_wildcard_or_payroll_roles_or_reset_privileged_accounts()
     {
         using var h = new Harness(); h.AsEmployee(h.A, Permissions.IdentityManage);
@@ -285,6 +336,12 @@ public sealed class EnterpriseWorkflowTests
         public bool HasPermission(string permission) => Admin || Grants.Contains(permission);
     }
 
+    private sealed class NoPublicHolidays : IPublicHolidaySource
+    {
+        public Task<(IReadOnlyList<CalendarObservance> Items, bool Available)> GetAsync(string countryCode, int year, CancellationToken ct) =>
+            Task.FromResult<(IReadOnlyList<CalendarObservance>, bool)>(([], false));
+    }
+
     private sealed class Harness : IDisposable
     {
         public CurrentTenant Tenant { get; } = new(); public Actor User { get; } = new();
@@ -294,6 +351,7 @@ public sealed class EnterpriseWorkflowTests
         public AttendanceService Attendance { get; } public AttendanceCorrectionService Corrections { get; }
         public WorkManagementService Work { get; } public WorkPlanningService Planning { get; }
         public LeaveService Leave { get; } public IdentityAdminService Identity { get; }
+        public CalendarService Calendar { get; }
         public Harness()
         {
             Tenant.Set(Guid.NewGuid());
@@ -302,11 +360,12 @@ public sealed class EnterpriseWorkflowTests
             foreach (var id in new[] { A, B, C }) Db.Employees.Add(new Employee { Id = id, TenantId = Id, EmployeeNumber = id.ToString(), FirstName = id == A ? "Asha" : id == B ? "Rohan" : "Leena", LastName = "Test", WorkEmail = $"{id}@example.test", HireDate = new(2025, 1, 1), ManagerId = id == A ? B : null });
             Db.SaveChangesAsync().GetAwaiter().GetResult();
             var notifications = new NotificationService(R<UserNotification>(), R<Employee>(), R<UserAccount>(), R<Role>(), R<UserRole>(), Tenant, User, Db);
-            Attendance = new(R<AttendanceRecord>(), R<AttendancePolicy>(), R<Employee>(), R<Tenant>(), R<Holiday>(), R<LeaveRequest>(), Tenant, Db);
-            Corrections = new(R<AttendanceCorrection>(), R<AttendanceRecord>(), R<Employee>(), R<AttendancePolicy>(), R<Tenant>(), R<Holiday>(), R<LeaveRequest>(), Tenant, User, Db, notifications);
+            Attendance = new(R<AttendanceRecord>(), R<AttendancePolicy>(), R<Employee>(), R<Tenant>(), R<Holiday>(), R<HolidaySelection>(), R<LeaveRequest>(), Tenant, Db);
+            Corrections = new(R<AttendanceCorrection>(), R<AttendanceRecord>(), R<Employee>(), R<AttendancePolicy>(), R<Tenant>(), R<Holiday>(), R<HolidaySelection>(), R<LeaveRequest>(), Tenant, User, Db, notifications);
             Work = new(R<WorkProject>(), R<WorkProjectMember>(), R<WorkItem>(), R<WorkItemAssignee>(), R<WorkItemComment>(), R<WorkLog>(), R<WorkItemHistory>(), R<Employee>(), Tenant, User, Db, notifications);
             Planning = new(R<WorkSprint>(), R<WorkProject>(), R<WorkProjectMember>(), R<WorkItem>(), R<WorkItemHistory>(), Work, Tenant, User, Db);
-            Leave = new(R<LeaveType>(), R<LeaveBalance>(), R<LeaveRequest>(), R<Employee>(), R<StoredDocument>(), Tenant, User, Db, notifications, R<AttendancePolicy>(), R<Holiday>(), R<Tenant>());
+            Leave = new(R<LeaveType>(), R<LeaveBalance>(), R<LeaveRequest>(), R<Employee>(), R<StoredDocument>(), Tenant, User, Db, notifications, R<AttendancePolicy>(), R<Holiday>(), R<HolidaySelection>(), R<Tenant>());
+            Calendar = new(R<Holiday>(), R<HolidaySelection>(), R<Employee>(), R<Location>(), R<LeaveRequest>(), R<AttendanceRecord>(), R<AttendancePolicy>(), R<Tenant>(), Tenant, User, Db, new NoPublicHolidays());
             Identity = new(R<UserAccount>(), R<Role>(), R<UserRole>(), R<Employee>(), R<RefreshToken>(), new Pbkdf2PasswordHasher(), Tenant, Db, notifications, User);
         }
         private Repository<T> R<T>() where T : AuditableEntity => new(Db);

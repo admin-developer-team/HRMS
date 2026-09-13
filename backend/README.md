@@ -8,6 +8,7 @@ A .NET 10 / ASP.NET Core backend for a multi-company HRMS SaaS product. It uses 
 - Identity: login, refresh-token rotation/revocation, lockout, PBKDF2-SHA512 password hashing, tenant users, roles, permissions, JWT policies.
 - Core HR: employees, reporting managers, departments, designations, locations, emergency-contact/document domain models.
 - Workforce: shifts, holidays, GPS/IP-aware attendance clock-in/out, work-hour/overtime calculation, timesheets and approvals.
+- Calendar: location-aware company holidays, optional employee holiday choices, public-date suggestions, leave and attendance context.
 - Leave: configurable leave types, yearly balances, overlap checks, requests, approval/rejection and balance accounting.
 - Payroll: period runs, employee payroll items, calculation, approval/payment state machine and totals.
 - Talent: openings, candidates, applications/stages, performance cycles/reviews, training courses/enrollments.
@@ -93,6 +94,12 @@ Only the platform superadmin configures email from **Settings → Platform email
 SMTP passwords are encrypted with ASP.NET Core Data Protection and are never returned by the API or written to audit payloads. Temporary account passwords exist in the retry outbox only until successful delivery and are then erased. In containers, persist the configured key ring (`DataProtection__KeysPath`; the included Compose file mounts `/var/lib/hrms/keys`) or saved SMTP credentials cannot be decrypted after the key ring is replaced.
 
 Email templates are stored per tenant in the database and can be edited from Settings. Workflow notifications are written to `EmailOutboxItems` in the same transaction as the HRMS change, then delivered by a background worker with exponential retry. Account creation, password/security changes, leave, attendance corrections, timesheets, documents, announcements, payroll, recruitment/candidate updates, performance, assets, expenses, training, and work management are covered. The administrator can send a test message before enabling delivery.
+
+## Company calendar
+
+The shared **Calendar** screen is available to signed-in users. HR users with `workforce.manage` can add, edit and remove company-wide or location-specific dates and mark them as office holidays or optional choices. Linked employees can select or remove a future optional holiday that applies to their location. A selected optional day is excluded from that employee's scheduled leave-day and attendance-shortfall calculations. Existing overlapping leave requests block a new optional selection.
+
+Public suggestions are read from the public Google India holiday calendar for `IN` and the Nager.Date public-holidays endpoint for other two-letter country codes. Results are cached in memory for 12 hours. The integration needs no API key; if the feed is unavailable, stored company holidays remain visible. Suggested dates are informational and never close an office or change leave/payroll calculations until HR adds them. HR should review regional and religious dates for each location. The new `CalendarHolidaySelections` EF migration must be applied on deployments where `Database:AutoMigrate` is disabled.
 
 Use the system roles as follows:
 

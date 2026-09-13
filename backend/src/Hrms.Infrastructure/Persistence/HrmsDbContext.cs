@@ -39,6 +39,7 @@ public sealed class HrmsDbContext(DbContextOptions<HrmsDbContext> options, ICurr
     public DbSet<WorkSprint> WorkSprints => Set<WorkSprint>();
     public DbSet<TimesheetEntry> TimesheetEntries => Set<TimesheetEntry>();
     public DbSet<Holiday> Holidays => Set<Holiday>();
+    public DbSet<HolidaySelection> HolidaySelections => Set<HolidaySelection>();
     public DbSet<LeaveType> LeaveTypes => Set<LeaveType>();
     public DbSet<LeaveBalance> LeaveBalances => Set<LeaveBalance>();
     public DbSet<LeaveRequest> LeaveRequests => Set<LeaveRequest>();
@@ -98,6 +99,7 @@ public sealed class HrmsDbContext(DbContextOptions<HrmsDbContext> options, ICurr
         modelBuilder.Entity<WorkItem>().HasIndex(x => new { x.TenantId, x.ProjectId, x.SprintId, x.Status });
         modelBuilder.Entity<AttendancePolicy>().HasIndex(x => x.TenantId).IsUnique();
         modelBuilder.Entity<LeaveType>().HasIndex(x => new { x.TenantId, x.Code }).IsUnique();
+        modelBuilder.Entity<HolidaySelection>().HasIndex(x => new { x.TenantId, x.HolidayId, x.EmployeeId }).IsUnique().HasFilter("\"IsDeleted\" = false");
         modelBuilder.Entity<LeaveBalance>().HasIndex(x => new { x.TenantId, x.EmployeeId, x.LeaveTypeId, x.Year }).IsUnique();
         modelBuilder.Entity<PayrollRun>().HasIndex(x => new { x.TenantId, x.PeriodStart, x.PeriodEnd });
         modelBuilder.Entity<PayrollItem>().HasIndex(x => new { x.TenantId, x.PayrollRunId, x.EmployeeId }).IsUnique();

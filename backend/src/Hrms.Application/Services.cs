@@ -79,6 +79,8 @@ public interface IWorkforceOperationsService
     Task<IReadOnlyList<ShiftDto>> ListShiftsAsync(CancellationToken cancellationToken);
     Task<HolidayDto> CreateHolidayAsync(CreateHolidayRequest request, CancellationToken cancellationToken);
     Task<IReadOnlyList<HolidayDto>> ListHolidaysAsync(int year, CancellationToken cancellationToken);
+    Task<HolidayDto> UpdateHolidayAsync(Guid id, UpdateHolidayRequest request, CancellationToken cancellationToken);
+    Task DeleteHolidayAsync(Guid id, CancellationToken cancellationToken);
     Task<TimesheetDto> SubmitTimesheetAsync(SubmitTimesheetRequest request, CancellationToken cancellationToken);
     Task<TimesheetDto> ReviewTimesheetAsync(Guid id, ReviewTimesheetRequest request, CancellationToken cancellationToken);
     Task<PagedResult<TimesheetDto>> SearchTimesheetsAsync(PagedRequest request, Guid? employeeId, WorkflowStatus? status, CancellationToken cancellationToken);
@@ -669,7 +671,7 @@ public sealed class OrganizationService(IRepository<Department> departments, IRe
     private static LocationDto Map(Location x) => new(x.Id, x.Name, x.Code, x.Address, x.City, x.CountryCode, x.IsActive);
 }
 
-public sealed class LeaveService(IRepository<LeaveType> types, IRepository<LeaveBalance> balances, IRepository<LeaveRequest> requests, IRepository<Employee> employees, IRepository<StoredDocument> documents, ICurrentTenant tenant, ICurrentUser user, IUnitOfWork unitOfWork, INotificationService notifications, IRepository<AttendancePolicy> policies, IRepository<Holiday> holidays, IRepository<Tenant> tenants) : ServiceBase(tenant), ILeaveService
+public sealed class LeaveService(IRepository<LeaveType> types, IRepository<LeaveBalance> balances, IRepository<LeaveRequest> requests, IRepository<Employee> employees, IRepository<StoredDocument> documents, ICurrentTenant tenant, ICurrentUser user, IUnitOfWork unitOfWork, INotificationService notifications, IRepository<AttendancePolicy> policies, IRepository<Holiday> holidays, IRepository<HolidaySelection> holidaySelections, IRepository<Tenant> tenants) : ServiceBase(tenant), ILeaveService
 {
     public async Task<LeaveTypeDto> CreateTypeAsync(CreateLeaveTypeRequest r, CancellationToken ct) { if (await types.AnyAsync(x => x.Code == r.Code.ToUpper(), ct)) throw new DomainException("Leave type code already exists."); var x = new LeaveType { TenantId = TenantId, Name = r.Name.Trim(), Code = r.Code.Trim().ToUpperInvariant(), AnnualAllowance = r.AnnualAllowance, IsPaid = r.IsPaid, RequiresDocument = r.RequiresDocument, MaxConsecutiveDays = r.MaxConsecutiveDays }; await types.AddAsync(x, ct); await unitOfWork.SaveChangesAsync(ct); return Map(x); }
     public async Task<IReadOnlyList<LeaveTypeDto>> ListTypesAsync(CancellationToken ct) => (await types.ListAsync(x => x.IsActive, q => q.OrderBy(x => x.Name), cancellationToken: ct)).Select(Map).ToArray();
@@ -687,6 +689,9 @@ public sealed class LeaveService(IRepository<LeaveType> types, IRepository<Leave
         var policy = await policies.FirstOrDefaultAsync(_ => true, ct) ?? new AttendancePolicy();
         var workingDays = policy.WorkingDaysCsv.Split(',').Select(x => x.Trim()).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var excludedDates = (await holidays.ListAsync(x => !x.IsOptional && (!x.LocationId.HasValue || x.LocationId == employee.LocationId) && x.Date >= r.StartsOn && x.Date <= r.EndsOn, cancellationToken: ct)).Select(x => x.Date).ToHashSet();
+        var selectedHolidayIds = (await holidaySelections.ListAsync(x => x.EmployeeId == employee.Id, cancellationToken: ct)).Select(x => x.HolidayId).ToHashSet();
+        foreach (var selectedHoliday in await holidays.ListAsync(x => x.IsOptional && x.Date >= r.StartsOn && x.Date <= r.EndsOn && (!x.LocationId.HasValue || x.LocationId == employee.LocationId), cancellationToken: ct))
+            if (selectedHolidayIds.Contains(selectedHoliday.Id)) excludedDates.Add(selectedHoliday.Date);
         var scheduledDays = Enumerable.Range(0, r.EndsOn.DayNumber - r.StartsOn.DayNumber + 1).Select(r.StartsOn.AddDays)
             .Count(date => workingDays.Contains(date.DayOfWeek.ToString()) && !excludedDates.Contains(date));
         if (scheduledDays == 0 || (r.Days != scheduledDays && !(r.StartsOn == r.EndsOn && scheduledDays == 1 && r.Days == .5m)))
@@ -763,7 +768,7 @@ public sealed class LeaveService(IRepository<LeaveType> types, IRepository<Leave
     private static LeaveBalanceDto Map(LeaveBalance x) => new(x.LeaveTypeId, x.Year, x.Entitled, x.Used, x.Pending, x.Available);
 }
 
-public sealed class AttendanceService(IRepository<AttendanceRecord> records, IRepository<AttendancePolicy> policies, IRepository<Employee> employees, IRepository<Tenant> tenants, IRepository<Holiday> holidays, IRepository<LeaveRequest> leaveRequests, ICurrentTenant tenant, IUnitOfWork unitOfWork) : ServiceBase(tenant), IAttendanceService
+public sealed class AttendanceService(IRepository<AttendanceRecord> records, IRepository<AttendancePolicy> policies, IRepository<Employee> employees, IRepository<Tenant> tenants, IRepository<Holiday> holidays, IRepository<HolidaySelection> holidaySelections, IRepository<LeaveRequest> leaveRequests, ICurrentTenant tenant, IUnitOfWork unitOfWork) : ServiceBase(tenant), IAttendanceService
 {
     public async Task<AttendanceDto> ClockInAsync(ClockRequest r, CancellationToken ct)
     {
@@ -860,7 +865,10 @@ public sealed class AttendanceService(IRepository<AttendanceRecord> records, IRe
         var sessions = await records.ListAsync(x => (!employeeId.HasValue || x.EmployeeId == employeeId) && x.WorkDate >= start && x.WorkDate <= end, cancellationToken: ct);
         var people = await employees.ListAsync(x => (!employeeId.HasValue || x.Id == employeeId) && x.HireDate <= end, q => q.OrderBy(x => x.FirstName).ThenBy(x => x.LastName), cancellationToken: ct);
         if (employeeId.HasValue && people.Count == 0) throw new KeyNotFoundException("Employee not found.");
-        var companyHolidays = await holidays.ListAsync(x => x.Date >= start && x.Date <= end && !x.IsOptional, cancellationToken: ct);
+        var companyHolidays = await holidays.ListAsync(x => x.Date >= start && x.Date <= end, cancellationToken: ct);
+        var monthHolidayIds = companyHolidays.Where(x => x.IsOptional).Select(x => x.Id).ToArray();
+        var peopleIds = people.Select(x => x.Id).ToArray();
+        var selectedHolidays = (await holidaySelections.ListAsync(x => monthHolidayIds.Contains(x.HolidayId) && peopleIds.Contains(x.EmployeeId), cancellationToken: ct)).Select(x => (x.EmployeeId, x.HolidayId)).ToHashSet();
         var approvedLeave = await leaveRequests.ListAsync(x => x.Status == LeaveRequestStatus.Approved && x.StartsOn <= end && x.EndsOn >= start && (!employeeId.HasValue || x.EmployeeId == employeeId), cancellationToken: ct);
         var workingDays = policy.WorkingDaysCsv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Select(x => Enum.TryParse<DayOfWeek>(x, true, out var day) ? day : (DayOfWeek?)null).Where(x => x.HasValue).Select(x => x!.Value).ToHashSet();
@@ -874,12 +882,15 @@ public sealed class AttendanceService(IRepository<AttendanceRecord> records, IRe
                 sessionGroups.TryGetValue((person.Id, date), out var daySessions);
                 daySessions ??= [];
                 var isWorkingDay = workingDays.Contains(date.DayOfWeek);
-                var holiday = companyHolidays.Any(x => x.Date == date && (!x.LocationId.HasValue || x.LocationId == person.LocationId));
+                var applicableHolidays = companyHolidays.Where(x => x.Date == date && (!x.LocationId.HasValue || x.LocationId == person.LocationId)).ToArray();
+                var fixedHoliday = applicableHolidays.Any(x => !x.IsOptional);
+                var optionalHoliday = applicableHolidays.Any(x => x.IsOptional && selectedHolidays.Contains((person.Id, x.Id)));
+                var holiday = fixedHoliday || optionalHoliday;
                 var onLeave = approvedLeave.Any(x => x.EmployeeId == person.Id && x.StartsOn <= date && x.EndsOn >= date);
                 if (daySessions.Length == 0)
                 {
                     if (!isWorkingDay && !holiday) continue;
-                    var status = holiday ? "Company holiday" : onLeave ? "On approved leave" : date == today ? "Not checked in" : "Absent";
+                    var status = fixedHoliday ? "Company holiday" : optionalHoliday ? "Optional holiday" : onLeave ? "On approved leave" : date == today ? "Not checked in" : "Absent";
                     var scheduledHours = holiday || onLeave ? 0 : Math.Round(policy.RequiredMinutesPerDay / 60m, 2);
                     var shortfallHours = date == today ? 0 : scheduledHours;
                     result.Add(new DailyAttendanceReportDto(person.Id, person.FullName, date, null, null, 0, scheduledHours, 0, 0, 0, shortfallHours, 0, status));
@@ -946,12 +957,14 @@ public sealed class AttendanceService(IRepository<AttendanceRecord> records, IRe
     }
 }
 
-public sealed class WorkforceOperationsService(IRepository<Shift> shifts, IRepository<Holiday> holidays, IRepository<TimesheetEntry> timesheets, IRepository<EmployeeDocument> documents, IRepository<Announcement> announcements, IRepository<Employee> employees, ICurrentTenant tenant, IUnitOfWork unitOfWork, INotificationService notifications) : ServiceBase(tenant), IWorkforceOperationsService
+public sealed class WorkforceOperationsService(IRepository<Shift> shifts, IRepository<Holiday> holidays, IRepository<TimesheetEntry> timesheets, IRepository<EmployeeDocument> documents, IRepository<Announcement> announcements, IRepository<Employee> employees, IRepository<Location> locations, IRepository<HolidaySelection> selections, ICurrentTenant tenant, IUnitOfWork unitOfWork, INotificationService notifications) : ServiceBase(tenant), IWorkforceOperationsService
 {
     public async Task<ShiftDto> CreateShiftAsync(CreateShiftRequest r, CancellationToken ct) { var x = new Shift { TenantId = TenantId, Name = r.Name.Trim(), StartsAt = r.StartsAt, EndsAt = r.EndsAt, GraceMinutes = Math.Max(0, r.GraceMinutes), IsNightShift = r.IsNightShift }; await shifts.AddAsync(x, ct); await unitOfWork.SaveChangesAsync(ct); return Map(x); }
     public async Task<IReadOnlyList<ShiftDto>> ListShiftsAsync(CancellationToken ct) => (await shifts.ListAsync(orderBy: q => q.OrderBy(x => x.Name), cancellationToken: ct)).Select(Map).ToArray();
-    public async Task<HolidayDto> CreateHolidayAsync(CreateHolidayRequest r, CancellationToken ct) { if (await holidays.AnyAsync(x => x.Date == r.Date && x.LocationId == r.LocationId, ct)) throw new DomainException("Holiday already exists for this date and location."); var x = new Holiday { TenantId = TenantId, Name = r.Name.Trim(), Date = r.Date, LocationId = r.LocationId, IsOptional = r.IsOptional }; await holidays.AddAsync(x, ct); await unitOfWork.SaveChangesAsync(ct); return Map(x); }
+    public async Task<HolidayDto> CreateHolidayAsync(CreateHolidayRequest r, CancellationToken ct) { Required(r.Name, "Holiday name"); if (r.LocationId.HasValue && await locations.GetByIdAsync(r.LocationId.Value, ct) is null) throw new DomainException("Location not found."); if (await holidays.AnyAsync(x => x.Date == r.Date && x.LocationId == r.LocationId, ct)) throw new DomainException("Holiday already exists for this date and location."); var x = new Holiday { TenantId = TenantId, Name = r.Name.Trim(), Date = r.Date, LocationId = r.LocationId, IsOptional = r.IsOptional }; await holidays.AddAsync(x, ct); await unitOfWork.SaveChangesAsync(ct); return Map(x); }
     public async Task<IReadOnlyList<HolidayDto>> ListHolidaysAsync(int year, CancellationToken ct) => (await holidays.ListAsync(x => x.Date.Year == year, q => q.OrderBy(x => x.Date), cancellationToken: ct)).Select(Map).ToArray();
+    public async Task<HolidayDto> UpdateHolidayAsync(Guid id, UpdateHolidayRequest r, CancellationToken ct) { var x = await holidays.GetByIdAsync(id, ct) ?? throw new KeyNotFoundException("Holiday not found."); CheckVersion(x, r.Version); Required(r.Name, "Holiday name"); if (r.LocationId.HasValue && await locations.GetByIdAsync(r.LocationId.Value, ct) is null) throw new DomainException("Location not found."); if (await holidays.AnyAsync(h => h.Id != id && h.Date == r.Date && h.LocationId == r.LocationId, ct)) throw new DomainException("Holiday already exists for this date and location."); if (!r.IsOptional || x.Date != r.Date || x.LocationId != r.LocationId) foreach (var selection in await selections.ListAsync(s => s.HolidayId == id, cancellationToken: ct)) selections.Remove(selection); x.Name = r.Name.Trim(); x.Date = r.Date; x.LocationId = r.LocationId; x.IsOptional = r.IsOptional; await unitOfWork.SaveChangesAsync(ct); return Map(x); }
+    public async Task DeleteHolidayAsync(Guid id, CancellationToken ct) { var x = await holidays.GetByIdAsync(id, ct) ?? throw new KeyNotFoundException("Holiday not found."); foreach (var selection in await selections.ListAsync(s => s.HolidayId == id, cancellationToken: ct)) selections.Remove(selection); holidays.Remove(x); await unitOfWork.SaveChangesAsync(ct); }
     public async Task<TimesheetDto> SubmitTimesheetAsync(SubmitTimesheetRequest r, CancellationToken ct) { var employee = await employees.GetByIdAsync(r.EmployeeId, ct) ?? throw new KeyNotFoundException("Employee not found."); if (r.Hours <= 0 || r.Hours > 24) throw new DomainException("Timesheet hours must be between 0 and 24."); var dayHours = (await timesheets.ListAsync(x => x.EmployeeId == r.EmployeeId && x.WorkDate == r.WorkDate && x.Status != WorkflowStatus.Rejected, cancellationToken: ct)).Sum(x => x.Hours); if (dayHours + r.Hours > 24) throw new DomainException("Total timesheet hours cannot exceed 24 per day."); var x = new TimesheetEntry { TenantId = TenantId, EmployeeId = r.EmployeeId, WorkDate = r.WorkDate, Description = r.Description.Trim(), Hours = r.Hours, ProjectCode = r.ProjectCode }; await timesheets.AddAsync(x, ct); await notifications.QueueForPermissionAsync(Permissions.WorkforceManage, "Timesheet submitted", $"{employee.FullName} submitted {r.Hours:0.##} hours for {r.WorkDate:dd MMM yyyy}.", "timesheet", "/workforce", ct); await unitOfWork.SaveChangesAsync(ct); return Map(x); }
     public async Task<TimesheetDto> ReviewTimesheetAsync(Guid id, ReviewTimesheetRequest r, CancellationToken ct) { var x = await timesheets.GetByIdAsync(id, ct) ?? throw new KeyNotFoundException("Timesheet not found."); CheckVersion(x, r.Version); if (x.Status != WorkflowStatus.Pending) throw new DomainException("Only pending timesheets can be reviewed."); x.Status = r.Approve ? WorkflowStatus.Approved : WorkflowStatus.Rejected; await notifications.QueueForEmployeesAsync([x.EmployeeId], $"Timesheet {x.Status.ToString().ToLowerInvariant()}", $"Your timesheet for {x.WorkDate:dd MMM yyyy} was {x.Status.ToString().ToLowerInvariant()}.", "timesheet", "/my-services", ct); await unitOfWork.SaveChangesAsync(ct); return Map(x); }
     public async Task<PagedResult<TimesheetDto>> SearchTimesheetsAsync(PagedRequest r, Guid? employeeId, WorkflowStatus? status, CancellationToken ct) { System.Linq.Expressions.Expression<Func<TimesheetEntry, bool>> p = x => (!employeeId.HasValue || x.EmployeeId == employeeId) && (!status.HasValue || x.Status == status); var total = await timesheets.CountAsync(p, ct); var rows = await timesheets.ListAsync(p, q => q.OrderByDescending(x => x.WorkDate), r.Skip, r.SafePageSize, ct); return new(rows.Select(Map).ToArray(), r.SafePage, r.SafePageSize, total); }
@@ -960,7 +973,7 @@ public sealed class WorkforceOperationsService(IRepository<Shift> shifts, IRepos
     public async Task<IReadOnlyList<EmployeeDocumentDto>> ListDocumentsAsync(Guid employeeId, CancellationToken ct) => (await documents.ListAsync(x => x.EmployeeId == employeeId, q => q.OrderBy(x => x.DocumentType), cancellationToken: ct)).Select(Map).ToArray();
     public async Task<AnnouncementDto> CreateAnnouncementAsync(CreateAnnouncementRequest r, CancellationToken ct) { var x = new Announcement { TenantId = TenantId, Title = r.Title.Trim(), Body = r.Body, PublishedAt = DateTimeOffset.UtcNow, ExpiresAt = r.ExpiresAt, Audience = r.Audience }; await announcements.AddAsync(x, ct); await notifications.QueueForAllUsersAsync(x.Title, x.Body, "announcement", "/my", ct); await unitOfWork.SaveChangesAsync(ct); return Map(x); }
     public async Task<IReadOnlyList<AnnouncementDto>> ListAnnouncementsAsync(CancellationToken ct) { var now = DateTimeOffset.UtcNow; return (await announcements.ListAsync(x => x.ExpiresAt == null || x.ExpiresAt > now, q => q.OrderByDescending(x => x.PublishedAt), cancellationToken: ct)).Select(Map).ToArray(); }
-    private static ShiftDto Map(Shift x) => new(x.Id, x.Name, x.StartsAt, x.EndsAt, x.GraceMinutes, x.IsNightShift); private static HolidayDto Map(Holiday x) => new(x.Id, x.Name, x.Date, x.LocationId, x.IsOptional); private static TimesheetDto Map(TimesheetEntry x) => new(x.Id, x.EmployeeId, x.WorkDate, x.ProjectCode, x.Description, x.Hours, x.Status, x.Version); private static EmployeeDocumentDto Map(EmployeeDocument x) => new(x.Id, x.EmployeeId, x.DocumentType, x.FileName, x.StorageKey, x.ContentType, x.ExpiresOn, x.Status, x.Version); private static AnnouncementDto Map(Announcement x) => new(x.Id, x.Title, x.Body, x.PublishedAt, x.ExpiresAt, x.Audience);
+    private static ShiftDto Map(Shift x) => new(x.Id, x.Name, x.StartsAt, x.EndsAt, x.GraceMinutes, x.IsNightShift); private static HolidayDto Map(Holiday x) => new(x.Id, x.Name, x.Date, x.LocationId, x.IsOptional, x.Version); private static TimesheetDto Map(TimesheetEntry x) => new(x.Id, x.EmployeeId, x.WorkDate, x.ProjectCode, x.Description, x.Hours, x.Status, x.Version); private static EmployeeDocumentDto Map(EmployeeDocument x) => new(x.Id, x.EmployeeId, x.DocumentType, x.FileName, x.StorageKey, x.ContentType, x.ExpiresOn, x.Status, x.Version); private static AnnouncementDto Map(Announcement x) => new(x.Id, x.Title, x.Body, x.PublishedAt, x.ExpiresAt, x.Audience);
 }
 
 public sealed class PayrollService(IRepository<PayrollRun> runs, IRepository<PayrollItem> items, IRepository<Employee> employees, ICurrentTenant tenant, IUnitOfWork unitOfWork, INotificationService notifications) : ServiceBase(tenant), IPayrollService

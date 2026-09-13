@@ -13,7 +13,7 @@ public sealed record AttendanceCorrectionDto(Guid Id, Guid EmployeeId, string Em
 
 public sealed class AttendanceCorrectionService(IRepository<AttendanceCorrection> corrections,
     IRepository<AttendanceRecord> records, IRepository<Employee> employees, IRepository<AttendancePolicy> policies,
-    IRepository<Tenant> tenants, IRepository<Holiday> holidays, IRepository<LeaveRequest> leave,
+    IRepository<Tenant> tenants, IRepository<Holiday> holidays, IRepository<HolidaySelection> holidaySelections, IRepository<LeaveRequest> leave,
     ICurrentTenant tenant, ICurrentUser user, IUnitOfWork unitOfWork, INotificationService notifications) : ServiceBase(tenant)
 {
     public async Task<PagedResult<AttendanceCorrectionDto>> SearchAsync(PagedRequest page, string scope, WorkflowStatus? status, CancellationToken ct)
@@ -113,7 +113,8 @@ public sealed class AttendanceCorrectionService(IRepository<AttendanceCorrection
             var day = (await records.ListAsync(x => x.EmployeeId == row.EmployeeId && x.WorkDate == row.WorkDate && x.Id != record.Id, cancellationToken: ct))
                 .Append(record).OrderBy(x => x.ClockedInAt).ToArray();
             var isWorkingDay = policy.WorkingDaysCsv.Split(',').Any(x => x.Trim().Equals(row.WorkDate.DayOfWeek.ToString(), StringComparison.OrdinalIgnoreCase));
-            var exempt = !isWorkingDay || await holidays.AnyAsync(x => x.Date == row.WorkDate && !x.IsOptional && (!x.LocationId.HasValue || x.LocationId == person.LocationId), ct)
+            var chosenIds = (await holidaySelections.ListAsync(x => x.EmployeeId == row.EmployeeId, cancellationToken: ct)).Select(x => x.HolidayId).ToHashSet();
+            var exempt = !isWorkingDay || await holidays.AnyAsync(x => x.Date == row.WorkDate && (!x.LocationId.HasValue || x.LocationId == person.LocationId) && (!x.IsOptional || chosenIds.Contains(x.Id)), ct)
                 || await leave.AnyAsync(x => x.EmployeeId == row.EmployeeId && x.Status == LeaveRequestStatus.Approved && x.StartsOn <= row.WorkDate && x.EndsOn >= row.WorkDate, ct);
             var required = exempt ? 0 : (day[0].RequiredMinutes ?? policy.RequiredMinutesPerDay) / 60m;
             decimal accumulated = 0;

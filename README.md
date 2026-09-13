@@ -17,7 +17,7 @@ npm run backend
 npm run frontend
 ```
 
-The frontend is available at `http://localhost:4200`. Angular proxies `/api` to the backend at `http://localhost:5207`. Backend Swagger opens at `http://localhost:5207/swagger`.
+Use `http://localhost:4200` for the platform workspace and `http://<slug>.localhost:4200` for a company (for example, `http://ssym.localhost:4200`). Angular proxies `/api` to the backend at `http://localhost:5207` while preserving the workspace hostname. Open Swagger for company API calls at `http://<slug>.localhost:5207/swagger`. Restart an existing frontend dev server after changing the host binding. See [local company-workspace testing](frontend/README.md#local-company-workspaces).
 
 The backend connection string, JWT key and bootstrap administrator are stored with .NET user-secrets under `hrms-backend-local-development`; no database password is committed.
 

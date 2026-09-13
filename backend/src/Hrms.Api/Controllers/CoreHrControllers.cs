@@ -58,6 +58,8 @@ public sealed class WorkforceOperationsController(IWorkforceOperationsService se
     [HttpGet("shifts")] public Task<IReadOnlyList<ShiftDto>> Shifts(CancellationToken ct) => service.ListShiftsAsync(ct);
     [HttpPost("holidays")] public Task<HolidayDto> CreateHoliday(CreateHolidayRequest request, CancellationToken ct) => service.CreateHolidayAsync(request, ct);
     [HttpGet("holidays")] public Task<IReadOnlyList<HolidayDto>> Holidays([FromQuery] int? year = null, CancellationToken ct = default) => service.ListHolidaysAsync(year ?? DateTime.UtcNow.Year, ct);
+    [HttpPut("holidays/{id:guid}")] public Task<HolidayDto> UpdateHoliday(Guid id, UpdateHolidayRequest request, CancellationToken ct) => service.UpdateHolidayAsync(id, request, ct);
+    [HttpDelete("holidays/{id:guid}")] public async Task<IActionResult> DeleteHoliday(Guid id, CancellationToken ct) { await service.DeleteHolidayAsync(id, ct); return NoContent(); }
     [HttpPost("timesheets")] public Task<TimesheetDto> SubmitTimesheet(SubmitTimesheetRequest request, CancellationToken ct) => service.SubmitTimesheetAsync(request, ct);
     [HttpPut("timesheets/{id:guid}/review")] public Task<TimesheetDto> ReviewTimesheet(Guid id, ReviewTimesheetRequest request, CancellationToken ct) => service.ReviewTimesheetAsync(id, request, ct);
     [HttpGet("timesheets")] public Task<PagedResult<TimesheetDto>> Timesheets([FromQuery] int page = 1, [FromQuery] int pageSize = 25, [FromQuery] Guid? employeeId = null, [FromQuery] WorkflowStatus? status = null, CancellationToken ct = default) => service.SearchTimesheetsAsync(new(page, pageSize), employeeId, status, ct);

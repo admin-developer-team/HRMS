@@ -91,7 +91,8 @@ public sealed record AttendanceSummaryDto(Guid EmployeeId, string EmployeeName, 
 public sealed record CreateShiftRequest(string Name, TimeOnly StartsAt, TimeOnly EndsAt, int GraceMinutes = 0, bool IsNightShift = false);
 public sealed record ShiftDto(Guid Id, string Name, TimeOnly StartsAt, TimeOnly EndsAt, int GraceMinutes, bool IsNightShift);
 public sealed record CreateHolidayRequest(string Name, DateOnly Date, Guid? LocationId = null, bool IsOptional = false);
-public sealed record HolidayDto(Guid Id, string Name, DateOnly Date, Guid? LocationId, bool IsOptional);
+public sealed record HolidayDto(Guid Id, string Name, DateOnly Date, Guid? LocationId, bool IsOptional, long Version);
+public sealed record UpdateHolidayRequest(string Name, DateOnly Date, Guid? LocationId, bool IsOptional, long Version);
 public sealed record SubmitTimesheetRequest(Guid EmployeeId, DateOnly WorkDate, string Description, decimal Hours, string? ProjectCode = null);
 public sealed record ReviewTimesheetRequest(bool Approve, long Version);
 public sealed record TimesheetDto(Guid Id, Guid EmployeeId, DateOnly WorkDate, string? ProjectCode, string Description, decimal Hours, WorkflowStatus Status, long Version);

@@ -217,6 +217,12 @@ public sealed class Holiday : TenantEntity
     public bool IsOptional { get; set; }
 }
 
+public sealed class HolidaySelection : TenantEntity
+{
+    public Guid HolidayId { get; set; }
+    public Guid EmployeeId { get; set; }
+}
+
 public sealed class LeaveType : TenantEntity
 {
     public string Name { get; set; } = string.Empty;

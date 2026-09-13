@@ -28,8 +28,12 @@ The API's `Tenancy:BaseDomain` setting defaults to
 `hrms.avntechnologies.co.in` in `appsettings.json` and can be overridden with
 `Tenancy__BaseDomain` for another environment. The Angular production build
 uses the same domain in `environment.production.ts`. Keep these values aligned.
-For local development, visit `<slug>.localhost:4200`; the Angular development
-proxy preserves the host when forwarding to the API.
+For local development, visit `<slug>.localhost:4200` after restarting Angular
+with the checked-in dev-server settings. It binds to `127.0.0.1` so Windows can
+reach company subdomains; the Angular proxy preserves the host when forwarding
+to the API. Plain `localhost:4200` is the platform workspace. See the
+[frontend local-workspace guide](../frontend/README.md#local-company-workspaces)
+for commands and a workspace verification request.
 
 ## Email and migration
 
