@@ -3,6 +3,7 @@ using System;
 using Hrms.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Hrms.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(HrmsDbContext))]
-    partial class HrmsDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260913110312_EmailSignInLinks")]
+    partial class EmailSignInLinks
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -73,7 +76,7 @@ namespace Hrms.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Announcements", (string)null);
+                    b.ToTable("Announcements");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Asset", b =>
@@ -138,7 +141,7 @@ namespace Hrms.Infrastructure.Persistence.Migrations
                     b.HasIndex("TenantId", "AssetTag")
                         .IsUnique();
 
-                    b.ToTable("Assets", (string)null);
+                    b.ToTable("Assets");
                 });
 
             modelBuilder.Entity("Hrms.Domain.AssetAssignment", b =>
@@ -189,7 +192,7 @@ namespace Hrms.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("AssetAssignments", (string)null);
+                    b.ToTable("AssetAssignments");
                 });
 
             modelBuilder.Entity("Hrms.Domain.AttendanceCorrection", b =>
@@ -262,7 +265,7 @@ namespace Hrms.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("TenantId", "EmployeeId", "WorkDate", "Status");
 
-                    b.ToTable("AttendanceCorrections", (string)null);
+                    b.ToTable("AttendanceCorrections");
                 });
 
             modelBuilder.Entity("Hrms.Domain.AttendancePolicy", b =>
@@ -323,7 +326,7 @@ namespace Hrms.Infrastructure.Persistence.Migrations
                     b.HasIndex("TenantId")
                         .IsUnique();
 
-                    b.ToTable("AttendancePolicies", (string)null);
+                    b.ToTable("AttendancePolicies");
                 });
 
             modelBuilder.Entity("Hrms.Domain.AttendanceRecord", b =>
@@ -452,7 +455,7 @@ namespace Hrms.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("TenantId", "EmployeeId", "WorkDate");
 
-                    b.ToTable("AttendanceRecords", (string)null);
+                    b.ToTable("AttendanceRecords");
                 });
 
             modelBuilder.Entity("Hrms.Domain.AuditLog", b =>
@@ -514,7 +517,7 @@ namespace Hrms.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("AuditLogs", (string)null);
+                    b.ToTable("AuditLogs");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Candidate", b =>
@@ -574,7 +577,7 @@ namespace Hrms.Infrastructure.Persistence.Migrations
                     b.HasIndex("TenantId", "Email")
                         .IsUnique();
 
-                    b.ToTable("Candidates", (string)null);
+                    b.ToTable("Candidates");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Department", b =>
@@ -630,7 +633,7 @@ namespace Hrms.Infrastructure.Persistence.Migrations
                     b.HasIndex("TenantId", "Code")
                         .IsUnique();
 
-                    b.ToTable("Departments", (string)null);
+                    b.ToTable("Departments");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Designation", b =>
@@ -686,7 +689,7 @@ namespace Hrms.Infrastructure.Persistence.Migrations
                     b.HasIndex("TenantId", "Code")
                         .IsUnique();
 
-                    b.ToTable("Designations", (string)null);
+                    b.ToTable("Designations");
                 });
 
             modelBuilder.Entity("Hrms.Domain.EmailConfiguration", b =>
@@ -758,7 +761,7 @@ namespace Hrms.Infrastructure.Persistence.Migrations
                     b.HasIndex("TenantId")
                         .IsUnique();
 
-                    b.ToTable("EmailConfigurations", (string)null);
+                    b.ToTable("EmailConfigurations");
                 });
 
             modelBuilder.Entity("Hrms.Domain.EmailOutboxItem", b =>
@@ -823,7 +826,7 @@ namespace Hrms.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("SentAt", "NextAttemptAt");
 
-                    b.ToTable("EmailOutboxItems", (string)null);
+                    b.ToTable("EmailOutboxItems");
                 });
 
             modelBuilder.Entity("Hrms.Domain.EmailSignInLink", b =>
@@ -885,7 +888,7 @@ namespace Hrms.Infrastructure.Persistence.Migrations
                     b.HasIndex("TokenHash")
                         .IsUnique();
 
-                    b.ToTable("EmailSignInLinks", (string)null);
+                    b.ToTable("EmailSignInLinks");
                 });
 
             modelBuilder.Entity("Hrms.Domain.EmailTemplate", b =>
@@ -949,7 +952,7 @@ namespace Hrms.Infrastructure.Persistence.Migrations
                     b.HasIndex("TenantId", "Key")
                         .IsUnique();
 
-                    b.ToTable("EmailTemplates", (string)null);
+                    b.ToTable("EmailTemplates");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Employee", b =>
@@ -1065,7 +1068,7 @@ namespace Hrms.Infrastructure.Persistence.Migrations
                     b.HasIndex("TenantId", "WorkEmail")
                         .IsUnique();
 
-                    b.ToTable("Employees", (string)null);
+                    b.ToTable("Employees");
                 });
 
             modelBuilder.Entity("Hrms.Domain.EmployeeDocument", b =>
@@ -1126,7 +1129,7 @@ namespace Hrms.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("EmployeeDocuments", (string)null);
+                    b.ToTable("EmployeeDocuments");
                 });
 
             modelBuilder.Entity("Hrms.Domain.EmployeeEmergencyContact", b =>
@@ -1180,7 +1183,7 @@ namespace Hrms.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("EmployeeEmergencyContacts", (string)null);
+                    b.ToTable("EmployeeEmergencyContacts");
                 });
 
             modelBuilder.Entity("Hrms.Domain.ExpenseClaim", b =>
@@ -1255,7 +1258,7 @@ namespace Hrms.Infrastructure.Persistence.Migrations
                     b.HasIndex("TenantId", "ClaimNumber")
                         .IsUnique();
 
-                    b.ToTable("ExpenseClaims", (string)null);
+                    b.ToTable("ExpenseClaims");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Holiday", b =>
@@ -1304,7 +1307,7 @@ namespace Hrms.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Holidays", (string)null);
+                    b.ToTable("Holidays");
                 });
 
             modelBuilder.Entity("Hrms.Domain.JobApplication", b =>
@@ -1363,7 +1366,7 @@ namespace Hrms.Infrastructure.Persistence.Migrations
                     b.HasIndex("TenantId", "JobOpeningId", "CandidateId")
                         .IsUnique();
 
-                    b.ToTable("JobApplications", (string)null);
+                    b.ToTable("JobApplications");
                 });
 
             modelBuilder.Entity("Hrms.Domain.JobOpening", b =>
@@ -1430,7 +1433,7 @@ namespace Hrms.Infrastructure.Persistence.Migrations
                     b.HasIndex("TenantId", "Code")
                         .IsUnique();
 
-                    b.ToTable("JobOpenings", (string)null);
+                    b.ToTable("JobOpenings");
                 });
 
             modelBuilder.Entity("Hrms.Domain.LeaveBalance", b =>
@@ -1490,7 +1493,7 @@ namespace Hrms.Infrastructure.Persistence.Migrations
                     b.HasIndex("TenantId", "EmployeeId", "LeaveTypeId", "Year")
                         .IsUnique();
 
-                    b.ToTable("LeaveBalances", (string)null);
+                    b.ToTable("LeaveBalances");
                 });
 
             modelBuilder.Entity("Hrms.Domain.LeaveRequest", b =>
@@ -1559,7 +1562,7 @@ namespace Hrms.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("LeaveRequests", (string)null);
+                    b.ToTable("LeaveRequests");
                 });
 
             modelBuilder.Entity("Hrms.Domain.LeaveType", b =>
@@ -1622,7 +1625,7 @@ namespace Hrms.Infrastructure.Persistence.Migrations
                     b.HasIndex("TenantId", "Code")
                         .IsUnique();
 
-                    b.ToTable("LeaveTypes", (string)null);
+                    b.ToTable("LeaveTypes");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Location", b =>
@@ -1681,7 +1684,7 @@ namespace Hrms.Infrastructure.Persistence.Migrations
                     b.HasIndex("TenantId", "Code")
                         .IsUnique();
 
-                    b.ToTable("Locations", (string)null);
+                    b.ToTable("Locations");
                 });
 
             modelBuilder.Entity("Hrms.Domain.OutboxMessage", b =>
@@ -1737,7 +1740,7 @@ namespace Hrms.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("OutboxMessages", (string)null);
+                    b.ToTable("OutboxMessages");
                 });
 
             modelBuilder.Entity("Hrms.Domain.PayrollItem", b =>
@@ -1813,7 +1816,7 @@ namespace Hrms.Infrastructure.Persistence.Migrations
                     b.HasIndex("TenantId", "PayrollRunId", "EmployeeId")
                         .IsUnique();
 
-                    b.ToTable("PayrollItems", (string)null);
+                    b.ToTable("PayrollItems");
                 });
 
             modelBuilder.Entity("Hrms.Domain.PayrollRun", b =>
@@ -1884,7 +1887,7 @@ namespace Hrms.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("TenantId", "PeriodStart", "PeriodEnd");
 
-                    b.ToTable("PayrollRuns", (string)null);
+                    b.ToTable("PayrollRuns");
                 });
 
             modelBuilder.Entity("Hrms.Domain.PerformanceCycle", b =>
@@ -1933,7 +1936,7 @@ namespace Hrms.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("PerformanceCycles", (string)null);
+                    b.ToTable("PerformanceCycles");
                 });
 
             modelBuilder.Entity("Hrms.Domain.PerformanceReview", b =>
@@ -1999,7 +2002,7 @@ namespace Hrms.Infrastructure.Persistence.Migrations
                     b.HasIndex("TenantId", "CycleId", "EmployeeId", "ReviewerId")
                         .IsUnique();
 
-                    b.ToTable("PerformanceReviews", (string)null);
+                    b.ToTable("PerformanceReviews");
                 });
 
             modelBuilder.Entity("Hrms.Domain.RefreshToken", b =>
@@ -2054,7 +2057,7 @@ namespace Hrms.Infrastructure.Persistence.Migrations
                     b.HasIndex("TokenHash")
                         .IsUnique();
 
-                    b.ToTable("RefreshTokens", (string)null);
+                    b.ToTable("RefreshTokens");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Role", b =>
@@ -2108,7 +2111,7 @@ namespace Hrms.Infrastructure.Persistence.Migrations
                     b.HasIndex("TenantId", "NormalizedName")
                         .IsUnique();
 
-                    b.ToTable("Roles", (string)null);
+                    b.ToTable("Roles");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Shift", b =>
@@ -2160,7 +2163,7 @@ namespace Hrms.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Shifts", (string)null);
+                    b.ToTable("Shifts");
                 });
 
             modelBuilder.Entity("Hrms.Domain.StoredDocument", b =>
@@ -2231,7 +2234,7 @@ namespace Hrms.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("TenantId", "OwnerType", "OwnerId", "Category", "CreatedAt");
 
-                    b.ToTable("StoredDocuments", (string)null);
+                    b.ToTable("StoredDocuments");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Tenant", b =>
@@ -2306,7 +2309,7 @@ namespace Hrms.Infrastructure.Persistence.Migrations
                     b.HasIndex("Slug")
                         .IsUnique();
 
-                    b.ToTable("Tenants", (string)null);
+                    b.ToTable("Tenants");
                 });
 
             modelBuilder.Entity("Hrms.Domain.TenantSubscription", b =>
@@ -2358,7 +2361,7 @@ namespace Hrms.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("TenantSubscriptions", (string)null);
+                    b.ToTable("TenantSubscriptions");
                 });
 
             modelBuilder.Entity("Hrms.Domain.TimesheetEntry", b =>
@@ -2415,7 +2418,7 @@ namespace Hrms.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("TimesheetEntries", (string)null);
+                    b.ToTable("TimesheetEntries");
                 });
 
             modelBuilder.Entity("Hrms.Domain.TrainingCourse", b =>
@@ -2471,7 +2474,7 @@ namespace Hrms.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("TrainingCourses", (string)null);
+                    b.ToTable("TrainingCourses");
                 });
 
             modelBuilder.Entity("Hrms.Domain.TrainingEnrollment", b =>
@@ -2529,7 +2532,7 @@ namespace Hrms.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("TenantId", "CourseId", "EmployeeId");
 
-                    b.ToTable("TrainingEnrollments", (string)null);
+                    b.ToTable("TrainingEnrollments");
                 });
 
             modelBuilder.Entity("Hrms.Domain.UserAccount", b =>
@@ -2595,7 +2598,7 @@ namespace Hrms.Infrastructure.Persistence.Migrations
                     b.HasIndex("TenantId", "Email")
                         .IsUnique();
 
-                    b.ToTable("Users", (string)null);
+                    b.ToTable("Users");
                 });
 
             modelBuilder.Entity("Hrms.Domain.UserNotification", b =>
@@ -2654,7 +2657,7 @@ namespace Hrms.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("TenantId", "UserId", "ReadAt", "CreatedAt");
 
-                    b.ToTable("UserNotifications", (string)null);
+                    b.ToTable("UserNotifications");
                 });
 
             modelBuilder.Entity("Hrms.Domain.UserRole", b =>
@@ -2700,7 +2703,7 @@ namespace Hrms.Infrastructure.Persistence.Migrations
                         .IsUnique()
                         .HasFilter("\"IsDeleted\" = false");
 
-                    b.ToTable("UserRoles", (string)null);
+                    b.ToTable("UserRoles");
                 });
 
             modelBuilder.Entity("Hrms.Domain.WorkItem", b =>
@@ -2810,7 +2813,7 @@ namespace Hrms.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("TenantId", "ProjectId", "SprintId", "Status");
 
-                    b.ToTable("WorkItems", (string)null);
+                    b.ToTable("WorkItems");
                 });
 
             modelBuilder.Entity("Hrms.Domain.WorkItemAssignee", b =>
@@ -2858,7 +2861,7 @@ namespace Hrms.Infrastructure.Persistence.Migrations
                         .IsUnique()
                         .HasFilter("\"IsDeleted\" = false");
 
-                    b.ToTable("WorkItemAssignees", (string)null);
+                    b.ToTable("WorkItemAssignees");
                 });
 
             modelBuilder.Entity("Hrms.Domain.WorkItemComment", b =>
@@ -2906,7 +2909,7 @@ namespace Hrms.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("TenantId", "WorkItemId", "CreatedAt");
 
-                    b.ToTable("WorkItemComments", (string)null);
+                    b.ToTable("WorkItemComments");
                 });
 
             modelBuilder.Entity("Hrms.Domain.WorkItemHistory", b =>
@@ -2963,7 +2966,7 @@ namespace Hrms.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("TenantId", "WorkItemId", "CreatedAt");
 
-                    b.ToTable("WorkItemHistories", (string)null);
+                    b.ToTable("WorkItemHistories");
                 });
 
             modelBuilder.Entity("Hrms.Domain.WorkLog", b =>
@@ -3018,7 +3021,7 @@ namespace Hrms.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("TenantId", "WorkItemId", "WorkDate");
 
-                    b.ToTable("WorkLogs", (string)null);
+                    b.ToTable("WorkLogs");
                 });
 
             modelBuilder.Entity("Hrms.Domain.WorkProject", b =>
@@ -3077,7 +3080,7 @@ namespace Hrms.Infrastructure.Persistence.Migrations
                     b.HasIndex("TenantId", "Key")
                         .IsUnique();
 
-                    b.ToTable("WorkProjects", (string)null);
+                    b.ToTable("WorkProjects");
                 });
 
             modelBuilder.Entity("Hrms.Domain.WorkProjectMember", b =>
@@ -3138,7 +3141,7 @@ namespace Hrms.Infrastructure.Persistence.Migrations
                         .IsUnique()
                         .HasFilter("\"IsDeleted\" = false");
 
-                    b.ToTable("WorkProjectMembers", (string)null);
+                    b.ToTable("WorkProjectMembers");
                 });
 
             modelBuilder.Entity("Hrms.Domain.WorkSprint", b =>
@@ -3206,7 +3209,7 @@ namespace Hrms.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("TenantId", "ProjectId", "Status");
 
-                    b.ToTable("WorkSprints", (string)null);
+                    b.ToTable("WorkSprints");
                 });
 #pragma warning restore 612, 618
         }

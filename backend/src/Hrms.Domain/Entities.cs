@@ -461,6 +461,16 @@ public sealed class WorkItem : TenantEntity
     public DateTimeOffset? ResolvedAt { get; set; }
 }
 
+public sealed class EmailSignInLink : TenantEntity
+{
+    public Guid UserId { get; set; }
+    public string TokenHash { get; set; } = string.Empty;
+    public string RecipientEmail { get; set; } = string.Empty;
+    public string Destination { get; set; } = string.Empty;
+    public DateTimeOffset ExpiresAt { get; set; }
+    public DateTimeOffset? UsedAt { get; set; }
+}
+
 // Provider-neutral, platform-owned email configuration. Credentials are encrypted by
 // the application and one superadmin-managed SMTP account serves every company.
 public sealed class EmailConfiguration : TenantEntity

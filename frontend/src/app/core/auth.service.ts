@@ -1,6 +1,6 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
-import { Observable, finalize, shareReplay, tap } from 'rxjs';
+import { Observable, finalize, map, shareReplay, tap } from 'rxjs';
 import { ApiService } from './api.service';
 import { UserSession } from './models';
 
@@ -31,6 +31,14 @@ export class AuthService {
   ): Observable<UserSession> {
     this.rememberSession = remember;
     return this.api.login(payload).pipe(tap((session) => this.saveSession(session)));
+  }
+
+  redeemEmailLink(token: string): Observable<string> {
+    this.rememberSession = false;
+    return this.api.redeemEmailLink(token).pipe(
+      tap(({ session }) => this.saveSession(session)),
+      map(({ destination }) => destination),
+    );
   }
 
   accessToken(): string | null {

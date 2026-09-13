@@ -15,6 +15,7 @@ public interface IAuthService
     Task<TokenResponse> LoginAsync(LoginRequest request, string? ipAddress, string? userAgent, CancellationToken cancellationToken);
     Task<TokenResponse> RefreshAsync(RefreshRequest request, CancellationToken cancellationToken);
     Task RevokeAsync(RefreshRequest request, CancellationToken cancellationToken);
+    Task<EmailSignInResponse> RedeemEmailLinkAsync(string token, CancellationToken cancellationToken);
 }
 
 public interface IIdentityAdminService
@@ -248,7 +249,6 @@ public sealed class TenantService(
             new Dictionary<string, string?>
             {
                 ["email"] = admin.Email,
-                ["temporaryPassword"] = request.AdminPassword,
                 ["title"] = "Your company HRMS account is ready",
                 ["message"] = "Your company workspace and administrator account have been created.",
                 ["link"] = "/dashboard"
@@ -324,8 +324,24 @@ public sealed class TenantService(
 public sealed class AuthService(
     IRepository<Tenant> tenants, IRepository<UserAccount> users, IRepository<Role> roles, IRepository<UserRole> userRoles,
     IRepository<RefreshToken> refreshTokens, IRepository<Employee> employees, IRepository<TenantSubscription> subscriptions, IRepository<AuditLog> auditLogs, ICurrentTenant currentTenant, IPasswordHasher passwordHasher,
-    ITokenService tokenService, IUnitOfWork unitOfWork) : IAuthService
+    ITokenService tokenService, IUnitOfWork unitOfWork, IEmailSignInLinkStore emailLinks) : IAuthService
 {
+    public async Task<EmailSignInResponse> RedeemEmailLinkAsync(string token, CancellationToken ct)
+    {
+        var link = await emailLinks.ConsumeAsync(token, ct) ?? throw new DomainException("This email link is invalid, expired, or already used.");
+        currentTenant.Set(link.TenantId);
+        var now = DateTimeOffset.UtcNow;
+        var company = await tenants.GetByIdAsync(link.TenantId, ct) ?? throw new DomainException("Company is unavailable.");
+        if (company.Status is not (TenantStatus.Active or TenantStatus.Trial) || (company.Status == TenantStatus.Trial && company.TrialEndsAt <= now))
+            throw new DomainException("Company access is unavailable.");
+        if (company.Slug != "platform" && !await subscriptions.AnyAsync(x => x.IsActive && x.StartsAt <= now && (!x.EndsAt.HasValue || x.EndsAt > now), ct))
+            throw new DomainException("This company subscription is inactive or expired.");
+        var user = await users.GetByIdAsync(link.UserId, ct);
+        if (user is null || !user.IsActive || user.LockedUntil > now || !string.Equals(user.Email, link.RecipientEmail, StringComparison.OrdinalIgnoreCase))
+            throw new DomainException("This email link is no longer valid for this account.");
+        user.LastLoginAt = now;
+        return new EmailSignInResponse(await IssueAsync(user, ct), link.Destination);
+    }
     public async Task<TokenResponse> LoginAsync(LoginRequest request, string? ipAddress, string? userAgent, CancellationToken ct)
     {
         var slug = request.TenantSlug.Trim().ToLowerInvariant();
@@ -446,9 +462,8 @@ public sealed class IdentityAdminService(IRepository<UserAccount> users, IReposi
             {
                 ["displayName"] = user.DisplayName,
                 ["email"] = user.Email,
-                ["temporaryPassword"] = r.Password,
                 ["title"] = "Your HRMS account is ready",
-                ["message"] = "Your account has been created. Sign in with the temporary password, then change it from Settings.",
+                ["message"] = "Your account has been created. Use the secure link to open your workspace.",
                 ["link"] = employee is null ? "/dashboard" : "/my"
             }, ct);
         await unitOfWork.SaveChangesAsync(ct); return Map(user, r.RoleIds, employee?.Id);
@@ -491,9 +506,8 @@ public sealed class IdentityAdminService(IRepository<UserAccount> users, IReposi
             new Dictionary<string, string?>
             {
                 ["email"] = user.Email,
-                ["temporaryPassword"] = r.Password,
                 ["title"] = "Your password was reset",
-                ["message"] = "An administrator reset your password. Sign in with the temporary password, then change it from Settings.",
+                ["message"] = "An administrator reset your password. Use the secure link to open your workspace.",
                 ["link"] = linkedEmployee is null ? "/dashboard" : "/my"
             }, ct);
         await unitOfWork.SaveChangesAsync(ct);

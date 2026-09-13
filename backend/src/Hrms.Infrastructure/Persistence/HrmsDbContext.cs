@@ -20,6 +20,7 @@ public sealed class HrmsDbContext(DbContextOptions<HrmsDbContext> options, ICurr
     public DbSet<Role> Roles => Set<Role>();
     public DbSet<UserRole> UserRoles => Set<UserRole>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<EmailSignInLink> EmailSignInLinks => Set<EmailSignInLink>();
     public DbSet<Location> Locations => Set<Location>();
     public DbSet<Department> Departments => Set<Department>();
     public DbSet<Designation> Designations => Set<Designation>();
@@ -79,6 +80,8 @@ public sealed class HrmsDbContext(DbContextOptions<HrmsDbContext> options, ICurr
         modelBuilder.Entity<Role>().HasIndex(x => new { x.TenantId, x.NormalizedName }).IsUnique();
         modelBuilder.Entity<UserRole>().HasIndex(x => new { x.TenantId, x.UserId, x.RoleId }).IsUnique().HasFilter("\"IsDeleted\" = false");
         modelBuilder.Entity<RefreshToken>().HasIndex(x => x.TokenHash).IsUnique();
+        modelBuilder.Entity<EmailSignInLink>().HasIndex(x => x.TokenHash).IsUnique();
+        modelBuilder.Entity<EmailSignInLink>().HasIndex(x => x.ExpiresAt);
         modelBuilder.Entity<Employee>().HasIndex(x => new { x.TenantId, x.EmployeeNumber }).IsUnique();
         modelBuilder.Entity<Employee>().HasIndex(x => new { x.TenantId, x.WorkEmail }).IsUnique();
         modelBuilder.Entity<Department>().HasIndex(x => new { x.TenantId, x.Code }).IsUnique();
@@ -147,7 +150,7 @@ public sealed class HrmsDbContext(DbContextOptions<HrmsDbContext> options, ICurr
             .Where(x => x.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
             // Delivery attempts are operational telemetry, not business changes;
             // auditing each retry would duplicate message content and grow logs rapidly.
-            .Where(x => x.Entity is not AuditLog and not EmailOutboxItem)
+            .Where(x => x.Entity is not AuditLog and not EmailOutboxItem and not EmailSignInLink)
             .ToArray();
 
         foreach (var entry in changed)

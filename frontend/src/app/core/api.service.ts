@@ -13,6 +13,12 @@ export class ApiService {
     return this.http.post<UserSession>(`${this.baseUrl}/auth/login`, payload);
   }
 
+  redeemEmailLink(token: string): Observable<{ session: UserSession; destination: string }> {
+    return this.http.post<{ session: UserSession; destination: string }>(
+      `${this.baseUrl}/auth/email-link/redeem`, { token },
+    );
+  }
+
   refresh(refreshToken: string, tenantId: string): Observable<UserSession> {
     return this.http.post<UserSession>(
       `${this.baseUrl}/auth/refresh`,

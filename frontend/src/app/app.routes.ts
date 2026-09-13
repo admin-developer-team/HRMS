@@ -8,6 +8,11 @@ export const routes: Routes = [
     title: 'Sign in · PeopleFlow HRMS',
   },
   {
+    path: 'email-link',
+    loadComponent: () => import('./features/login/email-link.page').then((m) => m.EmailLinkPage),
+    title: 'Opening secure link · PeopleFlow HRMS',
+  },
+  {
     path: '',
     canActivate: [authGuard],
     loadComponent: () => import('./layout/shell.component').then((m) => m.ShellComponent),

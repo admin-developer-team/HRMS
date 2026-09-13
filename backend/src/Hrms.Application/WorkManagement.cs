@@ -168,9 +168,9 @@ public sealed class WorkManagementService(
             row.CanViewAllWorklogs = request.CanViewAllWorklogs;
         }
         await notifications.QueueForEmployeesAsync(requestedEmployeeIds.Where(x => !existingEmployeeIds.Contains(x)).Select(x => (Guid?)x),
-            "Project access granted", $"You were granted access to {project.Name}.", "work", "/work", ct);
+            "Project access granted", $"You were granted access to {project.Name}.", "work", $"/work?project={project.Id}", ct);
         await notifications.QueueForEmployeesAsync(changedEmployeeIds.Select(x => (Guid?)x),
-            "Project access updated", $"Your access permissions for {project.Name} were updated.", "work", "/work", ct);
+            "Project access updated", $"Your access permissions for {project.Name} were updated.", "work", $"/work?project={project.Id}", ct);
         await unitOfWork.SaveChangesAsync(ct);
         return await ListMembersAsync(projectId, ct);
     }
@@ -623,7 +623,8 @@ public sealed class WorkManagementService(
         }, ct);
 
     private Task NotifyAsync(WorkItem item, string title, string message, IEnumerable<Guid?> recipients, CancellationToken ct) =>
-        notifications.QueueForEmployeesAsync(recipients, title, message, "work", "/work", ct);
+        notifications.QueueForEmployeesAsync(recipients, title, message, "work",
+            $"/work?project={Uri.EscapeDataString(item.ProjectId.ToString())}&item={Uri.EscapeDataString(item.Id.ToString())}", ct);
 
     private async Task<IReadOnlyList<WorkProjectDto>> MapProjectsAsync(IReadOnlyList<WorkProject> rows, CancellationToken ct)
     {

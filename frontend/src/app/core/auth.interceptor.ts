@@ -11,8 +11,9 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
   const router = inject(Router);
   const token = auth.accessToken();
   const tenantId = auth.tenantId();
+  const emailRedemption = request.url.endsWith('/auth/email-link/redeem');
 
-  const secured = token
+  const secured = token && !emailRedemption
     ? request.clone({
         setHeaders: {
           Authorization: `Bearer ${token}`,
@@ -28,7 +29,8 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
       if (
         error.status === 401 &&
         !request.url.endsWith('/auth/login') &&
-        !request.url.endsWith('/auth/refresh')
+        !request.url.endsWith('/auth/refresh') &&
+        !emailRedemption
       ) {
         return auth.refreshSession().pipe(
           switchMap((session) =>

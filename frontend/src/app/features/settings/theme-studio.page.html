@@ -136,7 +136,7 @@
       </article>
 
       <article class="app-card settings-card email-template-card">
-        <div class="settings-head"><div><h2>Platform email templates</h2><p>These shared templates apply to every company while company name and links are filled per message. Available variables: {{ '{{title}}' }}, {{ '{{message}}' }}, {{ '{{recipientName}}' }}, {{ '{{companyName}}' }}, {{ '{{tenantSlug}}' }}, {{ '{{actionUrl}}' }}, {{ '{{email}}' }}, and {{ '{{temporaryPassword}}' }}.</p></div></div>
+        <div class="settings-head"><div><h2>Platform email templates</h2><p>These shared templates apply to every company while company name and links are filled per message. Available variables: {{ '{{title}}' }}, {{ '{{message}}' }}, {{ '{{recipientName}}' }}, {{ '{{companyName}}' }}, {{ '{{tenantSlug}}' }}, {{ '{{actionUrl}}' }}, and {{ '{{email}}' }}.</p></div></div>
         <div class="field"><label>Template</label><select [ngModel]="selectedEmailTemplateId()" (ngModelChange)="selectEmailTemplate($event)">@for (template of emailTemplates(); track template.id) { <option [value]="template.id">{{ template.name }} ({{ template.key }})</option> }</select></div>
         @if (selectedEmailTemplate(); as template) {
           <div class="preference-row compact-row"><div><b>Enabled</b><span>Disabled event templates fall back to the general notification template.</span></div><mat-slide-toggle aria-label="Enable template" [checked]="templateEnabled()" (change)="templateEnabled.set($event.checked)" /></div>

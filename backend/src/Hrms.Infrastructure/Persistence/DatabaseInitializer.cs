@@ -76,10 +76,21 @@ public sealed class DatabaseInitializer(HrmsDbContext db, ICurrentTenant current
         foreach (var obsolete in allConfigurations.Where(x => x.TenantId != PlatformTenantId && x.IsEnabled))
             obsolete.IsEnabled = false;
 
-        var existingKeys = await db.EmailTemplates.IgnoreQueryFilters()
-            .Where(x => x.TenantId == PlatformTenantId && !x.IsDeleted).Select(x => x.Key).ToListAsync(ct);
-        var keySet = existingKeys.ToHashSet(StringComparer.OrdinalIgnoreCase);
-        db.EmailTemplates.AddRange(EmailTemplateCatalog.CreateDefaults(PlatformTenantId).Where(x => !keySet.Contains(x.Key)));
+        var existing = await db.EmailTemplates.IgnoreQueryFilters()
+            .Where(x => x.TenantId == PlatformTenantId && !x.IsDeleted).ToListAsync(ct);
+        var keySet = existing.Select(x => x.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var defaults = EmailTemplateCatalog.CreateDefaults(PlatformTenantId);
+        db.EmailTemplates.AddRange(defaults.Where(x => !keySet.Contains(x.Key)));
+        // Existing installations have credential templates with a password placeholder.
+        // Replace those legacy templates so the new credential-free emails read correctly.
+        foreach (var template in existing.Where(x => x.Key is EmailTemplateKeys.AccountCreated or EmailTemplateKeys.PasswordReset &&
+                     (x.HtmlTemplate.Contains("{{temporaryPassword}}", StringComparison.OrdinalIgnoreCase) ||
+                      x.TextTemplate?.Contains("{{temporaryPassword}}", StringComparison.OrdinalIgnoreCase) == true)))
+        {
+            var replacement = defaults.Single(x => x.Key == template.Key);
+            template.HtmlTemplate = replacement.HtmlTemplate;
+            template.TextTemplate = replacement.TextTemplate;
+        }
         await db.SaveChangesAsync(ct);
     }
 }

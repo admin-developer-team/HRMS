@@ -1,6 +1,8 @@
 using System.Net;
 using System.Net.Sockets;
+using System.Security.Cryptography;
 using System.Security.Authentication;
+using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using Hrms.Application;
@@ -63,6 +65,7 @@ public sealed class GlobalEmailConfigurationReader(HrmsDbContext db) : IGlobalEm
 
 public sealed class EmailOutboxWorker(IServiceScopeFactory scopeFactory, ILogger<EmailOutboxWorker> logger) : BackgroundService
 {
+    private DateTimeOffset _nextLinkCleanupAt = DateTimeOffset.MinValue;
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         using var timer = new PeriodicTimer(TimeSpan.FromSeconds(10));
@@ -82,6 +85,12 @@ public sealed class EmailOutboxWorker(IServiceScopeFactory scopeFactory, ILogger
         var protector = scope.ServiceProvider.GetRequiredService<IEmailSecretProtector>();
         var transport = scope.ServiceProvider.GetRequiredService<IEmailTransport>();
         var now = DateTimeOffset.UtcNow;
+        if (now >= _nextLinkCleanupAt)
+        {
+            await db.EmailSignInLinks.IgnoreQueryFilters()
+                .Where(x => x.ExpiresAt < now.AddDays(-7)).ExecuteDeleteAsync(ct);
+            _nextLinkCleanupAt = now.AddDays(1);
+        }
         var ids = await db.EmailOutboxItems.IgnoreQueryFilters()
             .Where(x => !x.IsDeleted && x.SentAt == null && x.AttemptCount < 8 && x.NextAttemptAt <= now)
             .OrderBy(x => x.NextAttemptAt).Select(x => x.Id).Take(20).ToListAsync(ct);
@@ -114,6 +123,23 @@ public sealed class EmailOutboxWorker(IServiceScopeFactory scopeFactory, ILogger
                 var relativeLink = model.GetValueOrDefault("link") ?? string.Empty;
                 model["tenantSlug"] = company.Slug;
                 model["actionUrl"] = BuildActionUrl(configuration.ApplicationBaseUrl, company.Slug, relativeLink);
+                if (!string.IsNullOrWhiteSpace(configuration.ApplicationBaseUrl))
+                {
+                    var recipient = await db.Users.FirstOrDefaultAsync(x => x.Email == item.ToEmail && x.IsActive, ct);
+                    if (recipient is not null)
+                    {
+                        var destination = SafeDestination(relativeLink, "/dashboard");
+                        var token = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
+                        db.EmailSignInLinks.Add(new EmailSignInLink
+                        {
+                            TenantId = item.TenantId, UserId = recipient.Id, RecipientEmail = recipient.Email,
+                            TokenHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token))),
+                            Destination = destination, ExpiresAt = DateTimeOffset.UtcNow.AddHours(24)
+                        });
+                        await db.SaveChangesAsync(ct);
+                        model["actionUrl"] = $"{configuration.ApplicationBaseUrl.TrimEnd('/')}/email-link?token={token}";
+                    }
+                }
                 var rendered = Render(item, template, model);
                 await transport.SendAsync(EmailAdministrationService.ToDeliverySettings(configuration, protector), rendered, ct);
                 item.SentAt = DateTimeOffset.UtcNow; item.LastError = null;
@@ -156,5 +182,12 @@ public sealed class EmailOutboxWorker(IServiceScopeFactory scopeFactory, ILogger
         if (!destination.StartsWith('/')) destination = "/" + destination;
         var query = $"tenant={Uri.EscapeDataString(tenantSlug)}&returnUrl={Uri.EscapeDataString(destination)}";
         return $"{baseUrl.TrimEnd('/')}/login?{query}";
+    }
+
+    public static string SafeDestination(string? requested, string fallback)
+    {
+        if (string.IsNullOrWhiteSpace(requested) || !requested.StartsWith('/') || requested.StartsWith("//") ||
+            requested.Contains('\\') || requested.Contains('\r') || requested.Contains('\n')) return fallback;
+        return requested;
     }
 }

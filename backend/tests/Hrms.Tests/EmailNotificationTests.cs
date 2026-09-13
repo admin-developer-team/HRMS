@@ -51,15 +51,26 @@ public sealed class EmailNotificationTests
     }
 
     [Fact]
-    public void Credential_templates_include_temporary_password_and_company_login_action()
+    public void Account_templates_use_secure_action_without_exposing_password()
     {
         var templates = EmailTemplateCatalog.CreateDefaults(Guid.NewGuid());
         var account = Assert.Single(templates, x => x.Key == EmailTemplateKeys.AccountCreated);
         var reset = Assert.Single(templates, x => x.Key == EmailTemplateKeys.PasswordReset);
 
-        Assert.Contains("{{temporaryPassword}}", account.HtmlTemplate);
+        Assert.DoesNotContain("{{temporaryPassword}}", account.HtmlTemplate);
         Assert.Contains("{{actionUrl}}", account.HtmlTemplate);
-        Assert.Contains("{{temporaryPassword}}", reset.TextTemplate);
+        Assert.DoesNotContain("{{temporaryPassword}}", reset.TextTemplate);
+        Assert.Contains("{{actionUrl}}", reset.TextTemplate);
+    }
+
+    [Theory]
+    [InlineData("/work?project=abc&item=def", "/work?project=abc&item=def")]
+    [InlineData("https://malicious.example/path", "/dashboard")]
+    [InlineData("//malicious.example/path", "/dashboard")]
+    [InlineData("/\\malicious.example", "/dashboard")]
+    public void Email_link_destination_stays_inside_application(string requested, string expected)
+    {
+        Assert.Equal(expected, Hrms.Infrastructure.EmailOutboxWorker.SafeDestination(requested, "/dashboard"));
     }
 
     private sealed class MutableTenant : ICurrentTenant

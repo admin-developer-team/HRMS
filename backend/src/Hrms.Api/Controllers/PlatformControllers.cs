@@ -9,6 +9,7 @@ public sealed class AuthController(IAuthService service) : ControllerBase
 {
     [HttpPost("login"), AllowAnonymous] public Task<TokenResponse> Login(LoginRequest request, CancellationToken ct) => service.LoginAsync(request, HttpContext.Connection.RemoteIpAddress?.ToString(), Request.Headers.UserAgent.ToString(), ct);
     [HttpPost("refresh"), AllowAnonymous] public Task<TokenResponse> Refresh(RefreshRequest request, CancellationToken ct) => service.RefreshAsync(request, ct);
+    [HttpPost("email-link/redeem"), AllowAnonymous] public Task<EmailSignInResponse> RedeemEmailLink(RedeemEmailLinkRequest request, CancellationToken ct) => service.RedeemEmailLinkAsync(request.Token, ct);
     [HttpPost("revoke"), Authorize] public async Task<IActionResult> Revoke(RefreshRequest request, CancellationToken ct) { await service.RevokeAsync(request, ct); return NoContent(); }
 }
 
@@ -32,6 +33,8 @@ public sealed class IdentityController(IIdentityAdminService service) : Controll
     [HttpPut("users/{userId:guid}/active")] public Task<UserAdminDto> SetActive(Guid userId, SetUserActiveRequest request, CancellationToken ct) => service.SetActiveAsync(userId, request, ct);
     [HttpGet("users")] public Task<PagedResult<UserAdminDto>> Users([FromQuery] int page = 1, [FromQuery] int pageSize = 25, [FromQuery] string? search = null, CancellationToken ct = default) => service.SearchUsersAsync(new(page, pageSize, search), ct);
 }
+
+public sealed record RedeemEmailLinkRequest(string Token);
 
 [ApiController, Route("api/v1/dashboard"), Authorize(Policy = Permissions.DashboardAdmin)]
 public sealed class DashboardController(IDashboardService service) : ControllerBase

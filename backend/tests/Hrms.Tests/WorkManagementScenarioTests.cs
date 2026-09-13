@@ -306,7 +306,8 @@ public sealed class WorkManagementScenarioTests
         var p = await h.Project();
         var item = await h.Item(p.Id);
         await h.Service.AssignItemAsync(item.Id, new(h.B, [h.B, h.B], item.Version), Ct);
-        Assert.Single(await h.Db.UserNotifications.Where(x => x.UserId == recipient && x.Title == "Ticket assigned").ToListAsync());
+        var assignment = Assert.Single(await h.Db.UserNotifications.Where(x => x.UserId == recipient && x.Title == "Ticket assigned").ToListAsync());
+        Assert.Equal($"/work?project={p.Id}&item={item.Id}", assignment.Link);
         Assert.Contains(await h.Db.UserNotifications.Where(x => x.UserId == recipient).ToListAsync(), x => x.Title != "Ticket assigned" && x.Kind == "work");
     }
 

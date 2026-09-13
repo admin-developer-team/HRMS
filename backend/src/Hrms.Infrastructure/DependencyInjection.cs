@@ -40,6 +40,7 @@ public static class DependencyInjection
         if (Encoding.UTF8.GetByteCount(jwt.SigningKey) < 32) throw new InvalidOperationException("Jwt:SigningKey must be at least 32 bytes.");
         services.AddSingleton<ITokenService, JwtTokenService>();
         services.AddScoped<SessionValidator>();
+        services.AddScoped<IEmailSignInLinkStore, EmailSignInLinkStore>();
         services.AddSingleton<IDocumentStorage, LocalDocumentStorage>();
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options =>
         {
