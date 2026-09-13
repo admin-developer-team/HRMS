@@ -11,7 +11,7 @@ public sealed class PayrollController(IPayrollService service) : ControllerBase
     [HttpPost("runs")] public Task<PayrollRunDto> Create(CreatePayrollRunRequest request, CancellationToken ct) => service.CreateAsync(request, ct);
     [HttpPost("runs/{id:guid}/calculate")] public Task<PayrollRunDto> Calculate(Guid id, CancellationToken ct) => service.CalculateAsync(id, ct);
     [HttpPut("runs/{id:guid}/status")] public Task<PayrollRunDto> Status(Guid id, [FromQuery] PayrollRunStatus status, [FromQuery] long version, CancellationToken ct) => service.ChangeStatusAsync(id, status, version, ct);
-    [HttpGet("runs")] public Task<PagedResult<PayrollRunDto>> Search([FromQuery] int page = 1, [FromQuery] int pageSize = 25, CancellationToken ct = default) => service.SearchAsync(new(page, pageSize), ct);
+    [HttpGet("runs")] public Task<PagedResult<PayrollRunDto>> Search([FromQuery] int page = 1, [FromQuery] int pageSize = 25, [FromQuery] string? search = null, CancellationToken ct = default) => service.SearchAsync(new(page, pageSize, search), ct);
     [HttpGet("runs/{id:guid}/items")] public Task<IReadOnlyList<PayrollItemDto>> Items(Guid id, CancellationToken ct) => service.GetItemsAsync(id, ct);
 }
 
@@ -51,7 +51,7 @@ public sealed class ExpensesController(IExpenseService service) : ControllerBase
     [HttpPost] public Task<ExpenseDto> Create(CreateExpenseRequest request, CancellationToken ct) => service.CreateAsync(request, ct);
     [HttpPost("{id:guid}/submit")] public Task<ExpenseDto> Submit(Guid id, [FromQuery] long version, CancellationToken ct) => service.SubmitAsync(id, version, ct);
     [HttpPut("{id:guid}/review")] public Task<ExpenseDto> Review(Guid id, ReviewExpenseRequest request, CancellationToken ct) => service.ReviewAsync(id, request, ct);
-    [HttpGet] public Task<PagedResult<ExpenseDto>> Search([FromQuery] int page = 1, [FromQuery] int pageSize = 25, [FromQuery] Guid? employeeId = null, [FromQuery] ExpenseStatus? status = null, CancellationToken ct = default) => service.SearchAsync(new(page, pageSize), employeeId, status, ct);
+    [HttpGet] public Task<PagedResult<ExpenseDto>> Search([FromQuery] int page = 1, [FromQuery] int pageSize = 25, [FromQuery] string? search = null, [FromQuery] Guid? employeeId = null, [FromQuery] ExpenseStatus? status = null, CancellationToken ct = default) => service.SearchAsync(new(page, pageSize, search), employeeId, status, ct);
 }
 
 [ApiController, Route("api/v1/training"), Authorize(Policy = Permissions.TrainingManage)]

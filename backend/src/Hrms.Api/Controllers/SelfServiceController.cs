@@ -30,10 +30,10 @@ public sealed class SelfServiceController(ISelfService service) : ControllerBase
     [HttpGet("leave-balances")] public Task<IReadOnlyList<LeaveBalanceDto>> LeaveBalances([FromQuery] int? year = null, CancellationToken ct = default) => service.GetLeaveBalancesAsync(year ?? DateTime.UtcNow.Year, ct);
 
     [HttpPost("timesheets")] public Task<TimesheetDto> SubmitTimesheet(SelfTimesheetRequest request, CancellationToken ct) => service.SubmitTimesheetAsync(request, ct);
-    [HttpGet("timesheets")] public Task<PagedResult<TimesheetDto>> Timesheets([FromQuery] int page = 1, [FromQuery] int pageSize = 25, [FromQuery] WorkflowStatus? status = null, CancellationToken ct = default) => service.GetTimesheetsAsync(new(page, pageSize), status, ct);
+    [HttpGet("timesheets")] public Task<PagedResult<TimesheetDto>> Timesheets([FromQuery] int page = 1, [FromQuery] int pageSize = 25, [FromQuery] string? search = null, [FromQuery] WorkflowStatus? status = null, CancellationToken ct = default) => service.GetTimesheetsAsync(new(page, pageSize, search), status, ct);
 
     [HttpPost("expenses")] public Task<ExpenseDto> CreateExpense(SelfExpenseRequest request, CancellationToken ct) => service.CreateExpenseAsync(request, ct);
-    [HttpGet("expenses")] public Task<PagedResult<ExpenseDto>> Expenses([FromQuery] int page = 1, [FromQuery] int pageSize = 25, [FromQuery] ExpenseStatus? status = null, CancellationToken ct = default) => service.GetExpensesAsync(new(page, pageSize), status, ct);
+    [HttpGet("expenses")] public Task<PagedResult<ExpenseDto>> Expenses([FromQuery] int page = 1, [FromQuery] int pageSize = 25, [FromQuery] string? search = null, [FromQuery] ExpenseStatus? status = null, CancellationToken ct = default) => service.GetExpensesAsync(new(page, pageSize, search), status, ct);
     [HttpPost("expenses/{id:guid}/submit")] public Task<ExpenseDto> SubmitExpense(Guid id, [FromQuery] long version, CancellationToken ct) => service.SubmitExpenseAsync(id, version, ct);
 
     [HttpGet("training")] public Task<IReadOnlyList<TrainingEnrollmentDto>> Training(CancellationToken ct) => service.GetTrainingAsync(ct);

@@ -105,7 +105,7 @@ export class ModulePage implements OnInit, OnDestroy {
       const viewIndex = requestedView
         ? this.definition().views.findIndex(view => view.label.toLocaleLowerCase() === requestedView)
         : 0;
-      this.selectTab(viewIndex >= 0 ? viewIndex : 0);
+      this.selectTab(viewIndex >= 0 ? viewIndex : 0, query.get('search')?.trim() ?? '');
       if (query.get('action') === 'create' && this.view().createEndpoint) setTimeout(() => {
         this.openCreate();
         void this.router.navigate([], {
@@ -123,9 +123,9 @@ export class ModulePage implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
-  selectTab(index: number): void {
+  selectTab(index: number, initialSearch = ''): void {
     this.activeTab.set(index);
-    this.search.set('');
+    this.search.set(initialSearch);
     this.page.set(1);
     this.error.set('');
     this.success.set('');

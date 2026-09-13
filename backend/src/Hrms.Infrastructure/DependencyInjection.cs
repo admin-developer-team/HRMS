@@ -80,6 +80,7 @@ public static class DependencyInjection
         services.AddScoped<IEmployeeService, EmployeeService>(); services.AddScoped<IOrganizationService, OrganizationService>();
         services.AddScoped<ILeaveService, LeaveService>(); services.AddScoped<IAttendanceService, AttendanceService>();
         services.AddScoped<IWorkforceOperationsService, WorkforceOperationsService>();
+        services.AddScoped<IGlobalSearchService, GlobalSearchService>();
         services.AddScoped<CalendarService>();
         services.AddMemoryCache();
         services.AddHttpClient<IPublicHolidaySource, PublicHolidaySource>(client => client.Timeout = TimeSpan.FromSeconds(8));

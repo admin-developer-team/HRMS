@@ -74,12 +74,19 @@
       >
         <mat-icon>menu</mat-icon>
       </button>
-      <div class="global-search" (focusout)="closeGlobalSearchSoon()">
+      <button type="button" class="mobile-search-trigger" mat-icon-button aria-label="Open search" (click)="focusGlobalSearch()"><mat-icon>search</mat-icon></button>
+      <div class="global-search" [class.open]="globalSearchOpen()" (focusout)="closeGlobalSearchSoon()" (click)="onSearchBackdrop($event)">
         <mat-icon>search</mat-icon>
         <input
+          #globalSearchInput
           type="search"
           aria-label="Search the application"
-          placeholder="Search..."
+          role="combobox"
+          aria-controls="global-search-results"
+          aria-autocomplete="list"
+          [attr.aria-expanded]="globalSearchOpen()"
+          [attr.aria-activedescendant]="globalSearchOpen() && globalSearchResults().length ? 'global-search-result-' + globalSearchActive() : null"
+          placeholder="Search people, work, claims, assets..."
           [value]="globalSearchQuery()"
           (focus)="showGlobalSearch()"
           (input)="onGlobalSearch($any($event.target).value)"
@@ -87,11 +94,12 @@
         />
         @if (globalSearchOpen()) {
           <section class="global-search-panel" aria-label="Search results">
-            <header><span>{{ globalSearchQuery() ? 'Search results' : 'Quick actions' }}</span><kbd>↑↓</kbd><kbd>Enter</kbd></header>
+            <header><span>{{ globalSearchQuery() ? 'Search results' : 'Quick access' }}</span><kbd>↑↓</kbd><kbd>Enter</kbd><button type="button" aria-label="Close search" (click)="closeGlobalSearch()"><mat-icon>close</mat-icon></button></header>
             @if (globalSearchBusy()) { <div class="global-search-loading"><span></span></div> }
-            <div class="global-search-results" role="listbox">
-              @for (result of globalSearchResults(); track result.kind + result.title; let index = $index) {
-                <button type="button" role="option" [attr.aria-selected]="globalSearchActive() === index"
+            @if (globalSearchError()) { <div class="global-search-error">Some records could not load. You can still open the pages below.</div> }
+            <div class="global-search-results" id="global-search-results" role="listbox">
+              @for (result of globalSearchResults(); track $index; let index = $index) {
+                <button type="button" role="option" [id]="'global-search-result-' + index" [attr.aria-selected]="globalSearchActive() === index"
                   [class.active]="globalSearchActive() === index" (mousedown)="$event.preventDefault()" (click)="openGlobalSearchResult(result)">
                   <span class="search-result-icon"><mat-icon>{{ result.icon }}</mat-icon></span>
                   <span class="search-result-copy"><b>{{ result.title }}</b><small>{{ result.subtitle }}</small></span>
@@ -101,6 +109,7 @@
                 @if (!globalSearchBusy()) { <div class="global-search-empty"><mat-icon>search_off</mat-icon><span>No accessible results found</span></div> }
               }
             </div>
+            <footer>Search across your workspace <span>Ctrl K</span></footer>
           </section>
         }
       </div>

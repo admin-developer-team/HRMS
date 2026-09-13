@@ -15,6 +15,43 @@ public sealed class EnterpriseWorkflowTests
     private static readonly DateOnly Day = new(2026, 8, 3);
     private static DateTimeOffset At(int hour, int minute = 0) => new(2026, 8, 3, hour, minute, 0, TimeSpan.Zero);
 
+    [Fact]
+    public async Task Global_search_respects_employee_and_team_permissions()
+    {
+        using var h = new Harness();
+        var search = new GlobalSearchService(h.Db, h.User, h.Work);
+        h.AsEmployee(h.A);
+        Assert.Empty((await search.SearchAsync("Rohan", Ct)).Items);
+
+        h.AsEmployee(h.B, Permissions.TeamRead);
+        var teamHit = Assert.Single((await search.SearchAsync("Asha", Ct)).Items);
+        Assert.Equal("Team member", teamHit.Kind);
+        Assert.Equal("/my-team", teamHit.Route);
+
+        h.AsEmployee(h.B, Permissions.EmployeesRead);
+        var employeeHit = Assert.Single((await search.SearchAsync("Asha", Ct)).Items);
+        Assert.Equal("Employee", employeeHit.Kind);
+        Assert.Equal($"/employees/{h.A}", employeeHit.Route);
+    }
+
+    [Fact]
+    public async Task Global_search_only_returns_work_from_accessible_projects()
+    {
+        using var h = new Harness();
+        var project = await h.Project();
+        await h.Work.CreateItemAsync(h.ItemRequest(project.Id) with { Description = "Searchable onboarding checklist" }, Ct);
+        var search = new GlobalSearchService(h.Db, h.User, h.Work);
+        h.AsEmployee(h.A, Permissions.WorkRead);
+        Assert.Empty((await search.SearchAsync("checklist", Ct)).Items);
+
+        h.User.Admin = true;
+        await h.Work.SetMembersAsync(project.Id, [new(h.A, false, true, false, false, false)], Ct);
+        h.User.Admin = false;
+        var hit = Assert.Single((await search.SearchAsync("checklist", Ct)).Items);
+        Assert.Equal("Ticket", hit.Kind);
+        Assert.Equal("/work", hit.Route);
+    }
+
     [Theory]
     [InlineData(9, 17, 480)] [InlineData(22, 6, 480)] [InlineData(20, 4, 480)]
     public void Attendance_supports_day_and_night_shifts(int start, int end, int minutes) =>

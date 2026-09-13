@@ -193,7 +193,7 @@ public sealed class WorkManagementService(
             && (!status.HasValue || x.Status == status.Value)
             && (!priority.HasValue || x.Priority == priority.Value)
             && (!assigneeEmployeeId.HasValue || x.AssigneeEmployeeId == assigneeEmployeeId.Value || assignedItemIds.Contains(x.Id))
-            && (string.IsNullOrEmpty(query) || x.Key.ToLower().Contains(query) || x.Summary.ToLower().Contains(query));
+            && (string.IsNullOrEmpty(query) || x.Key.ToLower().Contains(query) || x.Summary.ToLower().Contains(query) || (x.Description != null && x.Description.ToLower().Contains(query)) || x.LabelsCsv.ToLower().Contains(query));
         var total = await items.CountAsync(predicate, ct);
         var rows = await items.ListAsync(predicate, x => x.OrderByDescending(i => i.CreatedAt), page.Skip, page.SafePageSize, ct);
         return new PagedResult<WorkItemDto>(await MapItemsAsync(rows, ct), page.SafePage, page.SafePageSize, total);

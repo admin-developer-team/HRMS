@@ -1,7 +1,9 @@
 import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ApiService } from '../../core/api.service';
 import { AuthService } from '../../core/auth.service';
 import { ToastService } from '../../core/toast.service';
@@ -22,6 +24,8 @@ interface DayCell { date: string; day: number; inMonth: boolean; isToday: boolea
 })
 export class CalendarPage implements OnInit {
   private readonly api = inject(ApiService);
+  private readonly route = inject(ActivatedRoute);
+  private readonly destroyRef = inject(DestroyRef);
   readonly auth = inject(AuthService);
   private readonly toast = inject(ToastService);
   readonly today = this.key(new Date());
@@ -62,7 +66,17 @@ export class CalendarPage implements OnInit {
   });
 
   ngOnInit(): void {
-    this.load();
+    this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(params => {
+      const date = params.get('date');
+      if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        const parsed = new Date(`${date}T12:00:00`);
+        if (!Number.isNaN(parsed.getTime()) && this.key(parsed) === date) {
+          this.cursor.set(new Date(parsed.getFullYear(), parsed.getMonth(), 1));
+          this.selectedDate.set(date);
+        }
+      }
+      this.load();
+    });
   }
 
   load(): void {

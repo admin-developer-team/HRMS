@@ -1,21 +1,22 @@
 import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
 import { DatePipe } from '@angular/common';
-import { Component, OnDestroy, computed, effect, inject, signal } from '@angular/core';
+import { Component, ElementRef, HostListener, OnDestroy, ViewChild, computed, effect, inject, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatSidenavModule } from '@angular/material/sidenav';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
-import { catchError, forkJoin, of } from 'rxjs';
+import { Subscription } from 'rxjs';
 import { ApiService } from '../core/api.service';
 import { AuthService } from '../core/auth.service';
 import { CompanyProfileService } from '../core/company-profile.service';
 import { DocumentService } from '../core/document.service';
 import { LoadingService } from '../core/loading.service';
-import { Employee, PagedResult, UserNotification, WorkItem, WorkProject } from '../core/models';
+import { UserNotification } from '../core/models';
 import { NotificationService } from '../core/notification.service';
 import { ToastService } from '../core/toast.service';
+import { MODULES } from '../features/module/module.registry';
 
 interface NavItem {
   label: string;
@@ -32,7 +33,7 @@ interface NavSection {
 }
 
 interface GlobalSearchResult {
-  kind: 'Action' | 'Page' | 'Employee' | 'Ticket' | 'Project';
+  kind: string;
   title: string;
   subtitle: string;
   icon: string;
@@ -40,6 +41,8 @@ interface GlobalSearchResult {
   queryParams?: Record<string, string>;
   keywords?: string;
 }
+
+interface GlobalSearchResponse { items: GlobalSearchResult[] }
 
 @Component({
   selector: 'app-shell',
@@ -58,6 +61,7 @@ interface GlobalSearchResult {
   styleUrl: './shell.component.scss',
 })
 export class ShellComponent implements OnDestroy {
+  @ViewChild('globalSearchInput') private globalSearchInput?: ElementRef<HTMLInputElement>;
   readonly auth = inject(AuthService);
   readonly loading = inject(LoadingService);
   readonly company = inject(CompanyProfileService);
@@ -80,10 +84,13 @@ export class ShellComponent implements OnDestroy {
   readonly globalSearchQuery = signal('');
   readonly globalSearchOpen = signal(false);
   readonly globalSearchBusy = signal(false);
+  readonly globalSearchError = signal(false);
   readonly globalSearchResults = signal<GlobalSearchResult[]>([]);
   readonly globalSearchActive = signal(0);
   private globalSearchTimer?: ReturnType<typeof setTimeout>;
   private globalSearchGeneration = 0;
+  private globalSearchRequest?: Subscription;
+  private recentSearchResults: GlobalSearchResult[] = [];
   private readonly companyLogoEffect = effect(() => this.loadImage(this.company.profile()?.logoDocumentId, this.companyLogoUrl));
   readonly initials = computed(() =>
     (this.auth.user()?.displayName ?? 'HR')
@@ -210,6 +217,7 @@ export class ShellComponent implements OnDestroy {
 
   ngOnDestroy(): void {
     if (this.globalSearchTimer) clearTimeout(this.globalSearchTimer);
+    this.globalSearchRequest?.unsubscribe();
     this.notifications.disconnect();
     this.profilePhotoSubscription.unsubscribe();
     this.revoke(this.companyLogoUrl());
@@ -235,17 +243,58 @@ export class ShellComponent implements OnDestroy {
     this.globalSearchQuery.set(value);
     this.globalSearchOpen.set(true);
     this.globalSearchActive.set(0);
+    this.globalSearchError.set(false);
     if (this.globalSearchTimer) clearTimeout(this.globalSearchTimer);
-    this.globalSearchTimer = setTimeout(() => this.runGlobalSearch(value), 180);
+    this.globalSearchRequest?.unsubscribe();
+    this.globalSearchGeneration++;
+    this.globalSearchResults.set(this.localSearchResults(value));
+    this.globalSearchBusy.set(value.trim().length >= 2);
+    if (value.trim().length >= 2) this.globalSearchTimer = setTimeout(() => this.runGlobalSearch(value), 240);
   }
 
   showGlobalSearch(): void {
     this.globalSearchOpen.set(true);
-    if (!this.globalSearchResults().length) this.runGlobalSearch(this.globalSearchQuery());
+    if (!this.globalSearchResults().length) this.onGlobalSearch(this.globalSearchQuery());
+  }
+
+  focusGlobalSearch(): void {
+    this.globalSearchOpen.set(true);
+    if (!this.globalSearchResults().length) this.onGlobalSearch(this.globalSearchQuery());
+    requestAnimationFrame(() => this.globalSearchInput?.nativeElement.focus());
+  }
+
+  closeGlobalSearch(): void {
+    this.globalSearchOpen.set(false);
+    if (this.globalSearchTimer) clearTimeout(this.globalSearchTimer);
+    this.globalSearchRequest?.unsubscribe();
+    this.globalSearchGeneration++;
+    this.globalSearchBusy.set(false);
+  }
+
+  onSearchBackdrop(event: MouseEvent): void {
+    if (event.target === event.currentTarget) this.closeGlobalSearch();
+  }
+
+  clearGlobalSearch(): void {
+    this.onGlobalSearch('');
+    this.globalSearchInput?.nativeElement.focus();
+  }
+
+  @HostListener('document:keydown', ['$event'])
+  globalSearchShortcut(event: KeyboardEvent): void {
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+      event.preventDefault();
+      this.focusGlobalSearch();
+    } else if (event.key === 'Escape' && this.globalSearchOpen()) {
+      this.closeGlobalSearch();
+      this.globalSearchInput?.nativeElement.blur();
+    }
   }
 
   closeGlobalSearchSoon(): void {
-    setTimeout(() => this.globalSearchOpen.set(false), 150);
+    setTimeout(() => {
+      if (!this.globalSearchInput?.nativeElement.matches(':focus')) this.closeGlobalSearch();
+    }, 150);
   }
 
   globalSearchKeydown(event: KeyboardEvent): void {
@@ -253,22 +302,29 @@ export class ShellComponent implements OnDestroy {
     if (event.key === 'ArrowDown' && results.length) {
       event.preventDefault();
       this.globalSearchActive.update(index => (index + 1) % results.length);
+      this.scrollActiveSearchResult();
     } else if (event.key === 'ArrowUp' && results.length) {
       event.preventDefault();
       this.globalSearchActive.update(index => (index - 1 + results.length) % results.length);
+      this.scrollActiveSearchResult();
     } else if (event.key === 'Enter' && results.length) {
       event.preventDefault();
       this.openGlobalSearchResult(results[this.globalSearchActive()] ?? results[0]);
     } else if (event.key === 'Escape') {
-      this.globalSearchOpen.set(false);
+      this.closeGlobalSearch();
     }
   }
 
   openGlobalSearchResult(result: GlobalSearchResult): void {
-    this.globalSearchOpen.set(false);
+    this.recentSearchResults = [result, ...this.recentSearchResults.filter(x => this.resultKey(x) !== this.resultKey(result))].slice(0, 4);
+    this.closeGlobalSearch();
     this.globalSearchQuery.set('');
     this.globalSearchResults.set([]);
     void this.router.navigate([result.route], { queryParams: result.queryParams });
+  }
+
+  private scrollActiveSearchResult(): void {
+    requestAnimationFrame(() => document.getElementById(`global-search-result-${this.globalSearchActive()}`)?.scrollIntoView({ block: 'nearest' }));
   }
 
   openNotification(item: UserNotification): void {
@@ -299,48 +355,53 @@ export class ShellComponent implements OnDestroy {
 
   private runGlobalSearch(rawQuery: string): void {
     const query = rawQuery.trim();
-    const generation = ++this.globalSearchGeneration;
-    const commands = this.searchCommands()
-      .map(result => ({ result, score: this.searchScore(`${result.title} ${result.subtitle} ${result.keywords ?? ''}`, query) }))
-      .filter(match => !query || match.score > 0)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, query ? 7 : 6)
-      .map(match => match.result);
-    if (query.length < 2) {
-      this.globalSearchBusy.set(false);
-      this.globalSearchResults.set(commands);
-      return;
-    }
-    this.globalSearchBusy.set(true);
-    const emptyPage = <T>(): PagedResult<T> => ({ items: [], page: 1, pageSize: 0, total: 0, totalPages: 0 });
-    const employees = this.auth.hasPermission('employees.read')
-      ? this.api.get<PagedResult<Employee>>('/employees', { page: 1, pageSize: 6, search: query }).pipe(catchError(() => of(emptyPage<Employee>())))
-      : of(emptyPage<Employee>());
-    const tickets = this.auth.hasPermission('work.read')
-      ? this.api.get<PagedResult<WorkItem>>('/work/items', { page: 1, pageSize: 6, search: query }).pipe(catchError(() => of(emptyPage<WorkItem>())))
-      : of(emptyPage<WorkItem>());
-    const projects = this.auth.hasPermission('work.read')
-      ? this.api.get<WorkProject[]>('/work/projects').pipe(catchError(() => of([] as WorkProject[])))
-      : of([] as WorkProject[]);
-    forkJoin({ employees, tickets, projects }).subscribe(({ employees, tickets, projects }) => {
+    if (query.length < 2) return;
+    const generation = this.globalSearchGeneration;
+    this.globalSearchRequest = this.api.get<GlobalSearchResponse>('/search', { q: query }).subscribe({ next: response => {
       if (generation !== this.globalSearchGeneration) return;
-      const dynamic: GlobalSearchResult[] = [
-        ...employees.items.map(employee => ({ kind: 'Employee' as const, title: employee.fullName, subtitle: `${employee.employeeNumber} · ${employee.workEmail}`, icon: 'person', route: `/employees/${employee.id}` })),
-        ...tickets.items.map(ticket => ({ kind: 'Ticket' as const, title: `${ticket.key} · ${ticket.summary}`, subtitle: `${ticket.projectKey} · ${ticket.status}`, icon: 'confirmation_number', route: '/work', queryParams: { item: ticket.id } })),
-        ...projects.filter(project => this.searchScore(`${project.key} ${project.name}`, query) > 0).slice(0, 5)
-          .map(project => ({ kind: 'Project' as const, title: `${project.key} · ${project.name}`, subtitle: `${project.memberCount} project members`, icon: 'folder', route: '/work', queryParams: { project: project.id } })),
-      ];
-      this.globalSearchResults.set([...commands, ...dynamic].slice(0, 15));
+      const results = [...(response.items ?? []), ...this.localSearchResults(query)]
+        .map(result => ({ result, score: this.searchScore(`${result.title} ${result.subtitle} ${result.keywords ?? ''}`, query) + (result.kind === 'Page' ? -50 : 0) }))
+        .sort((a, b) => b.score - a.score).map(item => item.result);
+      const seen = new Set<string>();
+      this.globalSearchResults.set(results.filter(result => {
+        const key = this.resultKey(result);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      }).slice(0, 28));
       this.globalSearchActive.set(0);
       this.globalSearchBusy.set(false);
-    });
+    }, error: () => {
+      if (generation !== this.globalSearchGeneration) return;
+      this.globalSearchBusy.set(false);
+      this.globalSearchError.set(true);
+    } });
+  }
+
+  private localSearchResults(query: string): GlobalSearchResult[] {
+    const commands = this.searchCommands().map(result => ({ result, score: this.searchScore(`${result.title} ${result.subtitle} ${result.keywords ?? ''}`, query) }))
+      .filter(item => !query || item.score > 0).sort((a, b) => b.score - a.score)
+      .slice(0, query ? 10 : 7).map(item => item.result);
+    if (query) return commands;
+    const seen = new Set(this.recentSearchResults.map(result => this.resultKey(result)));
+    return [...this.recentSearchResults, ...commands.filter(result => !seen.has(this.resultKey(result)))].slice(0, 10);
+  }
+
+  private resultKey(result: GlobalSearchResult): string {
+    return `${result.route}:${JSON.stringify(result.queryParams ?? {})}`;
   }
 
   private searchCommands(): GlobalSearchResult[] {
     const results: GlobalSearchResult[] = [];
-    for (const section of this.navigation) for (const item of section.items) if (this.visible(item)) results.push({
-      kind: 'Page', title: item.label, subtitle: section.label, icon: item.icon, route: item.route, keywords: `${section.label} open go navigate`,
-    });
+    for (const section of this.navigation) for (const item of section.items) if (this.visible(item)) {
+      results.push({ kind: 'Page', title: item.label, subtitle: section.label, icon: item.icon, route: item.route, keywords: `${section.label} open go navigate` });
+      const moduleKey = item.route.slice(1);
+      const module = MODULES[moduleKey];
+      for (const view of module?.views ?? []) results.push({
+        kind: 'Page', title: view.label, subtitle: item.label, icon: item.icon, route: item.route,
+        queryParams: { view: view.label }, keywords: `${section.label} ${view.columns?.map(column => column.label).join(' ') ?? ''} ${view.createLabel ?? ''}`,
+      });
+    }
     results.push({ kind: 'Page', title: 'Settings', subtitle: 'Company and personal settings', icon: 'settings', route: '/settings', keywords: 'theme configuration profile' });
     if (this.auth.isEmployee()) results.push(
       { kind: 'Action', title: 'Apply for leave', subtitle: 'Create a new time-off request', icon: 'beach_access', route: '/my-services', queryParams: { view: 'Leave', action: 'create' }, keywords: 'request holiday vacation sick annual time off absence' },
@@ -363,16 +424,17 @@ export class ShellComponent implements OnDestroy {
   private searchScore(value: string, rawQuery: string): number {
     if (!rawQuery) return 1;
     const text = value.toLocaleLowerCase();
-    const tokens = rawQuery.toLocaleLowerCase().split(/\s+/).filter(Boolean);
+    const query = rawQuery.toLocaleLowerCase();
+    if (text === query) return 1000;
+    const tokens = query.split(/\s+/).filter(Boolean);
     let score = 0;
     for (const token of tokens) {
       const index = text.indexOf(token);
-      if (index >= 0) { score += 100 - Math.min(index, 60); continue; }
-      let cursor = 0;
-      for (const character of text) if (character === token[cursor]) cursor++;
-      if (cursor !== token.length) return 0;
-      score += 20;
+      if (index < 0) return 0;
+      score += index === 0 ? 500 : /[^a-z0-9]/.test(text[index - 1]) ? 350 : 180;
+      score -= Math.min(index, 70);
     }
+    if (text.startsWith(query)) score += 200;
     return score;
   }
 
