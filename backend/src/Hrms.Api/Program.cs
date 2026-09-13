@@ -65,8 +65,8 @@ app.UseMiddleware<CorrelationMiddleware>();
 app.UseHttpsRedirection();
 app.UseCors("Frontend");
 app.UseAuthentication();
-app.UseMiddleware<TenantResolutionMiddleware>();
 app.UseRateLimiter();
+app.UseMiddleware<TenantResolutionMiddleware>();
 app.UseAuthorization();
 var swaggerEnabled = app.Environment.IsDevelopment() || app.Configuration.GetValue("Swagger:Enabled", false);
 if (swaggerEnabled)

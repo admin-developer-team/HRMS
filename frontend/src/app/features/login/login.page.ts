@@ -6,6 +6,8 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
+import { ApiService } from '../../core/api.service';
+import { workspaceSlug, workspaceUrl } from '../../core/workspace-url';
 
 @Component({
   selector: 'app-login-page',
@@ -16,22 +18,35 @@ import { AuthService } from '../../core/auth.service';
 export class LoginPage {
   private readonly fb = inject(FormBuilder);
   private readonly auth = inject(AuthService);
+  private readonly api = inject(ApiService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   readonly loading = signal(false);
   readonly error = signal('');
   readonly passwordVisible = signal(false);
+  readonly workspace = workspaceSlug();
+  readonly workspaceName = signal('');
   readonly form = this.fb.nonNullable.group({
-    tenantSlug: ['', [Validators.required, Validators.minLength(3)]],
     email: ['', [Validators.required, Validators.email]],
     password: ['', [Validators.required, Validators.minLength(8)]],
     remember: [true],
   });
 
   constructor() {
-    const tenant = this.route.snapshot.queryParamMap.get('tenant');
+    const legacyTenant = this.route.snapshot.queryParamMap.get('tenant');
+    if (this.workspace === 'platform' && legacyTenant && legacyTenant !== 'platform'
+      && /^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/.test(legacyTenant)) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('tenant');
+      window.location.replace(`${workspaceUrl(legacyTenant)}${url.pathname}${url.search}`);
+      return;
+    }
     const email = this.route.snapshot.queryParamMap.get('email');
-    this.form.patchValue({ ...(tenant ? { tenantSlug: tenant } : {}), ...(email ? { email } : {}) });
+    this.form.patchValue({ ...(email ? { email } : {}) });
+    this.api.get<{ slug: string; name: string }>('/auth/workspace').subscribe({
+      next: result => this.workspaceName.set(result.name),
+      error: () => this.error.set('This company workspace URL is unavailable.'),
+    });
   }
 
   submit(): void {
@@ -39,10 +54,10 @@ export class LoginPage {
       this.form.markAllAsTouched();
       return;
     }
-    const { tenantSlug, email, password, remember } = this.form.getRawValue();
+    const { email, password, remember } = this.form.getRawValue();
     this.loading.set(true);
     this.error.set('');
-    this.auth.login({ tenantSlug, email, password }, remember).subscribe({
+    this.auth.login({ email, password }, remember).subscribe({
       next: () => {
         this.loading.set(false);
         const requested = this.route.snapshot.queryParamMap.get('returnUrl');
@@ -54,7 +69,7 @@ export class LoginPage {
         this.loading.set(false);
         this.error.set(
           error.error?.detail ??
-            'We could not sign you in. Check your company workspace and credentials.',
+            'We could not sign you in. Check your credentials and company URL.',
         );
       },
     });

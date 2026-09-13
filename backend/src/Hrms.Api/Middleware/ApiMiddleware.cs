@@ -1,5 +1,7 @@
 using Hrms.Application;
 using Hrms.Domain.Common;
+using Hrms.Domain;
+using Hrms.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -16,20 +18,43 @@ public sealed class CorrelationMiddleware(RequestDelegate next)
     }
 }
 
-public sealed class TenantResolutionMiddleware(RequestDelegate next)
+public sealed class TenantResolutionMiddleware(RequestDelegate next, IConfiguration configuration)
 {
-    public async Task InvokeAsync(HttpContext context, ICurrentTenant currentTenant)
+    public async Task InvokeAsync(HttpContext context, ICurrentTenant currentTenant, HrmsDbContext db)
     {
-        Guid? claimTenant = Guid.TryParse(context.User.FindFirst("tenant_id")?.Value, out var claimId) ? claimId : null;
-        Guid? headerTenant = Guid.TryParse(context.Request.Headers["X-Tenant-ID"].FirstOrDefault(), out var headerId) ? headerId : null;
-        if (claimTenant.HasValue && headerTenant.HasValue && claimTenant != headerTenant)
+        if (context.Request.Path == "/health") { await next(context); return; }
+        var baseDomain = configuration["Tenancy:BaseDomain"];
+        var host = context.Request.Host.Host.TrimEnd('.');
+        var hostSlug = TenantDomains.SlugForHost(host, baseDomain);
+        if (hostSlug is null && context.RequestServices.GetRequiredService<IHostEnvironment>().IsDevelopment())
+            hostSlug = TenantDomains.SlugForHost(host, "localhost");
+        if (hostSlug is null)
         {
-            context.Response.StatusCode = StatusCodes.Status403Forbidden;
-            await context.Response.WriteAsJsonAsync(new ProblemDetails { Status = 403, Title = "Tenant mismatch", Detail = "X-Tenant-ID does not match the authenticated tenant." });
+            context.Response.StatusCode = StatusCodes.Status404NotFound;
             return;
         }
-        var tenantId = claimTenant ?? headerTenant;
-        if (tenantId.HasValue) currentTenant.Set(tenantId.Value);
+        if (hostSlug == "platform" && !string.Equals(host, baseDomain?.Trim().TrimEnd('.'), StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(host, "localhost", StringComparison.OrdinalIgnoreCase))
+        {
+            context.Response.StatusCode = StatusCodes.Status404NotFound;
+            return;
+        }
+        var hostTenant = await db.Tenants.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(
+            x => x.Slug == hostSlug && !x.IsDeleted, context.RequestAborted);
+        if (hostTenant is null)
+        {
+            context.Response.StatusCode = StatusCodes.Status404NotFound;
+            return;
+        }
+        Guid? claimTenant = Guid.TryParse(context.User.FindFirst("tenant_id")?.Value, out var claimId) ? claimId : null;
+        Guid? headerTenant = Guid.TryParse(context.Request.Headers["X-Tenant-ID"].FirstOrDefault(), out var headerId) ? headerId : null;
+        if ((claimTenant.HasValue && claimTenant != hostTenant.Id) || (headerTenant.HasValue && headerTenant != hostTenant.Id))
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            await context.Response.WriteAsJsonAsync(new ProblemDetails { Status = 403, Title = "Tenant mismatch", Detail = "The account does not belong to this company workspace." });
+            return;
+        }
+        currentTenant.Set(hostTenant.Id, hostTenant.Slug);
         await next(context);
     }
 }

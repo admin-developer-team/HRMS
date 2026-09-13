@@ -24,7 +24,7 @@ public sealed record UpdateTenantRequest(string Name, TenantStatus Status, strin
     DateTimeOffset? TrialEndsAt, string PlanCode, int EmployeeLimit, DateTimeOffset SubscriptionStartsAt,
     DateTimeOffset? SubscriptionEndsAt, bool SubscriptionActive, long Version, long SubscriptionVersion);
 
-public sealed record LoginRequest(string TenantSlug, string Email, string Password);
+public sealed record LoginRequest(string? TenantSlug, string Email, string Password);
 public sealed record RefreshRequest(string RefreshToken);
 public sealed record ChangePasswordRequest(string CurrentPassword, string NewPassword);
 public sealed record UpdateSelfProfileRequest(string? Phone);

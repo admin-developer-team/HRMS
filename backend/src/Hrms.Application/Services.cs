@@ -16,6 +16,7 @@ public interface IAuthService
     Task<TokenResponse> RefreshAsync(RefreshRequest request, CancellationToken cancellationToken);
     Task RevokeAsync(RefreshRequest request, CancellationToken cancellationToken);
     Task<EmailSignInResponse> RedeemEmailLinkAsync(string token, CancellationToken cancellationToken);
+    Task<string> ResolveEmailLinkTenantAsync(string token, CancellationToken cancellationToken);
 }
 
 public interface IIdentityAdminService
@@ -210,8 +211,10 @@ public sealed class TenantService(
     public async Task<TenantDto> CreateAsync(CreateTenantRequest request, CancellationToken ct)
     {
         var slug = request.Slug.Trim().ToLowerInvariant();
-        if (slug.Length < 3 || slug.Any(c => !char.IsLetterOrDigit(c) && c != '-'))
-            throw new DomainException("Slug must be at least 3 characters and contain only letters, numbers, or hyphens.");
+        if (!TenantDomains.IsValidSlug(slug))
+            throw new DomainException("Workspace URL must have 3–63 letters, numbers, or hyphens and start and end with a letter or number.");
+        if (new[] { "platform", "www", "api", "app", "admin", "mail", "support", "billing", "status", "login", "signup", "help", "static" }.Contains(slug))
+            throw new DomainException("This workspace URL is reserved.");
         if (request.AdminPassword.Length < 8) throw new DomainException("Admin password must be at least 8 characters.");
         if (await tenants.AnyAsync(x => x.Slug == slug, ct)) throw new DomainException("Tenant slug is already in use.");
 
@@ -326,10 +329,19 @@ public sealed class AuthService(
     IRepository<RefreshToken> refreshTokens, IRepository<Employee> employees, IRepository<TenantSubscription> subscriptions, IRepository<AuditLog> auditLogs, ICurrentTenant currentTenant, IPasswordHasher passwordHasher,
     ITokenService tokenService, IUnitOfWork unitOfWork, IEmailSignInLinkStore emailLinks) : IAuthService
 {
+    public async Task<string> ResolveEmailLinkTenantAsync(string token, CancellationToken ct)
+    {
+        var tenantId = await emailLinks.FindTenantIdAsync(token, ct)
+            ?? throw new DomainException("This email link is invalid or expired.");
+        var company = await tenants.GetByIdAsync(tenantId, ct)
+            ?? throw new DomainException("This email link is invalid or expired.");
+        return company.Slug;
+    }
+
     public async Task<EmailSignInResponse> RedeemEmailLinkAsync(string token, CancellationToken ct)
     {
-        var link = await emailLinks.ConsumeAsync(token, ct) ?? throw new DomainException("This email link is invalid, expired, or already used.");
-        currentTenant.Set(link.TenantId);
+        var expectedTenantId = currentTenant.TenantId ?? throw new DomainException("Open this link on your company workspace URL.");
+        var link = await emailLinks.ConsumeAsync(token, expectedTenantId, ct) ?? throw new DomainException("This email link is invalid, expired, or belongs to another company workspace.");
         var now = DateTimeOffset.UtcNow;
         var company = await tenants.GetByIdAsync(link.TenantId, ct) ?? throw new DomainException("Company is unavailable.");
         if (company.Status is not (TenantStatus.Active or TenantStatus.Trial) || (company.Status == TenantStatus.Trial && company.TrialEndsAt <= now))
@@ -344,7 +356,10 @@ public sealed class AuthService(
     }
     public async Task<TokenResponse> LoginAsync(LoginRequest request, string? ipAddress, string? userAgent, CancellationToken ct)
     {
-        var slug = request.TenantSlug.Trim().ToLowerInvariant();
+        var slug = currentTenant.Slug ?? request.TenantSlug?.Trim().ToLowerInvariant()
+            ?? throw new DomainException("Open your company workspace URL to sign in.");
+        if (!string.IsNullOrWhiteSpace(request.TenantSlug) && !string.Equals(request.TenantSlug.Trim(), slug, StringComparison.OrdinalIgnoreCase))
+            throw new DomainException("This company workspace does not match the URL.");
         var now = DateTimeOffset.UtcNow;
         var tenant = await tenants.FirstOrDefaultAsync(x => x.Slug == slug && (x.Status == TenantStatus.Active || (x.Status == TenantStatus.Trial && x.TrialEndsAt > now)), ct)
             ?? throw new DomainException("Invalid tenant or credentials.");

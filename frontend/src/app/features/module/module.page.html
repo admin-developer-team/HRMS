@@ -174,11 +174,15 @@
                         </button>
                       }
                       @default {
+                        @if (view().endpoint === '/platform/tenants' && column.key === 'slug') {
+                          <a [href]="companyWorkspaceUrl(display(value(row, column.key), column.key))" target="_blank" rel="noopener noreferrer">{{ companyWorkspaceUrl(display(value(row, column.key), column.key)) }}</a>
+                        } @else {
                         <span
                           class="cell-value"
                           [title]="display(value(row, column.key), column.key)"
                           >{{ display(value(row, column.key), column.key) }}</span
                         >
+                        }
                       }
                     }
                   </td>

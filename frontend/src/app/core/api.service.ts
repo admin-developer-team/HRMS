@@ -9,7 +9,7 @@ export class ApiService {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = environment.apiUrl;
 
-  login(payload: { tenantSlug: string; email: string; password: string }): Observable<UserSession> {
+  login(payload: { email: string; password: string }): Observable<UserSession> {
     return this.http.post<UserSession>(`${this.baseUrl}/auth/login`, payload);
   }
 
@@ -17,6 +17,10 @@ export class ApiService {
     return this.http.post<{ session: UserSession; destination: string }>(
       `${this.baseUrl}/auth/email-link/redeem`, { token },
     );
+  }
+
+  resolveEmailLinkTenant(token: string): Observable<string> {
+    return this.http.post<string>(`${this.baseUrl}/auth/email-link/tenant`, { token });
   }
 
   refresh(refreshToken: string, tenantId: string): Observable<UserSession> {

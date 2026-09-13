@@ -26,7 +26,7 @@ export class AuthService {
   readonly isManager = computed(() => this.hasPermission('team.read'));
 
   login(
-    payload: { tenantSlug: string; email: string; password: string },
+    payload: { email: string; password: string },
     remember = true,
   ): Observable<UserSession> {
     this.rememberSession = remember;

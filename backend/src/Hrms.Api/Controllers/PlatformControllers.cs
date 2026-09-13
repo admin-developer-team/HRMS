@@ -1,15 +1,23 @@
 using Hrms.Application;
+using Hrms.Domain;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Hrms.Api.Controllers;
 
 [ApiController, Route("api/v1/auth")]
-public sealed class AuthController(IAuthService service) : ControllerBase
+public sealed class AuthController(IAuthService service, ICurrentTenant currentTenant, IRepository<Tenant> tenants) : ControllerBase
 {
+    [HttpGet("workspace"), AllowAnonymous]
+    public async Task<ActionResult<WorkspaceResponse>> Workspace(CancellationToken ct)
+    {
+        var company = currentTenant.TenantId.HasValue ? await tenants.GetByIdAsync(currentTenant.TenantId.Value, ct) : null;
+        return company is null ? NotFound() : new WorkspaceResponse(company.Slug, company.Name);
+    }
     [HttpPost("login"), AllowAnonymous] public Task<TokenResponse> Login(LoginRequest request, CancellationToken ct) => service.LoginAsync(request, HttpContext.Connection.RemoteIpAddress?.ToString(), Request.Headers.UserAgent.ToString(), ct);
     [HttpPost("refresh"), AllowAnonymous] public Task<TokenResponse> Refresh(RefreshRequest request, CancellationToken ct) => service.RefreshAsync(request, ct);
     [HttpPost("email-link/redeem"), AllowAnonymous] public Task<EmailSignInResponse> RedeemEmailLink(RedeemEmailLinkRequest request, CancellationToken ct) => service.RedeemEmailLinkAsync(request.Token, ct);
+    [HttpPost("email-link/tenant"), AllowAnonymous] public Task<string> ResolveEmailLinkTenant(RedeemEmailLinkRequest request, CancellationToken ct) => service.ResolveEmailLinkTenantAsync(request.Token, ct);
     [HttpPost("revoke"), Authorize] public async Task<IActionResult> Revoke(RefreshRequest request, CancellationToken ct) { await service.RevokeAsync(request, ct); return NoContent(); }
 }
 
@@ -35,6 +43,7 @@ public sealed class IdentityController(IIdentityAdminService service) : Controll
 }
 
 public sealed record RedeemEmailLinkRequest(string Token);
+public sealed record WorkspaceResponse(string Slug, string Name);
 
 [ApiController, Route("api/v1/dashboard"), Authorize(Policy = Permissions.DashboardAdmin)]
 public sealed class DashboardController(IDashboardService service) : ControllerBase

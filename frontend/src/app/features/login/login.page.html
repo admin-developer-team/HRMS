@@ -10,7 +10,7 @@
     <div class="brand-message">
       <span>Secure workforce operations</span>
       <h1>One workspace for your people and processes.</h1>
-      <p>Sign in with the workspace assigned by your organization.</p>
+      <p>Sign in to your company workspace.</p>
     </div>
     <div class="brand-security">
       <mat-icon aria-hidden="true">verified_user</mat-icon>
@@ -28,7 +28,12 @@
       <div class="form-heading">
         <span>Account access</span>
         <h2>Sign in</h2>
-        <p>Enter your organization workspace and account details.</p>
+        <p>Enter your account details for this workspace.</p>
+        @if (workspaceName()) {
+          <p>{{ workspaceName() }}</p>
+        } @else if (workspace) {
+          <p>{{ workspace === 'platform' ? 'Platform administration' : workspace }}</p>
+        }
       </div>
 
       @if (error()) {
@@ -38,23 +43,6 @@
       }
 
       <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
-        <div class="form-field">
-          <label for="tenantSlug">Company workspace</label>
-          <div class="login-field">
-            <mat-icon aria-hidden="true">domain</mat-icon>
-            <input
-              id="tenantSlug"
-              formControlName="tenantSlug"
-              placeholder="your-company"
-              autocomplete="organization"
-              autocapitalize="none"
-            />
-          </div>
-          @if (form.controls.tenantSlug.touched && form.controls.tenantSlug.invalid) {
-            <small class="field-error">Enter a workspace with at least 3 characters.</small>
-          }
-        </div>
-
         <div class="form-field">
           <label for="email">Work email</label>
           <div class="login-field">
@@ -113,7 +101,7 @@
 
       <p class="access-help">
         <mat-icon>help_outline</mat-icon>
-        Contact your HR administrator if you do not know your workspace or password.
+        Contact your HR administrator if you need your company URL or password.
       </p>
     </div>
   </section>

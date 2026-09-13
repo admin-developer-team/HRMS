@@ -677,7 +677,7 @@ export const MODULES: Record<string, ModuleDefinition> = {
         createLabel: 'Create company',
         columns: [
           { key: 'name', label: 'Company' },
-          { key: 'slug', label: 'Workspace' },
+          { key: 'slug', label: 'Workspace URL' },
           { key: 'status', label: 'Status', type: 'status' },
           { key: 'planCode', label: 'Plan' },
           { key: 'defaultCurrency', label: 'Currency' },
@@ -689,7 +689,7 @@ export const MODULES: Record<string, ModuleDefinition> = {
           { key: 'name', label: 'Company name', type: 'text', required: true },
           {
             key: 'slug',
-            label: 'Workspace slug',
+            label: 'Workspace URL prefix',
             type: 'text',
             required: true,
             placeholder: 'acme-india',

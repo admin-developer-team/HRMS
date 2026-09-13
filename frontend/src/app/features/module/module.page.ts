@@ -15,6 +15,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Subject, combineLatest, finalize, forkJoin, map, of, switchMap, takeUntil } from 'rxjs';
 import { ApiService } from '../../core/api.service';
+import { workspaceUrl } from '../../core/workspace-url';
 import { ToastService } from '../../core/toast.service';
 import {
   ColumnDefinition,
@@ -48,6 +49,7 @@ type SelectOption = { label: string; value: string | number | boolean };
   styleUrl: './module.page.scss',
 })
 export class ModulePage implements OnInit, OnDestroy {
+  readonly companyWorkspaceUrl = workspaceUrl;
   private readonly api = inject(ApiService);
   private readonly toast = inject(ToastService);
   private readonly route = inject(ActivatedRoute);

@@ -4,5 +4,6 @@ public sealed record ConsumedEmailSignInLink(Guid TenantId, Guid UserId, string 
 
 public interface IEmailSignInLinkStore
 {
-    Task<ConsumedEmailSignInLink?> ConsumeAsync(string token, CancellationToken ct);
+    Task<Guid?> FindTenantIdAsync(string token, CancellationToken ct);
+    Task<ConsumedEmailSignInLink?> ConsumeAsync(string token, Guid expectedTenantId, CancellationToken ct);
 }

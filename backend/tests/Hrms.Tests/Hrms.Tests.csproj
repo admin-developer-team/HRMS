@@ -19,6 +19,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Hrms.Application\Hrms.Application.csproj" />
     <ProjectReference Include="..\..\src\Hrms.Infrastructure\Hrms.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Hrms.Api\Hrms.Api.csproj" />
   </ItemGroup>
 
   <ItemGroup>

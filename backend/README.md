@@ -75,13 +75,12 @@ POST /api/v1/auth/login
 Content-Type: application/json
 
 {
-  "tenantSlug": "platform",
   "email": "owner@example.com",
   "password": "your bootstrap password"
 }
 ```
 
-Use the returned bearer token to call `POST /api/v1/platform/tenants`. Tenant provisioning atomically creates the subscription, tenant administrator role/user, and default annual/sick leave types. Log in afterward using the new tenant slug. Authenticated tokens contain `tenant_id`; an optional `X-Tenant-ID` must match it. Refresh calls are anonymous but require `X-Tenant-ID`.
+Use the returned bearer token to call `POST /api/v1/platform/tenants`. Tenant provisioning creates the company and administrator account. The platform administrator signs in at `hrms.avntechnologies.co.in`; company users sign in at `<slug>.hrms.avntechnologies.co.in` without entering a slug. Authenticated tokens contain `tenant_id`, which must match the URL's company. An optional `X-Tenant-ID` must also match it. Refresh calls require `X-Tenant-ID`. See [Oracle tenant domains](../docs/ORACLE-TENANT-DOMAINS.md) for DNS and HTTPS setup.
 
 ## Employee accounts, roles and attendance
 

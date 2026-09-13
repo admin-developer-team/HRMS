@@ -15,6 +15,7 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using MimeKit;
 
@@ -84,6 +85,7 @@ public sealed class EmailOutboxWorker(IServiceScopeFactory scopeFactory, ILogger
         var tenant = scope.ServiceProvider.GetRequiredService<ICurrentTenant>();
         var protector = scope.ServiceProvider.GetRequiredService<IEmailSecretProtector>();
         var transport = scope.ServiceProvider.GetRequiredService<IEmailTransport>();
+        var baseDomain = scope.ServiceProvider.GetRequiredService<IConfiguration>()["Tenancy:BaseDomain"];
         var now = DateTimeOffset.UtcNow;
         if (now >= _nextLinkCleanupAt)
         {
@@ -119,11 +121,12 @@ public sealed class EmailOutboxWorker(IServiceScopeFactory scopeFactory, ILogger
                 var model = JsonSerializer.Deserialize<Dictionary<string, string?>>(item.ModelJson) ?? [];
                 model["companyName"] = company.Name;
                 model["recipientName"] = item.ToName ?? "there";
-                model["applicationUrl"] = configuration.ApplicationBaseUrl ?? string.Empty;
+                var tenantBaseUrl = TenantDomains.BaseUrlForTenant(configuration.ApplicationBaseUrl, baseDomain, company.Slug);
+                model["applicationUrl"] = tenantBaseUrl;
                 var relativeLink = model.GetValueOrDefault("link") ?? string.Empty;
                 model["tenantSlug"] = company.Slug;
-                model["actionUrl"] = BuildActionUrl(configuration.ApplicationBaseUrl, company.Slug, relativeLink);
-                if (!string.IsNullOrWhiteSpace(configuration.ApplicationBaseUrl))
+                model["actionUrl"] = BuildActionUrl(tenantBaseUrl, relativeLink);
+                if (!string.IsNullOrWhiteSpace(tenantBaseUrl))
                 {
                     var recipient = await db.Users.FirstOrDefaultAsync(x => x.Email == item.ToEmail && x.IsActive, ct);
                     if (recipient is not null)
@@ -139,7 +142,7 @@ public sealed class EmailOutboxWorker(IServiceScopeFactory scopeFactory, ILogger
                                 ? DateTimeOffset.UtcNow.AddHours(24) : null
                         });
                         await db.SaveChangesAsync(ct);
-                        model["actionUrl"] = $"{configuration.ApplicationBaseUrl.TrimEnd('/')}/email-link?token={token}";
+                        model["actionUrl"] = $"{tenantBaseUrl}/email-link?token={token}";
                     }
                 }
                 var rendered = Render(item, template, model);
@@ -176,14 +179,13 @@ public sealed class EmailOutboxWorker(IServiceScopeFactory scopeFactory, ILogger
         return result;
     }
 
-    internal static string BuildActionUrl(string? baseUrl, string tenantSlug, string relativeLink)
+    internal static string BuildActionUrl(string? baseUrl, string relativeLink)
     {
         if (string.IsNullOrWhiteSpace(baseUrl)) return string.Empty;
         var destination = string.IsNullOrWhiteSpace(relativeLink) ? "/" : relativeLink;
         if (Uri.TryCreate(destination, UriKind.Absolute, out var absolute)) destination = absolute.PathAndQuery;
         if (!destination.StartsWith('/')) destination = "/" + destination;
-        var query = $"tenant={Uri.EscapeDataString(tenantSlug)}&returnUrl={Uri.EscapeDataString(destination)}";
-        return $"{baseUrl.TrimEnd('/')}/login?{query}";
+        return $"{baseUrl.TrimEnd('/')}/login?returnUrl={Uri.EscapeDataString(destination)}";
     }
 
     public static string SafeDestination(string? requested, string fallback)

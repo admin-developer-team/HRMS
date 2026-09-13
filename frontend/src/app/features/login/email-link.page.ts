@@ -2,6 +2,8 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
 import { Router, RouterLink, ActivatedRoute } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
+import { ApiService } from '../../core/api.service';
+import { workspaceSlug, workspaceUrl } from '../../core/workspace-url';
 
 @Component({
   selector: 'app-email-link-page',
@@ -24,6 +26,7 @@ export class EmailLinkPage {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly auth = inject(AuthService);
+  private readonly api = inject(ApiService);
   readonly error = signal('');
 
   constructor() {
@@ -33,6 +36,24 @@ export class EmailLinkPage {
       this.error.set('This email link is missing or invalid.');
       return;
     }
+    if (workspaceSlug() === 'platform') {
+      this.api.resolveEmailLinkTenant(token).subscribe({
+        next: slug => {
+          if (slug === 'platform') this.redeem(token);
+          else if (/^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/.test(slug))
+            window.location.replace(`${workspaceUrl(slug)}/email-link?token=${encodeURIComponent(token)}`);
+          else this.error.set('This email link has an invalid company workspace.');
+        },
+        error: (response: HttpErrorResponse) => this.error.set(
+          response.error?.detail ?? 'This email link is invalid or expired.',
+        ),
+      });
+      return;
+    }
+    this.redeem(token);
+  }
+
+  private redeem(token: string): void {
     this.auth.redeemEmailLink(token).subscribe({
       next: destination => {
         const safe = destination.startsWith('/') && !destination.startsWith('//') && !destination.includes('\\')

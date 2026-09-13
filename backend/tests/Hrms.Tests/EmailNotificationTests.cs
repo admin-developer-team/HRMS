@@ -92,9 +92,32 @@ public sealed class EmailNotificationTests
         await db.SaveChangesAsync();
 
         var store = new EmailSignInLinkStore(db);
-        Assert.Equal("/work?item=123", (await store.ConsumeAsync(token, default))?.Destination);
-        Assert.Equal(userId, (await store.ConsumeAsync(token, default))?.UserId);
+        Assert.Equal(tenant.TenantId, await store.FindTenantIdAsync(token, default));
+        Assert.Null(await store.ConsumeAsync(token, Guid.NewGuid(), default));
+        Assert.Equal("/work?item=123", (await store.ConsumeAsync(token, tenant.TenantId!.Value, default))?.Destination);
+        Assert.Equal(userId, (await store.ConsumeAsync(token, tenant.TenantId!.Value, default))?.UserId);
         Assert.Null((await db.EmailSignInLinks.SingleAsync()).UsedAt);
+    }
+
+    [Fact]
+    public async Task Account_link_cannot_be_consumed_from_another_company()
+    {
+        var tenant = new MutableTenant();
+        await using var db = new HrmsDbContext(new DbContextOptionsBuilder<HrmsDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, tenant, new TestCurrentUser(), new TestNotificationPublisher());
+        const string token = "account-link-token";
+        db.EmailSignInLinks.Add(new EmailSignInLink
+        {
+            TenantId = tenant.TenantId!.Value, UserId = Guid.NewGuid(), RecipientEmail = "employee@example.test",
+            TokenHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token))),
+            Destination = "/my", ExpiresAt = DateTimeOffset.UtcNow.AddHours(24)
+        });
+        await db.SaveChangesAsync();
+
+        var store = new EmailSignInLinkStore(db);
+        Assert.Null(await store.ConsumeAsync(token, Guid.NewGuid(), default));
+        Assert.Null((await db.EmailSignInLinks.SingleAsync()).UsedAt);
+        Assert.Equal(tenant.TenantId, await store.FindTenantIdAsync(token, default));
     }
 
     [Theory]
