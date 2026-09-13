@@ -29,6 +29,7 @@ import {
 } from '../../core/models';
 import { DocumentComponent } from '../../shared/document/document.component';
 import { SearchableSelectComponent, SearchableSelectOption } from '../../shared/searchable-select/searchable-select.component';
+import { WorkMentionTextareaComponent } from './work-mention-textarea.component';
 
 type WorkTab = 'board' | 'list' | 'sprints' | 'report' | 'projects';
 
@@ -44,11 +45,14 @@ type WorkTab = 'board' | 'list' | 'sprints' | 'report' | 'projects';
     MatProgressSpinnerModule,
     DocumentComponent,
     SearchableSelectComponent,
+    WorkMentionTextareaComponent,
     A11yModule, DragDropModule, MatPaginatorModule, SprintPanelComponent,
   ],
   templateUrl: './work.page.html',
 })
 export class WorkPage implements OnInit {
+  @ViewChild('commentMentions') private commentMentions?: WorkMentionTextareaComponent;
+  @ViewChild('worklogMentions') private worklogMentions?: WorkMentionTextareaComponent;
   private readonly api = inject(ApiService);
   private readonly fb = inject(FormBuilder);
   private readonly route = inject(ActivatedRoute);
@@ -215,7 +219,7 @@ export class WorkPage implements OnInit {
       }
       const itemId = params.get('item');
       if (itemId) {
-        if (itemId !== this.detail()?.item.id || !this.detailOpen()) this.openItem(itemId);
+        if (itemId !== this.detail()?.item.id || !this.detailOpen()) this.openItem(itemId, params.get('entry'));
         handled = true;
       } else if (params.get('action') === 'create') {
         if (!this.drawerOpen()) this.openCreate();
@@ -255,7 +259,7 @@ export class WorkPage implements OnInit {
         this.loadSprints();
         this.loadItems();
         const requestedItem = this.route.snapshot.queryParamMap.get('item');
-        if (requestedItem) this.openItem(requestedItem);
+        if (requestedItem) this.openItem(requestedItem, this.route.snapshot.queryParamMap.get('entry'));
         else if (this.route.snapshot.queryParamMap.get('action') === 'create') setTimeout(() => this.openCreate());
         if (requestedProject || requestedItem || this.route.snapshot.queryParamMap.get('action')) this.clearRouteIntent();
       },
@@ -266,7 +270,7 @@ export class WorkPage implements OnInit {
   private clearRouteIntent(): void {
     void this.router.navigate([], {
       relativeTo: this.route,
-      queryParams: { project: null, item: null, action: null },
+      queryParams: { project: null, item: null, entry: null, action: null },
       queryParamsHandling: 'merge',
       replaceUrl: true,
     });
@@ -477,7 +481,7 @@ export class WorkPage implements OnInit {
     });
   }
 
-  openItem(id: string): void {
+  openItem(id: string, entryId: string | null = null): void {
     this.children.set([]);
     if (this.detail()?.item.id !== id) this.detail.set(null);
     this.detailOpen.set(true);
@@ -487,6 +491,11 @@ export class WorkPage implements OnInit {
         this.detail.set(detail);
         if (this.selectedProjectId() !== detail.item.projectId) this.selectProject(detail.item.projectId);
         this.loadChildren(id);
+        if (entryId) setTimeout(() => {
+          const target = document.getElementById(`work-comment-${entryId}`)
+            ?? document.getElementById(`work-worklog-${entryId}`);
+          target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        });
       },
       error: (error: HttpErrorResponse) => this.setError(error, 'Unable to load the ticket.'),
     });
@@ -596,7 +605,9 @@ export class WorkPage implements OnInit {
   addComment(): void {
     const item = this.detail()?.item;
     if (!item || this.commentForm.invalid) return;
-    this.runAction('comment', this.api.post<WorkComment>(`/work/items/${item.id}/comments`, this.commentForm.getRawValue()), (comment) => {
+    this.runAction('comment', this.api.post<WorkComment>(`/work/items/${item.id}/comments`, {
+      ...this.commentForm.getRawValue(), ...this.commentMentions?.selection(),
+    }), (comment) => {
       this.detail.update((data) => data ? { ...data, comments: [...data.comments, comment] } : data);
       this.commentForm.reset({ body: '' });
       this.commentDialogOpen.set(false);
@@ -620,6 +631,7 @@ export class WorkPage implements OnInit {
     this.runAction('worklog', this.api.post<WorkLog>(`/work/items/${item.id}/worklogs`, {
       workDate: raw.workDate, minutes, description: raw.description || null,
       remainingEstimateMinutes: raw.remainingEstimateMinutes > 0 ? raw.remainingEstimateMinutes : null,
+      ...this.worklogMentions?.selection(),
     }), (worklog) => {
       const current = this.detail();
       if (current) {

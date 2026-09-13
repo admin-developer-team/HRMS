@@ -309,6 +309,78 @@ public sealed class WorkManagementScenarioTests
         var assignment = Assert.Single(await h.Db.UserNotifications.Where(x => x.UserId == recipient && x.Title == "Ticket assigned").ToListAsync());
         Assert.Equal($"/work?project={p.Id}&item={item.Id}", assignment.Link);
         Assert.Contains(await h.Db.UserNotifications.Where(x => x.UserId == recipient).ToListAsync(), x => x.Title != "Ticket assigned" && x.Kind == "work");
+        var detail = await h.Service.GetItemAsync(item.Id, Ct);
+        Assert.Contains(detail.History, x => x.FieldName == "assignee" && x.AfterValue == "Mock Bob");
+    }
+
+    [Fact]
+    public async Task Comment_mention_queues_email_and_opens_the_specific_comment()
+    {
+        using var h = new Harness();
+        var recipient = Guid.NewGuid();
+        var employee = await h.Db.Employees.SingleAsync(x => x.Id == h.B);
+        employee.UserId = recipient;
+        h.Db.Users.Add(new UserAccount { Id = recipient, TenantId = h.Tenant.TenantId!.Value,
+            Email = "bob@example.test", DisplayName = "Mock Bob", IsActive = true });
+        await h.Db.SaveChangesAsync();
+        var project = await h.Project();
+        var item = await h.Item(project.Id);
+
+        var comment = await h.Service.AddCommentAsync(item.Id,
+            new("Please review this @Mock Bob", [h.B]), Ct);
+
+        var notice = Assert.Single(await h.Db.UserNotifications.Where(x => x.UserId == recipient && x.Title == $"Mentioned in {item.Key}").ToListAsync());
+        Assert.Equal($"/work?project={project.Id}&item={item.Id}&entry={comment.Id}", notice.Link);
+        Assert.Contains(await h.Db.EmailOutboxItems.ToListAsync(), x => x.ToEmail == "bob@example.test" && x.ModelJson.Contains(comment.Id.ToString()));
+        Assert.Single(await h.Db.WorkMentions.Where(x => x.SourceId == comment.Id && x.EmployeeId == h.B).ToListAsync());
+    }
+
+    [Fact]
+    public async Task Mentioned_employee_can_see_the_linked_worklog_without_view_all_permission()
+    {
+        using var h = new Harness();
+        var recipient = Guid.NewGuid();
+        var employee = await h.Db.Employees.SingleAsync(x => x.Id == h.B);
+        employee.UserId = recipient;
+        h.Db.Users.Add(new UserAccount { Id = recipient, TenantId = h.Tenant.TenantId!.Value,
+            Email = "bob@example.test", DisplayName = "Mock Bob", IsActive = true });
+        await h.Db.SaveChangesAsync();
+        var project = await h.Project();
+        var item = await h.Item(project.Id);
+        var log = await h.Service.AddWorklogAsync(item.Id,
+            new(Today, 30, "Please check @Mock Bob", null, [h.B]), Ct);
+        h.AsEmployee(h.B);
+        h.User.Grants.Remove(Permissions.WorkViewAllLogs);
+        var detail = await h.Service.GetItemAsync(item.Id, Ct);
+        Assert.Contains(detail.Worklogs, x => x.Id == log.Id);
+        Assert.Single(await h.Db.WorkMentions.Where(x => x.SourceId == log.Id && x.EmployeeId == h.B).ToListAsync());
+    }
+
+    [Fact]
+    public async Task Mention_cannot_target_someone_outside_the_project()
+    {
+        using var h = new Harness();
+        var item = await h.Item((await h.Project()).Id);
+        await Assert.ThrowsAsync<DomainException>(() => h.Service.AddCommentAsync(item.Id,
+            new("Hello @Outsider", [Guid.NewGuid()]), Ct));
+    }
+
+    [Fact]
+    public async Task All_mention_notifies_each_active_project_account_once()
+    {
+        using var h = new Harness();
+        var recipient = Guid.NewGuid();
+        var employee = await h.Db.Employees.SingleAsync(x => x.Id == h.B);
+        employee.UserId = recipient;
+        h.Db.Users.Add(new UserAccount { Id = recipient, TenantId = h.Tenant.TenantId!.Value,
+            Email = "bob@example.test", DisplayName = "Mock Bob", IsActive = true });
+        await h.Db.SaveChangesAsync();
+        var item = await h.Item((await h.Project()).Id);
+
+        await h.Service.AddCommentAsync(item.Id, new("Please review @All and @Mock Bob", [h.B], true), Ct);
+
+        Assert.Single(await h.Db.UserNotifications.Where(x => x.UserId == recipient && x.Title == $"Mentioned in {item.Key}").ToListAsync());
+        Assert.Single(await h.Db.WorkMentions.Where(x => x.WorkItemId == item.Id && x.EmployeeId == h.B).ToListAsync());
     }
 
     [Fact]
@@ -358,8 +430,9 @@ public sealed class WorkManagementScenarioTests
             Db = new(new DbContextOptionsBuilder<HrmsDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, Tenant, User, new TestNotificationPublisher());
             foreach (var id in new[] { A, B }) Db.Employees.Add(new Employee { Id = id, TenantId = Tenant.TenantId!.Value, FirstName = "Mock", LastName = id == A ? "Alice" : "Bob", EmployeeNumber = id.ToString(), WorkEmail = $"{id}@example.test", Status = EmploymentStatus.Active });
             Db.SaveChangesAsync().GetAwaiter().GetResult();
-            var notifications = new NotificationService(new Repository<UserNotification>(Db), new Repository<Employee>(Db), new Repository<UserAccount>(Db), new Repository<Role>(Db), new Repository<UserRole>(Db), Tenant, User, Db);
-            Service = new(new Repository<WorkProject>(Db), new Repository<WorkProjectMember>(Db), new Repository<WorkItem>(Db), new Repository<WorkItemAssignee>(Db), new Repository<WorkItemComment>(Db), new Repository<WorkLog>(Db), new Repository<WorkItemHistory>(Db), new Repository<Employee>(Db), Tenant, User, Db, notifications);
+            var queue = new EmailQueue(new EnabledEmail(), new Repository<EmailOutboxItem>(Db), Tenant);
+            var notifications = new NotificationService(new Repository<UserNotification>(Db), new Repository<Employee>(Db), new Repository<UserAccount>(Db), new Repository<Role>(Db), new Repository<UserRole>(Db), Tenant, User, Db, queue);
+            Service = new(new Repository<WorkProject>(Db), new Repository<WorkProjectMember>(Db), new Repository<WorkItem>(Db), new Repository<WorkItemAssignee>(Db), new Repository<WorkItemComment>(Db), new Repository<WorkLog>(Db), new Repository<WorkItemHistory>(Db), new Repository<Employee>(Db), Tenant, User, Db, notifications, new Repository<WorkMention>(Db), new Repository<UserAccount>(Db));
         }
         public void AsAdmin() => User.Admin = true;
         public void AsEmployee(Guid? id = null) { User.Admin = false; User.EmployeeId = id ?? A; }
@@ -379,5 +452,10 @@ public sealed class WorkManagementScenarioTests
             }
         }
         public void Dispose() => Db.Dispose();
+    }
+
+    private sealed class EnabledEmail : IGlobalEmailConfigurationReader
+    {
+        public Task<bool> IsEnabledAsync(CancellationToken ct) => Task.FromResult(true);
     }
 }

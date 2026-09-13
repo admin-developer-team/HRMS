@@ -13,6 +13,11 @@ public sealed class EmailSignInLinkStore(HrmsDbContext db) : IEmailSignInLinkSto
         if (string.IsNullOrWhiteSpace(token) || token.Length > 256) return null;
         var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
         var now = DateTimeOffset.UtcNow;
+        var reusable = await db.EmailSignInLinks.IgnoreQueryFilters().AsNoTracking()
+            .Where(x => x.TokenHash == hash && !x.IsDeleted && x.ExpiresAt == null)
+            .Select(x => new ConsumedEmailSignInLink(x.TenantId, x.UserId, x.RecipientEmail, x.Destination))
+            .SingleOrDefaultAsync(ct);
+        if (reusable is not null) return reusable;
         var changed = await db.EmailSignInLinks.IgnoreQueryFilters()
             .Where(x => x.TokenHash == hash && !x.IsDeleted && x.UsedAt == null && x.ExpiresAt > now)
             .ExecuteUpdateAsync(update => update.SetProperty(x => x.UsedAt, now), ct);

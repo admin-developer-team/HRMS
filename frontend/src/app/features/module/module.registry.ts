@@ -1979,7 +1979,7 @@ export const MODULES: Record<string, ModuleDefinition> = {
         listShape: 'paged',
         columns: [
           { key: 'createdAt', label: 'Timestamp', type: 'date' },
-          { key: 'actorUserId', label: 'Actor' },
+          { key: 'actorName', label: 'Actor' },
           { key: 'action', label: 'Action', type: 'status' },
           { key: 'entityType', label: 'Entity type' },
           { key: 'entityId', label: 'Entity ID' },

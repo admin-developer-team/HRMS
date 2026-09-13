@@ -62,6 +62,7 @@ public sealed class HrmsDbContext(DbContextOptions<HrmsDbContext> options, ICurr
     public DbSet<WorkItem> WorkItems => Set<WorkItem>();
     public DbSet<WorkItemAssignee> WorkItemAssignees => Set<WorkItemAssignee>();
     public DbSet<WorkItemComment> WorkItemComments => Set<WorkItemComment>();
+    public DbSet<WorkMention> WorkMentions => Set<WorkMention>();
     public DbSet<WorkLog> WorkLogs => Set<WorkLog>();
     public DbSet<WorkItemHistory> WorkItemHistories => Set<WorkItemHistory>();
 
@@ -117,6 +118,8 @@ public sealed class HrmsDbContext(DbContextOptions<HrmsDbContext> options, ICurr
             .IsUnique().HasFilter("\"IsDeleted\" = false");
         modelBuilder.Entity<WorkItemAssignee>().HasIndex(x => new { x.TenantId, x.EmployeeId, x.WorkItemId });
         modelBuilder.Entity<WorkItemComment>().HasIndex(x => new { x.TenantId, x.WorkItemId, x.CreatedAt });
+        modelBuilder.Entity<WorkMention>().HasIndex(x => new { x.TenantId, x.SourceType, x.SourceId, x.EmployeeId }).IsUnique();
+        modelBuilder.Entity<WorkMention>().HasIndex(x => new { x.TenantId, x.EmployeeId, x.WorkItemId });
         modelBuilder.Entity<WorkLog>().HasIndex(x => new { x.TenantId, x.WorkItemId, x.WorkDate });
         modelBuilder.Entity<WorkLog>().HasIndex(x => new { x.TenantId, x.EmployeeId, x.WorkDate });
         modelBuilder.Entity<WorkItemHistory>().HasIndex(x => new { x.TenantId, x.WorkItemId, x.CreatedAt });

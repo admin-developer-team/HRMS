@@ -134,7 +134,9 @@ public sealed class EmailOutboxWorker(IServiceScopeFactory scopeFactory, ILogger
                         {
                             TenantId = item.TenantId, UserId = recipient.Id, RecipientEmail = recipient.Email,
                             TokenHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token))),
-                            Destination = destination, ExpiresAt = DateTimeOffset.UtcNow.AddHours(24)
+                            Destination = destination,
+                            ExpiresAt = EmailTemplateKeys.RequiresExpiringActionLink(item.TemplateKey)
+                                ? DateTimeOffset.UtcNow.AddHours(24) : null
                         });
                         await db.SaveChangesAsync(ct);
                         model["actionUrl"] = $"{configuration.ApplicationBaseUrl.TrimEnd('/')}/email-link?token={token}";

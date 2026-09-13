@@ -467,7 +467,8 @@ public sealed class EmailSignInLink : TenantEntity
     public string TokenHash { get; set; } = string.Empty;
     public string RecipientEmail { get; set; } = string.Empty;
     public string Destination { get; set; } = string.Empty;
-    public DateTimeOffset ExpiresAt { get; set; }
+    // Null means a reusable link for an ordinary notification.
+    public DateTimeOffset? ExpiresAt { get; set; }
     public DateTimeOffset? UsedAt { get; set; }
 }
 
@@ -561,6 +562,14 @@ public sealed class WorkItemComment : TenantEntity
     public Guid WorkItemId { get; set; }
     public Guid? AuthorEmployeeId { get; set; }
     public string Body { get; set; } = string.Empty;
+}
+
+public sealed class WorkMention : TenantEntity
+{
+    public Guid WorkItemId { get; set; }
+    public Guid SourceId { get; set; }
+    public string SourceType { get; set; } = string.Empty;
+    public Guid EmployeeId { get; set; }
 }
 
 public sealed class WorkLog : TenantEntity

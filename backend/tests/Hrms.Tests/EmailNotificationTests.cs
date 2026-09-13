@@ -1,6 +1,9 @@
 using Hrms.Application;
 using Hrms.Domain;
 using Hrms.Infrastructure.Persistence;
+using Hrms.Infrastructure.Identity;
+using System.Security.Cryptography;
+using System.Text;
 using Microsoft.EntityFrameworkCore;
 
 namespace Hrms.Tests;
@@ -61,6 +64,37 @@ public sealed class EmailNotificationTests
         Assert.Contains("{{actionUrl}}", account.HtmlTemplate);
         Assert.DoesNotContain("{{temporaryPassword}}", reset.TextTemplate);
         Assert.Contains("{{actionUrl}}", reset.TextTemplate);
+    }
+
+    [Fact]
+    public void Only_credential_emails_get_expiring_single_use_links()
+    {
+        Assert.True(EmailTemplateKeys.RequiresExpiringActionLink(EmailTemplateKeys.AccountCreated));
+        Assert.True(EmailTemplateKeys.RequiresExpiringActionLink(EmailTemplateKeys.PasswordReset));
+        Assert.False(EmailTemplateKeys.RequiresExpiringActionLink(EmailTemplateKeys.ForNotification("work")));
+        Assert.False(EmailTemplateKeys.RequiresExpiringActionLink(EmailTemplateKeys.ForNotification("leave")));
+    }
+
+    [Fact]
+    public async Task Ordinary_email_link_can_be_opened_repeatedly()
+    {
+        var tenant = new MutableTenant();
+        await using var db = new HrmsDbContext(new DbContextOptionsBuilder<HrmsDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, tenant, new TestCurrentUser(), new TestNotificationPublisher());
+        const string token = "reusable-email-test-token";
+        var userId = Guid.NewGuid();
+        db.EmailSignInLinks.Add(new EmailSignInLink
+        {
+            TenantId = tenant.TenantId!.Value, UserId = userId, RecipientEmail = "employee@example.test",
+            TokenHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token))),
+            Destination = "/work?item=123", ExpiresAt = null
+        });
+        await db.SaveChangesAsync();
+
+        var store = new EmailSignInLinkStore(db);
+        Assert.Equal("/work?item=123", (await store.ConsumeAsync(token, default))?.Destination);
+        Assert.Equal(userId, (await store.ConsumeAsync(token, default))?.UserId);
+        Assert.Null((await db.EmailSignInLinks.SingleAsync()).UsedAt);
     }
 
     [Theory]

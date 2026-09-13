@@ -1,4 +1,5 @@
 using System.Linq.Expressions;
+using System.Text.RegularExpressions;
 using Hrms.Domain;
 using Hrms.Domain.Common;
 
@@ -8,7 +9,7 @@ public sealed record CreateWorkProjectRequest(string Key, string Name, string? D
 public sealed record UpdateWorkProjectRequest(string Name, string? Description, Guid? LeadEmployeeId, bool IsActive, long Version);
 public sealed record WorkProjectDto(Guid Id, string Key, string Name, string? Description, Guid? LeadEmployeeId, string? LeadName, bool IsActive, int MemberCount, long Version);
 public sealed record SetWorkProjectMemberRequest(Guid EmployeeId, bool CanCreateItems, bool CanAssignItems, bool CanTransitionItems, bool CanLogWork, bool CanViewAllWorklogs);
-public sealed record WorkProjectMemberDto(Guid Id, Guid EmployeeId, string EmployeeNumber, string EmployeeName, bool CanCreateItems, bool CanAssignItems, bool CanTransitionItems, bool CanLogWork, bool CanViewAllWorklogs);
+public sealed record WorkProjectMemberDto(Guid Id, Guid EmployeeId, string EmployeeNumber, string EmployeeName, bool CanCreateItems, bool CanAssignItems, bool CanTransitionItems, bool CanLogWork, bool CanViewAllWorklogs, bool CanMention);
 
 public sealed record CreateWorkItemRequest(Guid ProjectId, WorkItemType Type, string Summary, string? Description, Guid? AssigneeEmployeeId,
     IReadOnlyList<Guid>? AssigneeEmployeeIds, Guid? ReporterEmployeeId, Guid? ParentId, WorkItemPriority Priority, DateOnly? DueDate,
@@ -25,10 +26,11 @@ public sealed record WorkItemDto(Guid Id, Guid ProjectId, string ProjectKey, str
     IReadOnlyList<string> Labels, WorkItemResolution? Resolution, DateTimeOffset? ResolvedAt, DateTimeOffset CreatedAt, long Version, Guid? SprintId = null);
 public sealed record WorkItemDetailDto(WorkItemDto Item, string? Description, IReadOnlyList<WorkCommentDto> Comments,
     IReadOnlyList<WorkLogDto> Worklogs, IReadOnlyList<WorkHistoryDto> History, WorkProjectMemberDto? Access);
-public sealed record CreateWorkCommentRequest(string Body);
+public sealed record CreateWorkCommentRequest(string Body, IReadOnlyList<Guid>? MentionedEmployeeIds = null, bool MentionAll = false);
 public sealed record UpdateWorkCommentRequest(string Body, long Version);
 public sealed record WorkCommentDto(Guid Id, Guid? AuthorEmployeeId, string AuthorName, string Body, DateTimeOffset CreatedAt, DateTimeOffset? UpdatedAt, bool CanEdit, long Version);
-public sealed record CreateWorkLogRequest(DateOnly WorkDate, int Minutes, string? Description, int? RemainingEstimateMinutes);
+public sealed record CreateWorkLogRequest(DateOnly WorkDate, int Minutes, string? Description, int? RemainingEstimateMinutes,
+    IReadOnlyList<Guid>? MentionedEmployeeIds = null, bool MentionAll = false);
 public sealed record UpdateWorkLogRequest(DateOnly WorkDate, int Minutes, string? Description, int? RemainingEstimateMinutes, long Version);
 public sealed record WorkLogDto(Guid Id, Guid EmployeeId, string EmployeeName, DateOnly WorkDate, int Minutes, string? Description, DateTimeOffset CreatedAt, bool CanEdit, long Version);
 public sealed record WorkHistoryDto(Guid Id, Guid? ActorEmployeeId, string ActorName, string EventType, string? FieldName, string? BeforeValue, string? AfterValue, DateTimeOffset CreatedAt);
@@ -79,7 +81,8 @@ public sealed class WorkManagementService(
     IRepository<WorkProject> projects, IRepository<WorkProjectMember> members, IRepository<WorkItem> items,
     IRepository<WorkItemAssignee> assignees, IRepository<WorkItemComment> comments, IRepository<WorkLog> worklogs, IRepository<WorkItemHistory> history,
     IRepository<Employee> employees, ICurrentTenant tenant, ICurrentUser user, IUnitOfWork unitOfWork,
-    INotificationService notifications) : ServiceBase(tenant), IWorkManagementService
+    INotificationService notifications, IRepository<WorkMention>? mentionRows = null,
+    IRepository<UserAccount>? accounts = null) : ServiceBase(tenant), IWorkManagementService
 {
     public async Task<IReadOnlyList<WorkProjectDto>> ListProjectsAsync(CancellationToken ct)
     {
@@ -202,7 +205,14 @@ public sealed class WorkManagementService(
         var access = await RequireProjectAccessAsync(item.ProjectId, AccessKind.Read, ct);
         var commentRows = await comments.ListAsync(x => x.WorkItemId == id, x => x.OrderBy(c => c.CreatedAt), cancellationToken: ct);
         var logRows = await worklogs.ListAsync(x => x.WorkItemId == id, x => x.OrderByDescending(w => w.WorkDate).ThenByDescending(w => w.CreatedAt), cancellationToken: ct);
-        if (!CanViewAllLogs(access)) logRows = logRows.Where(x => x.EmployeeId == user.EmployeeId).ToArray();
+        if (!CanViewAllLogs(access))
+        {
+            var mentionedLogIds = user.EmployeeId.HasValue && mentionRows is not null
+                ? (await mentionRows.ListAsync(x => x.WorkItemId == id && x.SourceType == "worklog" && x.EmployeeId == user.EmployeeId.Value,
+                    cancellationToken: ct)).Select(x => x.SourceId).ToHashSet()
+                : [];
+            logRows = logRows.Where(x => x.EmployeeId == user.EmployeeId || mentionedLogIds.Contains(x.Id)).ToArray();
+        }
         var historyRows = await history.ListAsync(x => x.WorkItemId == id, x => x.OrderByDescending(h => h.CreatedAt), take: 100, cancellationToken: ct);
         var mappedItem = (await MapItemsAsync([item], ct))[0];
         return new WorkItemDetailDto(mappedItem, item.Description, await MapCommentsAsync(commentRows, ct),
@@ -350,8 +360,11 @@ public sealed class WorkManagementService(
         var item = await RequireItemAsync(itemId, ct);
         await RequireProjectAccessAsync(item.ProjectId, AccessKind.Comment, ct);
         var row = await AddCommentInternalAsync(itemId, request.Body, ct);
+        var mentioned = await NotifyMentionsAsync(item, row.Id, "comment", request.Body,
+            request.MentionedEmployeeIds, request.MentionAll, ct);
         await NotifyAsync(item, "New ticket comment", $"A comment was added to {item.Key}.",
-            (await CurrentAssigneeIdsAsync(item, ct)).Select(x => (Guid?)x).Append(item.ReporterEmployeeId), ct);
+            (await CurrentAssigneeIdsAsync(item, ct)).Where(x => !mentioned.Contains(x)).Select(x => (Guid?)x)
+                .Append(mentioned.Contains(item.ReporterEmployeeId ?? Guid.Empty) ? null : item.ReporterEmployeeId), ct);
         await unitOfWork.SaveChangesAsync(ct);
         return (await MapCommentsAsync([row], ct))[0];
     }
@@ -399,6 +412,11 @@ public sealed class WorkManagementService(
             item.RemainingEstimateMinutes = Math.Max(0, item.RemainingEstimateMinutes.Value - request.Minutes);
         await worklogs.AddAsync(row, ct);
         await AddHistoryAsync(itemId, "work_logged", "time", null, request.Minutes.ToString(), ct);
+        if (!string.IsNullOrWhiteSpace(request.Description))
+            await NotifyMentionsAsync(item, row.Id, "worklog", request.Description,
+                request.MentionedEmployeeIds, request.MentionAll, ct);
+        else if (request.MentionAll || request.MentionedEmployeeIds?.Count > 0)
+            throw new DomainException("A work note is required when mentioning someone.");
         await unitOfWork.SaveChangesAsync(ct);
         return (await MapWorklogsAsync([row], ct))[0];
     }
@@ -626,6 +644,46 @@ public sealed class WorkManagementService(
         notifications.QueueForEmployeesAsync(recipients, title, message, "work",
             $"/work?project={Uri.EscapeDataString(item.ProjectId.ToString())}&item={Uri.EscapeDataString(item.Id.ToString())}", ct);
 
+    private async Task<IReadOnlySet<Guid>> NotifyMentionsAsync(WorkItem item, Guid sourceId, string sourceType,
+        string body, IReadOnlyList<Guid>? selectedIds, bool mentionAll, CancellationToken ct)
+    {
+        var explicitIds = (selectedIds ?? []).Distinct().ToArray();
+        if (explicitIds.Length > 50) throw new DomainException("Too many people were mentioned.");
+        if (mentionAll && !ContainsMention(body, "All")) throw new DomainException("Select @All in the note to mention everyone.");
+        if (!mentionAll && explicitIds.Length == 0) return new HashSet<Guid>();
+        var projectMembers = await members.ListAsync(x => x.ProjectId == item.ProjectId, cancellationToken: ct);
+        var memberIds = projectMembers.Select(x => x.EmployeeId).ToHashSet();
+        if (explicitIds.Any(x => !memberIds.Contains(x))) throw new DomainException("Mentions must be project members.");
+        var people = await employees.ListAsync(x => memberIds.Contains(x.Id), cancellationToken: ct);
+        var names = people.ToDictionary(x => x.Id, x => x.FullName);
+        var linkedUserIds = people.Where(x => x.UserId.HasValue).Select(x => x.UserId!.Value).ToArray();
+        var activeUserIds = accounts is null ? linkedUserIds.ToHashSet()
+            : (await accounts.ListAsync(x => linkedUserIds.Contains(x.Id) && x.IsActive, cancellationToken: ct))
+                .Select(x => x.Id).ToHashSet();
+        var eligibleIds = people.Where(x => x.UserId.HasValue && activeUserIds.Contains(x.UserId.Value))
+            .Select(x => x.Id).ToHashSet();
+        if (explicitIds.Any(x => !eligibleIds.Contains(x))) throw new DomainException("Mentions require an active project member account.");
+        if (explicitIds.Any(x => !names.TryGetValue(x, out var name) || !ContainsMention(body, name)))
+            throw new DomainException("Select a project member from the mention list.");
+        var recipients = (mentionAll ? eligibleIds.Concat(explicitIds) : explicitIds)
+            .Where(x => x != user.EmployeeId).Distinct().ToArray();
+        foreach (var employeeId in recipients)
+            if (mentionRows is not null) await mentionRows.AddAsync(new WorkMention
+            {
+                TenantId = TenantId, WorkItemId = item.Id, SourceId = sourceId,
+                SourceType = sourceType, EmployeeId = employeeId
+            }, ct);
+        var actor = user.EmployeeId.HasValue ? names.GetValueOrDefault(user.EmployeeId.Value) : null;
+        var location = sourceType == "comment" ? "comment" : "work note";
+        await notifications.QueueForEmployeesAsync(recipients.Select(x => (Guid?)x),
+            $"Mentioned in {item.Key}", $"{actor ?? "A teammate"} mentioned you in a {location} on {item.Key}.",
+            "work", $"/work?project={item.ProjectId}&item={item.Id}&entry={sourceId}", ct);
+        return recipients.ToHashSet();
+    }
+
+    private static bool ContainsMention(string body, string name) =>
+        Regex.IsMatch(body, $@"(?<!\w)@{Regex.Escape(name)}(?!\w)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
     private async Task<IReadOnlyList<WorkProjectDto>> MapProjectsAsync(IReadOnlyList<WorkProject> rows, CancellationToken ct)
     {
         var people = await EmployeeNamesAsync(ct);
@@ -640,11 +698,16 @@ public sealed class WorkManagementService(
     {
         var people = await employees.ListAsync(cancellationToken: ct);
         var map = people.ToDictionary(x => x.Id);
+        var linkedUserIds = people.Where(x => x.UserId.HasValue).Select(x => x.UserId!.Value).ToArray();
+        var activeUserIds = accounts is null ? linkedUserIds.ToHashSet()
+            : (await accounts.ListAsync(x => linkedUserIds.Contains(x.Id) && x.IsActive, cancellationToken: ct))
+                .Select(x => x.Id).ToHashSet();
         return rows.Where(x => map.ContainsKey(x.EmployeeId)).Select(x =>
         {
             var employee = map[x.EmployeeId];
             return new WorkProjectMemberDto(x.Id, x.EmployeeId, employee.EmployeeNumber, employee.FullName,
-                x.CanCreateItems, x.CanAssignItems, x.CanTransitionItems, x.CanLogWork, x.CanViewAllWorklogs);
+                x.CanCreateItems, x.CanAssignItems, x.CanTransitionItems, x.CanLogWork, x.CanViewAllWorklogs,
+                employee.UserId.HasValue && activeUserIds.Contains(employee.UserId.Value));
         }).OrderBy(x => x.EmployeeName).ToArray();
     }
 
@@ -694,7 +757,14 @@ public sealed class WorkManagementService(
         var people = await EmployeeNamesAsync(ct);
         return rows.Select(x => new WorkHistoryDto(x.Id, x.ActorEmployeeId,
             Name(people, x.ActorEmployeeId) ?? "Administrator", x.EventType, x.FieldName,
-            x.BeforeValue, x.AfterValue, x.CreatedAt)).ToArray();
+            HistoryValue(x.FieldName, x.BeforeValue, people), HistoryValue(x.FieldName, x.AfterValue, people), x.CreatedAt)).ToArray();
+    }
+
+    private static string? HistoryValue(string? field, string? value, IReadOnlyDictionary<Guid, string> people)
+    {
+        if (field != "assignee" || string.IsNullOrWhiteSpace(value)) return value;
+        return string.Join(", ", value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(part => Guid.TryParse(part, out var id) ? people.GetValueOrDefault(id) ?? "Former employee" : part));
     }
 
     private async Task<Dictionary<Guid, string>> EmployeeNamesAsync(CancellationToken ct) =>

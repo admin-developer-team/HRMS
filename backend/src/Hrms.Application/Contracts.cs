@@ -133,7 +133,7 @@ public sealed record TrainingCourseDto(Guid Id, string Title, string? Provider, 
 public sealed record TrainingEnrollmentDto(Guid Id, Guid CourseId, Guid EmployeeId, EnrollmentStatus Status, DateTimeOffset EnrolledAt, DateTimeOffset? CompletedAt, decimal? Score, long Version);
 
 public sealed record DashboardDto(int ActiveEmployees, int PendingLeaveRequests, int OpenJobs, int AvailableAssets, decimal CurrentPayrollTotal, IReadOnlyDictionary<string, int> EmployeesByStatus);
-public sealed record AuditLogDto(Guid Id, DateTimeOffset CreatedAt, Guid? ActorUserId, string Action, string EntityType, string? EntityId, string? IpAddress, string? CorrelationId);
+public sealed record AuditLogDto(Guid Id, DateTimeOffset CreatedAt, Guid? ActorUserId, string? ActorName, string Action, string EntityType, string? EntityId, string? IpAddress, string? CorrelationId);
 
 public sealed record SelfProfileDto(Guid EmployeeId, string EmployeeNumber, string FullName, string WorkEmail, string? Phone, DateOnly HireDate,
     EmploymentStatus Status, EmploymentType EmploymentType, Guid? DepartmentId, Guid? DesignationId, Guid? LocationId, Guid? ManagerId,

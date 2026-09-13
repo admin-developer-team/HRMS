@@ -584,7 +584,7 @@
             (comment.canEdit && canComment()) { <button mat-icon-button (click)="deleteComment(comment.id)"
               [disabled]="!!actionBusy()" aria-label="Delete comment">@if (actionBusy() === 'comment-' + comment.id) {
               <mat-spinner diameter="16"></mat-spinner> } @else { <mat-icon>delete</mat-icon> }</button> }</header>
-          <p>{{ comment.body }}</p>
+          <p [attr.id]="'work-comment-' + comment.id">{{ comment.body }}</p>
         </div>
       </article> }
     </section>
@@ -595,7 +595,7 @@
         @if (canLog()) { <button mat-stroked-button type="button"
           (click)="openWorklogDialog()"><mat-icon>timer</mat-icon>Log time</button> }
       </div>
-      @for (log of data.worklogs; track log.id) { <article class="worklog-entry">
+      @for (log of data.worklogs; track log.id) { <article class="worklog-entry" [attr.id]="'work-worklog-' + log.id">
         <div><b>{{ log.employeeName }}</b><span>{{ log.workDate | date: 'd MMM yyyy' }} · {{ log.description || 'Work
             logged' }}</span></div><strong>{{ formatMinutes(log.minutes) }}</strong>@if (log.canEdit && canLog()) {
         <button mat-icon-button (click)="deleteWorklog(log.id)" [disabled]="!!actionBusy()"
@@ -630,7 +630,9 @@
       aria-label="Close comment dialog"><mat-icon>close</mat-icon></button>
   </header>
   <form class="work-modal-body" [formGroup]="commentForm" id="comment-dialog-form" (ngSubmit)="addComment()">
-    <div class="field"><label>Comment</label><textarea formControlName="body" placeholder="Add a comment"></textarea>
+    <div class="field"><label>Comment</label><app-work-mention-textarea #commentMentions
+        [control]="commentForm.controls.body" [members]="members()" label="Comment"
+        placeholder="Add a comment"></app-work-mention-textarea>
     </div>
   </form>
   <footer><button mat-stroked-button type="button" (click)="commentDialogOpen.set(false)">Cancel</button><button
@@ -656,8 +658,9 @@
         formControlName="hours" /></div>
     <div class="field"><label>Remaining estimate (minutes)</label><input type="number" min="0"
         formControlName="remainingEstimateMinutes" /></div>
-    <div class="field wide"><label>Work note</label><textarea formControlName="description"
-        placeholder="What did you work on?"></textarea></div>
+    <div class="field wide"><label>Work note</label><app-work-mention-textarea #worklogMentions
+        [control]="worklogForm.controls.description" [members]="members()" label="Work note"
+        placeholder="What did you work on?"></app-work-mention-textarea></div>
   </form>
   <footer><button mat-stroked-button type="button" (click)="worklogDialogOpen.set(false)">Cancel</button><button
       mat-raised-button class="primary-button" form="worklog-dialog-form"

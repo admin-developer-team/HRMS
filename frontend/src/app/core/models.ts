@@ -253,6 +253,7 @@ export interface WorkProjectMember {
   canTransitionItems: boolean;
   canLogWork: boolean;
   canViewAllWorklogs: boolean;
+  canMention?: boolean;
 }
 
 export interface WorkItem {

@@ -14,6 +14,9 @@ public static class EmailTemplateKeys
     public const string CandidateApplicationReceived = "candidate.application-received";
     public const string CandidateStageChanged = "candidate.stage-changed";
 
+    public static bool RequiresExpiringActionLink(string templateKey) =>
+        templateKey is AccountCreated or PasswordReset;
+
     public static string ForNotification(string kind) => $"notification.{(string.IsNullOrWhiteSpace(kind) ? "info" : kind.Trim().ToLowerInvariant())}";
 
     public static readonly string[] NotificationKinds =
