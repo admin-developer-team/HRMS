@@ -34,6 +34,7 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
       }
       if (
         error.status === 401 &&
+        !auth.session()?.billingOnly &&
         !request.url.endsWith('/auth/login') &&
         !request.url.endsWith('/auth/refresh') &&
         !emailRedemption

@@ -4,6 +4,7 @@ using Hrms.Application;
 using Hrms.Infrastructure.Identity;
 using Hrms.Infrastructure.Documents;
 using Hrms.Infrastructure.Persistence;
+using Hrms.Infrastructure.Billing;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
@@ -31,6 +32,9 @@ public static class DependencyInjection
         }
         services.AddScoped<ICurrentTenant, CurrentTenant>();
         services.AddScoped<ICurrentUser, CurrentUser>();
+        services.AddScoped<PlatformExperienceService>();
+        services.AddHttpClient<ISubscriptionPaymentGateway, RazorpaySubscriptionGateway>(client => client.Timeout = TimeSpan.FromSeconds(15));
+        services.AddScoped<BillingService>();
         services.AddDbContext<HrmsDbContext>(options => options.UseNpgsql(connectionString, npgsql => npgsql.MigrationsAssembly(typeof(HrmsDbContext).Assembly.FullName)));
         services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
         services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<HrmsDbContext>());
@@ -84,6 +88,8 @@ public static class DependencyInjection
         services.AddScoped<CalendarService>();
         services.AddMemoryCache();
         services.AddHttpClient<IPublicHolidaySource, PublicHolidaySource>(client => client.Timeout = TimeSpan.FromSeconds(8));
+        services.AddScoped<IndiaPayrollEngine>();
+        services.AddScoped<IPayrollCalculationEngine>(sp => sp.GetRequiredService<IndiaPayrollEngine>());
         services.AddScoped<IPayrollService, PayrollService>(); services.AddScoped<IRecruitmentService, RecruitmentService>();
         services.AddScoped<IPerformanceService, PerformanceService>(); services.AddScoped<IAssetService, AssetService>();
         services.AddScoped<IExpenseService, ExpenseService>(); services.AddScoped<ITrainingService, TrainingService>();

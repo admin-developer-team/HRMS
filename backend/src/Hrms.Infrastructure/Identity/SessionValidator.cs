@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Hrms.Infrastructure.Identity;
 
-public sealed class SessionValidator(HrmsDbContext db)
+public sealed class SessionValidator(HrmsDbContext db, Microsoft.AspNetCore.Http.IHttpContextAccessor? accessor = null)
 {
     public async Task<bool> ValidateAsync(ClaimsPrincipal principal, CancellationToken ct)
     {
@@ -19,8 +19,10 @@ public sealed class SessionValidator(HrmsDbContext db)
         if (user is null) return false;
         var now = DateTimeOffset.UtcNow;
         var tenant = await db.Tenants.IgnoreQueryFilters().SingleOrDefaultAsync(x => x.Id == tenantId && !x.IsDeleted, ct);
-        if (tenant is null || tenant.Status is not (TenantStatus.Active or TenantStatus.Trial) || (tenant.Status == TenantStatus.Trial && tenant.TrialEndsAt <= now)) return false;
-        if (tenant.Slug != "platform" && !await db.TenantSubscriptions.IgnoreQueryFilters().AnyAsync(x => x.TenantId == tenantId && !x.IsDeleted && x.IsActive && x.StartsAt <= now && (!x.EndsAt.HasValue || x.EndsAt > now), ct)) return false;
+        if (tenant is null || tenant.Status is not (TenantStatus.Active or TenantStatus.Trial)) return false;
+        var billingOnly = tenant.Slug != "platform" &&
+            ((tenant.Status == TenantStatus.Trial && tenant.TrialEndsAt <= now) ||
+             !await db.TenantSubscriptions.IgnoreQueryFilters().AnyAsync(x => x.TenantId == tenantId && !x.IsDeleted && x.IsActive && x.StartsAt <= now && (!x.EndsAt.HasValue || x.EndsAt > now), ct));
         if (!await db.RefreshTokens.IgnoreQueryFilters().AnyAsync(x => x.Id == sessionId && x.TenantId == tenantId && x.UserId == userId && !x.IsDeleted && x.RevokedAt == null && x.ExpiresAt > DateTimeOffset.UtcNow, ct)) return false;
         var employee = await db.Employees.IgnoreQueryFilters().AsNoTracking().SingleOrDefaultAsync(x => x.TenantId == tenantId && x.UserId == userId && !x.IsDeleted, ct);
         if (employee?.Status is EmploymentStatus.Inactive or EmploymentStatus.Suspended or EmploymentStatus.Terminated or EmploymentStatus.Resigned) return false;
@@ -28,6 +30,8 @@ public sealed class SessionValidator(HrmsDbContext db)
             join role in db.Roles.IgnoreQueryFilters().AsNoTracking() on link.RoleId equals role.Id
             where link.UserId == userId && link.TenantId == tenantId && role.TenantId == tenantId && !link.IsDeleted && !role.IsDeleted
             select role).ToListAsync(ct);
+        if (billingOnly && (accessor?.HttpContext?.Request.Path.StartsWithSegments("/api/v1/billing") != true
+            || !roles.Any(x => x.NormalizedName == "TENANT_ADMIN"))) return false;
         if (principal.Identity is not ClaimsIdentity identity) return false;
         foreach (var claim in identity.Claims.Where(x => x.Type is "permission" or "employee_id" or "platform_admin" || x.Type == ClaimTypes.Role).ToArray()) identity.RemoveClaim(claim);
         identity.AddClaim(new("platform_admin", user.IsPlatformAdmin ? "true" : "false"));

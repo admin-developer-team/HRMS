@@ -26,4 +26,11 @@ public sealed class TenantDomainTests
         Assert.Equal("https://hrms.avntechnologies.co.in",
             TenantDomains.BaseUrlForTenant("https://hrms.avntechnologies.co.in", "hrms.avntechnologies.co.in", "platform"));
     }
+
+    [Fact]
+    public void Local_email_urls_keep_the_frontend_port_and_workspace_subdomain()
+    {
+        Assert.Equal("http://acme.localhost:4200", TenantDomains.BaseUrlForTenant("http://localhost:4200", "hrms.avntechnologies.co.in", "acme"));
+        Assert.Equal("http://localhost:4200", TenantDomains.BaseUrlForTenant("http://localhost:4200", "hrms.avntechnologies.co.in", "platform"));
+    }
 }

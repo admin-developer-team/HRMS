@@ -20,6 +20,9 @@ public static class TenantDomains
 
     public static string BaseUrlForTenant(string? configuredUrl, string? baseDomain, string slug)
     {
+        if (Uri.TryCreate(configuredUrl, UriKind.Absolute, out var configured) &&
+            configured.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase))
+            return $"{configured.Scheme}://{(slug == "platform" ? "localhost" : slug + ".localhost")}{(configured.IsDefaultPort ? "" : ":" + configured.Port)}";
         if (string.IsNullOrWhiteSpace(baseDomain)) return configuredUrl?.TrimEnd('/') ?? string.Empty;
         var domain = baseDomain.Trim().TrimEnd('.').ToLowerInvariant();
         return $"https://{(slug == "platform" ? domain : slug + "." + domain)}";

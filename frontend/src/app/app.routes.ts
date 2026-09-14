@@ -1,7 +1,27 @@
 import { Routes } from '@angular/router';
-import { authGuard, employeeGuard, permissionGuard } from './core/auth.guard';
+import { authGuard, employeeGuard, permissionGuard, platformSupportGuard } from './core/auth.guard';
 
 export const routes: Routes = [
+  {
+    path: '', pathMatch: 'full',
+    loadComponent: () => import('./features/public/public-pages').then(m => m.HomePage),
+    title: 'PeopleFlow · Your people, in sync',
+  },
+  {
+    path: 'get-started',
+    loadComponent: () => import('./features/public/public-pages').then(m => m.GetStartedPage),
+    title: 'Start your free trial · PeopleFlow',
+  },
+  {
+    path: 'help',
+    loadComponent: () => import('./features/public/public-pages').then(m => m.HelpPage),
+    title: 'Help and support · PeopleFlow',
+  },
+  {
+    path: 'activate',
+    loadComponent: () => import('./features/public/public-pages').then(m => m.ActivatePage),
+    title: 'Activate your account · PeopleFlow',
+  },
   {
     path: 'login',
     loadComponent: () => import('./features/login/login.page').then((m) => m.LoginPage),
@@ -38,6 +58,12 @@ export const routes: Routes = [
         data: { module: 'self' },
         loadComponent: () => import('./features/module/module.page').then((m) => m.ModulePage),
         title: 'My services · PeopleFlow',
+      },
+      {
+        path: 'payslip/:runId',
+        canActivate: [employeeGuard],
+        loadComponent: () => import('./features/payroll/payslip.page').then(m => m.PayslipPage),
+        title: 'Payslip · PeopleFlow',
       },
       {
         path: 'calendar',
@@ -78,12 +104,34 @@ export const routes: Routes = [
         loadComponent: () => import('./features/module/module.page').then((m) => m.ModulePage),
         title: 'Customer companies · PeopleFlow',
       },
+      {
+        path: 'subscriptions',
+        canActivate: [permissionGuard('platform.manage')],
+        loadComponent: () => import('./features/platform/subscription-admin.page').then(m => m.SubscriptionAdminPage),
+        title: 'Company subscriptions · PeopleFlow',
+      },
+      {
+        path: 'support',
+        canActivate: [platformSupportGuard],
+        loadComponent: () => import('./features/platform/support.page').then(m => m.SupportPage),
+        title: 'Support inbox · PeopleFlow',
+      },
+      {
+        path: 'billing',
+        loadComponent: () => import('./features/billing/billing.page').then((m) => m.BillingPage),
+        title: 'Subscription & billing · PeopleFlow',
+      },
+      {
+        path: 'payroll',
+        canActivate: [permissionGuard('payroll.manage')],
+        loadComponent: () => import('./features/payroll/payroll.page').then(m => m.PayrollPage),
+        title: 'Payroll · PeopleFlow',
+      },
       ...[
         'organization',
         'leave',
         'attendance',
         'workforce',
-        'payroll',
         'recruitment',
         'performance',
         'assets',

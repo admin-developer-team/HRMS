@@ -4,6 +4,8 @@ public static class Permissions
 {
     public const string All = "*";
     public const string PlatformManage = "platform.manage";
+    public const string SupportRead = "support.read";
+    public const string SupportManage = "support.manage";
     public const string DashboardAdmin = "dashboard.admin";
     public const string EmployeesRead = "employees.read";
     public const string EmployeesManage = "employees.manage";
@@ -33,7 +35,7 @@ public static class Permissions
 
     public static readonly IReadOnlyList<string> Catalog =
     [
-        PlatformManage, DashboardAdmin, EmployeesRead, EmployeesManage, OrganizationManage,
+        PlatformManage, SupportRead, SupportManage, DashboardAdmin, EmployeesRead, EmployeesManage, OrganizationManage,
         LeaveManage, AttendanceManage, WorkforceManage, PayrollManage, RecruitmentManage,
         PerformanceManage, AssetsManage, ExpensesManage, TrainingManage, IdentityManage,
         AuditRead, SelfService, TeamRead, TeamApprove, WorkRead, WorkCreate, WorkAssign,

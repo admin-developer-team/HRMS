@@ -84,6 +84,7 @@ public sealed class WorkManagementService(
     INotificationService notifications, IRepository<WorkMention>? mentionRows = null,
     IRepository<UserAccount>? accounts = null) : ServiceBase(tenant), IWorkManagementService
 {
+    private static DateOnly IndiaToday => DateOnly.FromDateTime(DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromMinutes(330)).DateTime);
     public async Task<IReadOnlyList<WorkProjectDto>> ListProjectsAsync(CancellationToken ct)
     {
         var allowed = await AllowedProjectIdsAsync(ct);
@@ -378,7 +379,9 @@ public sealed class WorkManagementService(
         if (!CanManageOwn(row.AuthorEmployeeId)) throw new DomainException("You can only edit your own comments.");
         CheckVersion(row, request.Version);
         Required(request.Body, "Comment");
+        var before = row.Body;
         row.Body = request.Body.Trim();
+        await AddHistoryAsync(itemId, "comment_updated", "comment", before, row.Body, ct);
         await unitOfWork.SaveChangesAsync(ct);
         return (await MapCommentsAsync([row], ct))[0];
     }
@@ -390,6 +393,7 @@ public sealed class WorkManagementService(
         var row = await comments.FirstOrDefaultAsync(x => x.Id == commentId && x.WorkItemId == itemId, ct)
             ?? throw new DomainException("Comment was not found.");
         if (!CanManageOwn(row.AuthorEmployeeId)) throw new DomainException("You can only delete your own comments.");
+        await AddHistoryAsync(itemId, "comment_deleted", "comment", row.Body, null, ct);
         comments.Remove(row);
         await unitOfWork.SaveChangesAsync(ct);
     }
@@ -424,7 +428,7 @@ public sealed class WorkManagementService(
     public async Task<WorkLogDto> UpdateWorklogAsync(Guid itemId, Guid worklogId, UpdateWorkLogRequest request, CancellationToken ct)
     {
         var item = await RequireItemAsync(itemId, ct);
-        var access = await RequireProjectAccessAsync(item.ProjectId, AccessKind.Log, ct);
+        await RequireProjectAccessAsync(item.ProjectId, AccessKind.Log, ct);
         ValidateWorklog(request.WorkDate, request.Minutes);
         var row = await worklogs.FirstOrDefaultAsync(x => x.Id == worklogId && x.WorkItemId == itemId, ct)
             ?? throw new DomainException("Worklog was not found.");
@@ -433,11 +437,16 @@ public sealed class WorkManagementService(
         CheckVersion(row, request.Version);
         await ValidateDailyWorklogTotalAsync(row.EmployeeId, request.WorkDate, request.Minutes, row.Id, ct);
         NonNegative(request.RemainingEstimateMinutes, "Remaining estimate");
+        var oldMinutes = row.Minutes;
+        var oldDate = row.WorkDate;
         row.WorkDate = request.WorkDate;
         row.Minutes = request.Minutes;
         row.Description = Clean(request.Description);
         if (request.RemainingEstimateMinutes.HasValue)
             item.RemainingEstimateMinutes = NonNegative(request.RemainingEstimateMinutes, "Remaining estimate");
+        else if (item.RemainingEstimateMinutes.HasValue && item.Status is not (WorkItemStatus.Done or WorkItemStatus.Cancelled))
+            item.RemainingEstimateMinutes = Math.Max(0, item.RemainingEstimateMinutes.Value + oldMinutes - request.Minutes);
+        await AddHistoryAsync(itemId, "worklog_updated", "time", $"{oldDate:yyyy-MM-dd}: {oldMinutes}m", $"{row.WorkDate:yyyy-MM-dd}: {row.Minutes}m", ct);
         await unitOfWork.SaveChangesAsync(ct);
         return (await MapWorklogsAsync([row], ct))[0];
     }
@@ -445,12 +454,15 @@ public sealed class WorkManagementService(
     public async Task DeleteWorklogAsync(Guid itemId, Guid worklogId, CancellationToken ct)
     {
         var item = await RequireItemAsync(itemId, ct);
-        var access = await RequireProjectAccessAsync(item.ProjectId, AccessKind.Log, ct);
+        await RequireProjectAccessAsync(item.ProjectId, AccessKind.Log, ct);
         var row = await worklogs.FirstOrDefaultAsync(x => x.Id == worklogId && x.WorkItemId == itemId, ct)
             ?? throw new DomainException("Worklog was not found.");
         if (!CanManageOwn(row.EmployeeId))
             throw new DomainException("You can only delete your own worklogs.");
         worklogs.Remove(row);
+        if (item.RemainingEstimateMinutes.HasValue && item.Status is not (WorkItemStatus.Done or WorkItemStatus.Cancelled))
+            item.RemainingEstimateMinutes += row.Minutes;
+        await AddHistoryAsync(itemId, "worklog_deleted", "time", $"{row.WorkDate:yyyy-MM-dd}: {row.Minutes}m", null, ct);
         await unitOfWork.SaveChangesAsync(ct);
     }
 
@@ -511,7 +523,7 @@ public sealed class WorkManagementService(
     public async Task<WorkOverviewDto> GetOverviewAsync(CancellationToken ct)
     {
         var allowed = await AllowedProjectIdsAsync(ct);
-        var now = DateOnly.FromDateTime(DateTime.UtcNow);
+        var now = IndiaToday;
         var monthStart = new DateOnly(now.Year, now.Month, 1);
         var soon = now.AddDays(7);
         var rows = await items.ListAsync(x => allowed.Contains(x.ProjectId), cancellationToken: ct);
@@ -802,7 +814,7 @@ public sealed class WorkManagementService(
     private static void ValidateWorklog(DateOnly date, int minutes)
     {
         if (minutes is < 1 or > 1440) throw new DomainException("Worklog time must be between 1 and 1,440 minutes.");
-        if (date > DateOnly.FromDateTime(DateTime.UtcNow).AddDays(1))
+        if (date > IndiaToday.AddDays(1))
             throw new DomainException("Work cannot be logged more than one day in the future.");
     }
 

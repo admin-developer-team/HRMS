@@ -34,7 +34,7 @@ describe('HRMS module registry', () => {
         for (const action of [...(view.toolbarActions ?? []), ...(view.rowActions ?? [])]) {
           if (action.path) {
             expect(action.path.startsWith('/')).toBe(true);
-            expect(['get', 'post', 'put', 'delete']).toContain(action.method);
+            expect(['get', 'post', 'put', 'delete', 'navigate']).toContain(action.method);
           } else {
             expect(action.method).toBe('documents');
             expect(action.documentOwnerType).toBeTruthy();

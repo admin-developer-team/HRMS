@@ -16,10 +16,10 @@ public sealed record PagedResult<T>(IReadOnlyList<T> Items, int Page, int PageSi
 
 public sealed record CreateTenantRequest(
     string Name, string Slug, string AdminName, string AdminEmail, string AdminPassword,
-    string DefaultCurrency = "USD", string TimeZone = "UTC", int EmployeeLimit = 50);
+    string DefaultCurrency = "INR", string TimeZone = "Asia/Kolkata", int EmployeeLimit = 50);
 public sealed record TenantDto(Guid Id, string Name, string Slug, TenantStatus Status, string DefaultCurrency, string TimeZone,
     int EmployeeLimit, DateTimeOffset? TrialEndsAt, string PlanCode, DateTimeOffset SubscriptionStartsAt,
-    DateTimeOffset? SubscriptionEndsAt, bool SubscriptionActive, long Version, long SubscriptionVersion);
+    DateTimeOffset? SubscriptionEndsAt, bool SubscriptionActive, long Version, long SubscriptionVersion, string? PreferredPlanCode = null);
 public sealed record UpdateTenantRequest(string Name, TenantStatus Status, string DefaultCurrency, string TimeZone,
     DateTimeOffset? TrialEndsAt, string PlanCode, int EmployeeLimit, DateTimeOffset SubscriptionStartsAt,
     DateTimeOffset? SubscriptionEndsAt, bool SubscriptionActive, long Version, long SubscriptionVersion);
@@ -28,7 +28,7 @@ public sealed record LoginRequest(string? TenantSlug, string Email, string Passw
 public sealed record RefreshRequest(string RefreshToken);
 public sealed record ChangePasswordRequest(string CurrentPassword, string NewPassword);
 public sealed record UpdateSelfProfileRequest(string? Phone);
-public sealed record TokenResponse(string AccessToken, string RefreshToken, DateTimeOffset ExpiresAt, UserDto User);
+public sealed record TokenResponse(string AccessToken, string RefreshToken, DateTimeOffset ExpiresAt, UserDto User, bool BillingOnly = false);
 public sealed record EmailSignInResponse(TokenResponse Session, string Destination);
 public sealed record UserDto(Guid Id, Guid TenantId, Guid? EmployeeId, string Email, string DisplayName, IReadOnlyList<string> Roles, IReadOnlyList<string> Permissions);
 public sealed record CreateRoleRequest(string Name, IReadOnlyList<string> Permissions);
@@ -44,7 +44,7 @@ public sealed record CreateEmployeeRequest(
     string EmployeeNumber, string FirstName, string LastName, string WorkEmail, DateOnly HireDate,
     EmploymentType EmploymentType = EmploymentType.Permanent, Guid? DepartmentId = null,
     Guid? DesignationId = null, Guid? LocationId = null, Guid? ManagerId = null,
-    decimal BaseSalary = 0, string SalaryCurrency = "USD", string? Phone = null);
+    decimal BaseSalary = 0, string SalaryCurrency = "INR", string? Phone = null);
 public sealed record UpdateEmployeeRequest(
     string EmployeeNumber, string FirstName, string LastName, string WorkEmail, string? Phone, DateOnly HireDate, EmploymentStatus Status,
     EmploymentType EmploymentType, Guid? DepartmentId, Guid? DesignationId, Guid? LocationId,
@@ -102,9 +102,12 @@ public sealed record EmployeeDocumentDto(Guid Id, Guid EmployeeId, string Docume
 public sealed record CreateAnnouncementRequest(string Title, string Body, DateTimeOffset? ExpiresAt = null, string Audience = "all");
 public sealed record AnnouncementDto(Guid Id, string Title, string Body, DateTimeOffset PublishedAt, DateTimeOffset? ExpiresAt, string Audience);
 
-public sealed record CreatePayrollRunRequest(string Name, DateOnly PeriodStart, DateOnly PeriodEnd, DateOnly PaymentDate, string Currency = "USD");
-public sealed record PayrollRunDto(Guid Id, string Name, DateOnly PeriodStart, DateOnly PeriodEnd, DateOnly PaymentDate, PayrollRunStatus Status, string Currency, decimal GrossTotal, decimal DeductionTotal, decimal NetTotal, long Version);
-public sealed record PayrollItemDto(Guid Id, Guid EmployeeId, decimal BasicPay, decimal Allowances, decimal OvertimePay, decimal Deductions, decimal Taxes, decimal GrossPay, decimal NetPay);
+public sealed record CreatePayrollRunRequest(string Name, DateOnly PeriodStart, DateOnly PeriodEnd, DateOnly PaymentDate, string Currency = "INR");
+public sealed record PayrollRunDto(Guid Id, string Name, DateOnly PeriodStart, DateOnly PeriodEnd, DateOnly PaymentDate, PayrollRunStatus Status, string Currency, decimal GrossTotal, decimal DeductionTotal, decimal NetTotal, long Version,
+    DateTimeOffset? CalculatedAt = null, DateTimeOffset? StatutoryReviewedAt = null, DateTimeOffset? ApprovedAt = null, DateTimeOffset? PaidAt = null, string? PaymentReference = null);
+public sealed record PayrollItemDto(Guid Id, Guid EmployeeId, decimal BasicPay, decimal Allowances, decimal OvertimePay, decimal Deductions, decimal Taxes, decimal GrossPay, decimal NetPay, string? BreakdownJson = null);
+public sealed record ReviewPayrollRequest(long Version, string Confirmation);
+public sealed record PayPayrollRequest(long Version, string PaymentReference, DateOnly? PaidOn = null);
 
 public sealed record CreateJobRequest(string Title, string Code, string Description, Guid? DepartmentId = null, Guid? HiringManagerId = null, int Openings = 1, DateOnly? ClosesOn = null);
 public sealed record CreateCandidateRequest(string FirstName, string LastName, string Email, string? Phone = null, string? ResumeStorageKey = null, string? Source = null);
@@ -145,5 +148,6 @@ public sealed record SelfLeaveRequest(Guid LeaveTypeId, DateOnly StartsOn, DateO
 public sealed record SelfTimesheetRequest(DateOnly WorkDate, string Description, decimal Hours, string? ProjectCode = null);
 public sealed record SelfExpenseRequest(string Category, DateOnly ExpenseDate, decimal Amount, string Currency, string Description, string? ReceiptStorageKey = null);
 public sealed record PayslipDto(Guid PayrollRunId, string RunName, DateOnly PeriodStart, DateOnly PeriodEnd, DateOnly PaymentDate, string Currency,
-    decimal BasicPay, decimal Allowances, decimal OvertimePay, decimal Deductions, decimal Taxes, decimal GrossPay, decimal NetPay, PayrollRunStatus Status);
+    decimal BasicPay, decimal Allowances, decimal OvertimePay, decimal Deductions, decimal Taxes, decimal GrossPay, decimal NetPay, PayrollRunStatus Status, string? BreakdownJson = null,
+    string? CompanyName = null, string? EmployeeName = null, string? EmployeeNumber = null, string? PaymentReference = null);
 public sealed record TeamMemberDto(Guid Id, string EmployeeNumber, string FullName, string WorkEmail, EmploymentStatus Status, Guid? DepartmentId, Guid? DesignationId);

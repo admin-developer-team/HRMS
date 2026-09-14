@@ -148,7 +148,7 @@ public sealed class EmailOutboxWorker(IServiceScopeFactory scopeFactory, ILogger
                 var rendered = Render(item, template, model);
                 await transport.SendAsync(EmailAdministrationService.ToDeliverySettings(configuration, protector), rendered, ct);
                 item.SentAt = DateTimeOffset.UtcNow; item.LastError = null;
-                if (item.TemplateKey is EmailTemplateKeys.AccountCreated or EmailTemplateKeys.PasswordReset) item.ModelJson = "{}";
+                if (item.TemplateKey is EmailTemplateKeys.AccountCreated or EmailTemplateKeys.AccountActivation or EmailTemplateKeys.PasswordReset) item.ModelJson = "{}";
             }
             catch (Exception ex)
             {

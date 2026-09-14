@@ -136,7 +136,7 @@
                       @case ('currency') {
                         <b>{{
                           +(value(row, column.key) ?? 0)
-                            | currency: (row['currency'] ?? 'USD')!.toString() : 'symbol' : '1.0-2'
+                            | currency: (row['currency'] ?? 'INR')!.toString() : 'symbol' : '1.0-2'
                         }}</b>
                       }
                       @case ('number') {

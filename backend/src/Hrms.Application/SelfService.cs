@@ -1,5 +1,6 @@
 using Hrms.Domain;
 using Hrms.Domain.Common;
+using System.Text.Json;
 
 namespace Hrms.Application;
 
@@ -117,15 +118,26 @@ public sealed class SelfService(
 
     public async Task<IReadOnlyList<PayslipDto>> GetPayslipsAsync(CancellationToken ct)
     {
+        var employee = await Employee(ct);
+        var company = currentTenant.TenantId.HasValue ? await tenants.GetByIdAsync(currentTenant.TenantId.Value, ct) : null;
         var items = await payrollItems.ListAsync(x => x.EmployeeId == EmployeeId, q => q.OrderByDescending(x => x.CreatedAt), cancellationToken: ct);
         var result = new List<PayslipDto>();
         foreach (var item in items)
         {
             var run = await payrollRuns.GetByIdAsync(item.PayrollRunId, ct);
-            if (run is null || run.Status is not (PayrollRunStatus.Approved or PayrollRunStatus.Paid)) continue;
-            result.Add(new(run.Id, run.Name, run.PeriodStart, run.PeriodEnd, run.PaymentDate, run.Currency, item.BasicPay, item.Allowances, item.OvertimePay, item.Deductions, item.Taxes, item.GrossPay, item.NetPay, run.Status));
+            if (run is null || (run.Status != PayrollRunStatus.Paid &&
+                !(run.Status == PayrollRunStatus.Approved && ReleaseApprovedPayslip(run.PolicySnapshotJson)))) continue;
+            result.Add(new(run.Id, run.Name, run.PeriodStart, run.PeriodEnd, run.PaymentDate, run.Currency, item.BasicPay, item.Allowances, item.OvertimePay, item.Deductions, item.Taxes, item.GrossPay, item.NetPay, run.Status, item.BreakdownJson,
+                company?.Name, employee.FullName, employee.EmployeeNumber, run.PaymentReference));
         }
         return result;
+    }
+
+    private static bool ReleaseApprovedPayslip(string? policySnapshot)
+    {
+        if (string.IsNullOrWhiteSpace(policySnapshot)) return false;
+        try { return JsonSerializer.Deserialize<PayrollPolicy>(policySnapshot)?.ReleasePayslipsOnApproval == true; }
+        catch (JsonException) { return false; }
     }
 
     public async Task<IReadOnlyList<TeamMemberDto>> GetTeamAsync(CancellationToken ct)

@@ -16,6 +16,7 @@ import { LoadingService } from '../core/loading.service';
 import { UserNotification } from '../core/models';
 import { NotificationService } from '../core/notification.service';
 import { ToastService } from '../core/toast.service';
+import { workspaceSlug } from '../core/workspace-url';
 import { MODULES } from '../features/module/module.registry';
 
 interface NavItem {
@@ -25,7 +26,9 @@ interface NavItem {
   badge?: string;
   permission?: string;
   platformOnly?: boolean;
+  platformWorkspaceOnly?: boolean;
   employeeOnly?: boolean;
+  tenantAdminOnly?: boolean;
 }
 interface NavSection {
   label: string;
@@ -122,6 +125,8 @@ export class ShellComponent implements OnDestroy {
       label: 'Platform',
       items: [
         { label: 'Customer companies', icon: 'domain', route: '/companies', platformOnly: true },
+        { label: 'Subscriptions', icon: 'workspace_premium', route: '/subscriptions', platformOnly: true },
+        { label: 'Support inbox', icon: 'support_agent', route: '/support', permission: 'support.read', platformWorkspaceOnly: true },
       ],
     },
     {
@@ -152,6 +157,7 @@ export class ShellComponent implements OnDestroy {
     {
       label: 'Compensation',
       items: [
+        { label: 'Subscription & billing', icon: 'credit_card', route: '/billing', tenantAdminOnly: true },
         { label: 'Payroll', icon: 'payments', route: '/payroll', permission: 'payroll.manage' },
         {
           label: 'Expenses',
@@ -229,7 +235,10 @@ export class ShellComponent implements OnDestroy {
   }
 
   visible(item: NavItem): boolean {
+    if (this.auth.session()?.billingOnly) return item.route === '/billing';
     if (item.platformOnly) return this.auth.isPlatformAdmin();
+    if (item.platformWorkspaceOnly && workspaceSlug() !== 'platform') return false;
+    if (item.tenantAdminOnly && !this.auth.user()?.roles.includes('TENANT_ADMIN')) return false;
     if (item.employeeOnly && !this.auth.isEmployee()) return false;
     if (item.permission && !this.auth.hasPermission(item.permission)) return false;
     return true;

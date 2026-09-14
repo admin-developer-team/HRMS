@@ -1,4 +1,5 @@
 export interface UserSession {
+  billingOnly?: boolean;
   accessToken: string;
   refreshToken: string;
   expiresAt: string;
@@ -170,7 +171,7 @@ export interface FilterDefinition {
 export interface RowActionDefinition {
   label: string;
   icon: string;
-  method: 'get' | 'post' | 'put' | 'delete' | 'documents';
+  method: 'get' | 'post' | 'put' | 'delete' | 'documents' | 'navigate';
   path?: string;
   fields?: FormFieldDefinition[];
   confirm?: string;

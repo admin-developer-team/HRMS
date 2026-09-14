@@ -467,6 +467,10 @@ export class ModulePage implements OnInit, OnDestroy {
   private runAction(action: RowActionDefinition, row: DataRow | null): void {
     this.error.set('');
     this.success.set('');
+    if (action.method === 'navigate') {
+      this.router.navigateByUrl(this.interpolatePath(action.path ?? '', row, {}));
+      return;
+    }
     if (action.method === 'documents') {
       if (!row || !action.documentOwnerType) return;
       const ownerId = String(row[action.documentOwnerIdField ?? 'id'] ?? '');

@@ -1,0 +1,240 @@
+// Shared visual language for the public experience and new platform modules.
+// Keep brand-facing surfaces in step with the app theme and theme studio.
+.public-site.public-site.public-site {
+  color: var(--ink);
+  background: var(--app-bg);
+  font-family: 'Segoe UI', system-ui, sans-serif;
+}
+
+.public-site.public-site .logo-mark,
+.public-site.public-site .mini-logo,
+.public-site.public-site .nav-cta,
+.public-site.public-site .primary-action,
+.public-site.public-site .form-submit,
+.public-site.public-site .mini-calendar .selected {
+  background: var(--brand);
+  border-radius: 6px;
+}
+
+.public-site.public-site .logo-mark {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 3px;
+  padding: 8px;
+}
+
+.public-site.public-site .logo-mark i {
+  width: 4px;
+  flex: none;
+  border-radius: 2px 2px 0 0;
+  background: #fff;
+}
+.public-site.public-site .logo-mark i:nth-child(1) { height: 9px; opacity: 0.7; }
+.public-site.public-site .logo-mark i:nth-child(2) { height: 18px; }
+.public-site.public-site .logo-mark i:nth-child(3) { height: 13px; opacity: 0.85; }
+
+.public-site.public-site .eyebrow,
+.public-site.public-site .card-kicker,
+.public-site.public-site em,
+.public-site.public-site .logo strong span,
+.public-site.public-site .text-link,
+.public-site.public-site .secondary-action {
+  color: var(--brand) !important;
+}
+
+.public-site.public-site .scene-panel aside,
+.public-site.public-site .why-section {
+  background: var(--sidebar-bg);
+}
+
+.public-site.public-site .trust-strip,
+.public-site.public-site .form-site {
+  background: color-mix(in srgb, var(--brand) 5%, var(--app-bg));
+}
+
+.public-site.public-site .feature-card,
+.public-site.public-site .form-card,
+.public-site.public-site .scene-panel,
+.public-site.public-site .metric-row > div,
+.public-site.public-site .chart,
+.public-site.public-site .activity,
+.public-site.public-site .float-card {
+  background: var(--card);
+  border-color: var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.public-site.public-site .feature-card p,
+.public-site.public-site .section-heading p,
+.public-site.public-site .form-card > p,
+.public-site.public-site .form-intro > p,
+.public-site.public-site .hero-copy > p {
+  color: var(--ink-muted);
+}
+
+.public-site.public-site .form-card input,
+.public-site.public-site .form-card select,
+.public-site.public-site .form-card textarea,
+.public-site.public-site .slug-input {
+  background: var(--card);
+  color: var(--ink);
+  border-color: var(--border-strong);
+  border-radius: 6px;
+}
+
+.public-site.public-site .form-card input:focus,
+.public-site.public-site .form-card select:focus,
+.public-site.public-site .form-card textarea:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px rgb(var(--brand-rgb) / 0.12);
+}
+
+.public-site.public-site .outline-button {
+  border-color: var(--border-strong);
+  background: var(--card);
+  color: var(--brand) !important;
+  border-radius: 6px;
+}
+
+.public-site.public-site .form-card a[href] { color: var(--brand); }
+.public-site.public-site .success-icon,
+.public-site.public-site .help-points div span,
+.public-site.public-site .feature-icon,
+.public-site.public-site .float-card > span {
+  color: var(--brand);
+  background: rgb(var(--brand-rgb) / 0.1);
+}
+
+.public-site.public-site .public-footer { border-color: var(--border); }
+
+.admin-page.admin-page.admin-page,
+.support-page.support-page.support-page,
+.billing-page.billing-page.billing-page {
+  max-width: 1600px;
+  padding: 28px 32px 48px;
+  color: var(--ink);
+  font-family: 'Segoe UI', system-ui, sans-serif;
+}
+
+.admin-page.admin-page.admin-page h1,
+.support-page.support-page.support-page h1,
+.billing-page.billing-page.billing-page h1 {
+  margin: 0;
+  font-size: 1.875rem;
+  line-height: 1.25;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.admin-page.admin-page .eyebrow,
+.support-page.support-page .eyebrow,
+.billing-page.billing-page .eyebrow {
+  color: var(--brand);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+}
+
+.admin-page.admin-page header p,
+.support-page.support-page header p,
+.billing-page.billing-page header p,
+.admin-page.admin-page .hint {
+  color: var(--ink-muted);
+  font-size: 0.9375rem;
+}
+
+.admin-page.admin-page .company-list,
+.admin-page.admin-page .editor,
+.support-page.support-page .ticket-list,
+.support-page.support-page .ticket-detail,
+.support-page.support-page .team-list,
+.support-page.support-page .invite,
+.billing-page.billing-page .current,
+.billing-page.billing-page .plans article {
+  color: var(--ink);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.admin-page.admin-page .company,
+.support-page.support-page .ticket {
+  color: var(--ink);
+  background: var(--card);
+  border-color: var(--border);
+}
+
+.admin-page.admin-page .company.selected,
+.support-page.support-page .ticket.selected {
+  background: rgb(var(--brand-rgb) / 0.08);
+}
+
+.admin-page.admin-page .company-mark,
+.support-page.support-page .avatar,
+.admin-page.admin-page .company b.active,
+.support-page.support-page .ticket-bottom i.resolved,
+.support-page.support-page .tabs b {
+  color: var(--brand);
+  background: rgb(var(--brand-rgb) / 0.1);
+}
+
+.admin-page.admin-page .toolbar button,
+.admin-page.admin-page .pager button,
+.admin-page.admin-page .save,
+.support-page.support-page .primary,
+.billing-page.billing-page button {
+  color: #fff;
+  background: var(--brand);
+  border: 0;
+  border-radius: 6px;
+  box-shadow: 0 1px 1px rgb(9 30 66 / 0.12);
+}
+
+.admin-page.admin-page .toolbar button:hover,
+.admin-page.admin-page .save:hover,
+.support-page.support-page .primary:hover,
+.billing-page.billing-page button:hover { filter: brightness(0.94); }
+
+.admin-page.admin-page input,
+.admin-page.admin-page select,
+.support-page.support-page input,
+.support-page.support-page select,
+.support-page.support-page textarea {
+  color: var(--ink);
+  background: var(--card);
+  border-color: var(--border-strong);
+  border-radius: 6px;
+}
+
+.admin-page.admin-page .editor label,
+.support-page.support-page label { color: var(--ink-muted); }
+
+.admin-page.admin-page .company small,
+.support-page.support-page .ticket small,
+.support-page.support-page .member small,
+.support-page.support-page .invite p,
+.billing-page.billing-page .plans p { color: var(--ink-muted); }
+
+.admin-page.admin-page .editor-head,
+.support-page.support-page .requester,
+.support-page.support-page .list-head,
+.support-page.support-page .member,
+.support-page.support-page .tabs { border-color: var(--border); }
+
+.admin-page.admin-page .success,
+.support-page.support-page .success,
+.support-page.support-page .ticket-top b,
+.support-page.support-page .tabs button.active,
+.support-page.support-page .list-head button { color: var(--brand); }
+
+.support-page.support-page .tabs button.active { border-color: var(--brand); }
+
+.billing-page.billing-page .notice { color: var(--brand); }
+
+@media (max-width: 700px) {
+  .admin-page.admin-page,
+  .support-page.support-page,
+  .billing-page.billing-page { padding: 20px 16px 40px; }
+}

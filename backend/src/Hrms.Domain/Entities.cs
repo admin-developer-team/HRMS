@@ -6,11 +6,12 @@ public sealed class Tenant : AuditableEntity
 {
     public string Name { get; set; } = string.Empty;
     public string Slug { get; set; } = string.Empty;
+    public string? PreferredPlanCode { get; set; }
     public string? LegalName { get; set; }
     public string? TaxIdentifier { get; set; }
-    public string DefaultCurrency { get; set; } = "USD";
-    public string TimeZone { get; set; } = "UTC";
-    public string Locale { get; set; } = "en-US";
+    public string DefaultCurrency { get; set; } = "INR";
+    public string TimeZone { get; set; } = "Asia/Kolkata";
+    public string Locale { get; set; } = "en-IN";
     public TenantStatus Status { get; set; } = TenantStatus.Trial;
     public DateTimeOffset? TrialEndsAt { get; set; }
     public string? LogoUrl { get; set; }
@@ -24,6 +25,30 @@ public sealed class TenantSubscription : TenantEntity
     public DateTimeOffset StartsAt { get; set; }
     public DateTimeOffset? EndsAt { get; set; }
     public bool IsActive { get; set; } = true;
+    public string? BillingProvider { get; set; }
+    public string? ProviderSubscriptionId { get; set; }
+}
+
+public sealed class BillingCheckout : TenantEntity
+{
+    public string Provider { get; set; } = string.Empty;
+    public string ProviderSubscriptionId { get; set; } = string.Empty;
+    public string CheckoutUrl { get; set; } = string.Empty;
+    public string PlanCode { get; set; } = string.Empty;
+    public string ProviderPlanId { get; set; } = string.Empty;
+    public string Currency { get; set; } = "INR";
+    public long AmountMinor { get; set; }
+    public int EmployeeLimit { get; set; }
+    public string Status { get; set; } = "pending";
+    public bool IsTest { get; set; }
+    public DateTimeOffset? CurrentPeriodEnd { get; set; }
+}
+
+public sealed class BillingWebhookEvent : TenantEntity
+{
+    public string Provider { get; set; } = string.Empty;
+    public string ProviderEventId { get; set; } = string.Empty;
+    public string EventType { get; set; } = string.Empty;
 }
 
 public sealed class UserAccount : TenantEntity
@@ -33,9 +58,34 @@ public sealed class UserAccount : TenantEntity
     public string DisplayName { get; set; } = string.Empty;
     public bool IsActive { get; set; } = true;
     public bool IsPlatformAdmin { get; set; }
+    public bool SupportInboxEnabled { get; set; }
     public DateTimeOffset? LastLoginAt { get; set; }
     public int FailedLoginCount { get; set; }
     public DateTimeOffset? LockedUntil { get; set; }
+}
+
+public sealed class AccountActivation : TenantEntity
+{
+    public Guid UserId { get; set; }
+    public string TokenHash { get; set; } = string.Empty;
+    public string Kind { get; set; } = "trial";
+    public DateTimeOffset ExpiresAt { get; set; }
+    public DateTimeOffset? UsedAt { get; set; }
+}
+
+public sealed class SupportTicket : TenantEntity
+{
+    public string Reference { get; set; } = string.Empty;
+    public Guid? SourceTenantId { get; set; }
+    public string ContactName { get; set; } = string.Empty;
+    public string ContactEmail { get; set; } = string.Empty;
+    public string Category { get; set; } = "general";
+    public string Subject { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public string Status { get; set; } = "open";
+    public Guid? AssignedToUserId { get; set; }
+    public string? InternalNote { get; set; }
+    public DateTimeOffset? ResolvedAt { get; set; }
 }
 
 public sealed class Role : TenantEntity
@@ -110,7 +160,7 @@ public sealed class Employee : TenantEntity
     public Guid? LocationId { get; set; }
     public Guid? ManagerId { get; set; }
     public decimal BaseSalary { get; set; }
-    public string SalaryCurrency { get; set; } = "USD";
+    public string SalaryCurrency { get; set; } = "INR";
     public string? BankAccountMasked { get; set; }
     public string? TaxIdentifierEncrypted { get; set; }
     public string? AddressJson { get; set; }
@@ -266,10 +316,62 @@ public sealed class PayrollRun : TenantEntity
     public DateOnly PeriodEnd { get; set; }
     public DateOnly PaymentDate { get; set; }
     public PayrollRunStatus Status { get; set; } = PayrollRunStatus.Draft;
-    public string Currency { get; set; } = "USD";
+    public string Currency { get; set; } = "INR";
     public decimal GrossTotal { get; set; }
     public decimal DeductionTotal { get; set; }
     public decimal NetTotal { get; set; }
+    public string? PolicySnapshotJson { get; set; }
+    public DateTimeOffset? CalculatedAt { get; set; }
+    public DateTimeOffset? StatutoryReviewedAt { get; set; }
+    public Guid? StatutoryReviewedBy { get; set; }
+    public DateTimeOffset? ApprovedAt { get; set; }
+    public Guid? ApprovedBy { get; set; }
+    public DateTimeOffset? PaidAt { get; set; }
+    public string? PaymentReference { get; set; }
+}
+
+public sealed class PayrollPolicy : TenantEntity
+{
+    public string SalaryBasis { get; set; } = "annual";
+    public string PayableDaysBasis { get; set; } = "calendar";
+    public string MissingAttendance { get; set; } = "block";
+    public bool DeductUnpaidLeave { get; set; } = true;
+    public bool DeductAbsences { get; set; } = true;
+    public bool DeductHalfDays { get; set; } = true;
+    public decimal StandardDailyHours { get; set; } = 8m;
+    public decimal OvertimeMultiplier { get; set; } = 1m;
+    public decimal PfEmployeeRate { get; set; } = 0.12m;
+    public decimal PfEmployerRate { get; set; } = 0.12m;
+    public decimal PfWageCeiling { get; set; } = 15000m;
+    public decimal EsiEmployeeRate { get; set; } = 0.0075m;
+    public decimal EsiEmployerRate { get; set; } = 0.0325m;
+    public decimal EsiGrossCeiling { get; set; } = 21000m;
+    public bool RequireStatutoryReview { get; set; } = true;
+    public bool ReleasePayslipsOnApproval { get; set; }
+}
+
+public sealed class EmployeePayrollProfile : TenantEntity
+{
+    public Guid EmployeeId { get; set; }
+    public decimal BasicPercent { get; set; } = 50m;
+    public decimal HraPercentOfBasic { get; set; } = 40m;
+    public bool PfEnabled { get; set; }
+    public bool EsiEnabled { get; set; }
+    public decimal MonthlyTds { get; set; }
+    public decimal ProfessionalTax { get; set; }
+    public decimal OtherMonthlyDeduction { get; set; }
+    public decimal? OvertimeHourlyRate { get; set; }
+    public string TaxRegime { get; set; } = "new";
+}
+
+public sealed class PayrollAdjustment : TenantEntity
+{
+    public Guid PayrollRunId { get; set; }
+    public Guid EmployeeId { get; set; }
+    public string Code { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public bool IsEarning { get; set; }
+    public decimal Amount { get; set; }
 }
 
 public sealed class PayrollItem : TenantEntity
@@ -365,7 +467,7 @@ public sealed class ExpenseClaim : TenantEntity
     public string Category { get; set; } = string.Empty;
     public DateOnly ExpenseDate { get; set; }
     public decimal Amount { get; set; }
-    public string Currency { get; set; } = "USD";
+    public string Currency { get; set; } = "INR";
     public string Description { get; set; } = string.Empty;
     public string? ReceiptStorageKey { get; set; }
     public ExpenseStatus Status { get; set; } = ExpenseStatus.Draft;

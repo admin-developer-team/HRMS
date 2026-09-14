@@ -22,6 +22,62 @@ namespace Hrms.Infrastructure.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Hrms.Domain.AccountActivation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("UsedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
+
+                    b.ToTable("AccountActivations");
+                });
+
             modelBuilder.Entity("Hrms.Domain.Announcement", b =>
                 {
                     b.Property<Guid>("Id")
@@ -515,6 +571,136 @@ namespace Hrms.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("AuditLogs");
+                });
+
+            modelBuilder.Entity("Hrms.Domain.BillingCheckout", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("AmountMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("CheckoutUrl")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset?>("CurrentPeriodEnd")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("EmployeeLimit")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsTest")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("PlanCode")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ProviderPlanId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ProviderSubscriptionId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Provider", "ProviderSubscriptionId")
+                        .IsUnique();
+
+                    b.ToTable("BillingCheckouts");
+                });
+
+            modelBuilder.Entity("Hrms.Domain.BillingWebhookEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("EventType")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ProviderEventId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Provider", "ProviderEventId")
+                        .IsUnique();
+
+                    b.ToTable("BillingWebhookEvents");
                 });
 
             modelBuilder.Entity("Hrms.Domain.Candidate", b =>
@@ -1183,6 +1369,82 @@ namespace Hrms.Infrastructure.Persistence.Migrations
                     b.ToTable("EmployeeEmergencyContacts");
                 });
 
+            modelBuilder.Entity("Hrms.Domain.EmployeePayrollProfile", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("BasicPercent")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("EmployeeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("EsiEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<decimal>("HraPercentOfBasic")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<decimal>("MonthlyTds")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("OtherMonthlyDeduction")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal?>("OvertimeHourlyRate")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<bool>("PfEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<decimal>("ProfessionalTax")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("TaxRegime")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "EmployeeId")
+                        .IsUnique();
+
+                    b.ToTable("EmployeePayrollProfiles");
+                });
+
             modelBuilder.Entity("Hrms.Domain.ExpenseClaim", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1786,6 +2048,67 @@ namespace Hrms.Infrastructure.Persistence.Migrations
                     b.ToTable("OutboxMessages");
                 });
 
+            modelBuilder.Entity("Hrms.Domain.PayrollAdjustment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("EmployeeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsEarning")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("PayrollRunId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "PayrollRunId", "EmployeeId", "Code")
+                        .IsUnique()
+                        .HasFilter("\"IsDeleted\" = false");
+
+                    b.ToTable("PayrollAdjustments");
+                });
+
             modelBuilder.Entity("Hrms.Domain.PayrollItem", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1857,9 +2180,108 @@ namespace Hrms.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("TenantId", "PayrollRunId", "EmployeeId")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("\"IsDeleted\" = false");
 
                     b.ToTable("PayrollItems");
+                });
+
+            modelBuilder.Entity("Hrms.Domain.PayrollPolicy", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("DeductAbsences")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("DeductHalfDays")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("DeductUnpaidLeave")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("EsiEmployeeRate")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("EsiEmployerRate")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("EsiGrossCeiling")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("MissingAttendance")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<decimal>("OvertimeMultiplier")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("PayableDaysBasis")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<decimal>("PfEmployeeRate")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("PfEmployerRate")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("PfWageCeiling")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<bool>("ReleasePayslipsOnApproval")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("RequireStatutoryReview")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("SalaryBasis")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<decimal>("StandardDailyHours")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId")
+                        .IsUnique();
+
+                    b.ToTable("PayrollPolicies");
                 });
 
             modelBuilder.Entity("Hrms.Domain.PayrollRun", b =>
@@ -1867,6 +2289,15 @@ namespace Hrms.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("ApprovedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("ApprovedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("CalculatedAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -1900,8 +2331,14 @@ namespace Hrms.Infrastructure.Persistence.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
 
+                    b.Property<DateTimeOffset?>("PaidAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateOnly>("PaymentDate")
                         .HasColumnType("date");
+
+                    b.Property<string>("PaymentReference")
+                        .HasColumnType("text");
 
                     b.Property<DateOnly>("PeriodEnd")
                         .HasColumnType("date");
@@ -1909,9 +2346,18 @@ namespace Hrms.Infrastructure.Persistence.Migrations
                     b.Property<DateOnly>("PeriodStart")
                         .HasColumnType("date");
 
+                    b.Property<string>("PolicySnapshotJson")
+                        .HasColumnType("text");
+
                     b.Property<int>("Status")
                         .HasMaxLength(40)
                         .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("StatutoryReviewedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("StatutoryReviewedBy")
+                        .HasColumnType("uuid");
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid");
@@ -2280,6 +2726,87 @@ namespace Hrms.Infrastructure.Persistence.Migrations
                     b.ToTable("StoredDocuments");
                 });
 
+            modelBuilder.Entity("Hrms.Domain.SupportTicket", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("AssignedToUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ContactEmail")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ContactName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("InternalNote")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Reference")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset?>("ResolvedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("SourceTenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Subject")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Reference")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "Status", "CreatedAt");
+
+                    b.ToTable("SupportTickets");
+                });
+
             modelBuilder.Entity("Hrms.Domain.Tenant", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2314,6 +2841,9 @@ namespace Hrms.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Name")
                         .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("PreferredPlanCode")
                         .HasColumnType("text");
 
                     b.Property<string>("SettingsJson")
@@ -2361,6 +2891,9 @@ namespace Hrms.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<string>("BillingProvider")
+                        .HasColumnType("text");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -2386,6 +2919,9 @@ namespace Hrms.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("ProviderSubscriptionId")
+                        .HasColumnType("text");
+
                     b.Property<DateTimeOffset>("StartsAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -2403,6 +2939,10 @@ namespace Hrms.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("BillingProvider", "ProviderSubscriptionId")
+                        .IsUnique()
+                        .HasFilter("\"ProviderSubscriptionId\" IS NOT NULL");
 
                     b.ToTable("TenantSubscriptions");
                 });
@@ -2622,6 +3162,9 @@ namespace Hrms.Infrastructure.Persistence.Migrations
                     b.Property<string>("PasswordHash")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<bool>("SupportInboxEnabled")
+                        .HasColumnType("boolean");
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid");

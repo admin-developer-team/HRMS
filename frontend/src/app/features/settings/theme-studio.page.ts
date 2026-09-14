@@ -65,9 +65,9 @@ export class ThemeStudioPage {
   readonly profileOwnerId = computed(() => this.auth.user()?.employeeId ?? this.auth.user()?.id ?? '');
   readonly companyName = signal('');
   readonly legalName = signal('');
-  readonly currency = signal('USD');
-  readonly timeZone = signal('UTC');
-  readonly locale = signal('en-US');
+  readonly currency = signal('INR');
+  readonly timeZone = signal('Asia/Kolkata');
+  readonly locale = signal('en-IN');
   readonly customPrimary = signal(this.themes.current().primary);
   readonly customAccent = signal(this.themes.current().accent);
   readonly customRadius = signal(this.themes.current().radius);

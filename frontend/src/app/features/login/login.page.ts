@@ -65,8 +65,9 @@ export class LoginPage {
         this.loading.set(false);
         const requested = this.route.snapshot.queryParamMap.get('returnUrl');
         const safeReturnUrl = requested?.startsWith('/') && !requested.startsWith('//') ? requested : null;
-        if (safeReturnUrl) void this.router.navigateByUrl(safeReturnUrl);
-        else void this.router.navigate([this.auth.isEmployee() ? '/my' : '/dashboard']);
+        if (this.auth.session()?.billingOnly) void this.router.navigate(['/billing']);
+        else if (safeReturnUrl) void this.router.navigateByUrl(safeReturnUrl);
+        else void this.router.navigate([this.auth.isEmployee() ? '/my' : this.auth.hasPermission('dashboard.admin') ? '/dashboard' : this.auth.hasPermission('support.read') ? '/support' : '/calendar']);
       },
       error: (error: HttpErrorResponse) => {
         this.loading.set(false);

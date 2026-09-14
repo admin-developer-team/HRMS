@@ -6,9 +6,12 @@ using Hrms.Application;
 using Hrms.Infrastructure;
 using Hrms.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.OpenApi;
 
 var builder = WebApplication.CreateBuilder(args);
+if (builder.Environment.IsDevelopment())
+    builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
 // Upload endpoints apply their own authorization and file-type validation. Leave the
 // transport unbounded so installations can choose their limit at the reverse proxy.
 builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = null);
@@ -57,6 +60,9 @@ builder.Services.AddRateLimiter(options =>
                 ? $"{context.User.FindFirst("tenant_id")?.Value}:{context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value}"
                 : context.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
             _ => new FixedWindowRateLimiterOptions { PermitLimit = 300, Window = TimeSpan.FromMinutes(1), QueueLimit = 0, AutoReplenishment = true }));
+    options.AddPolicy("public-forms", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 5, Window = TimeSpan.FromMinutes(15), QueueLimit = 0, AutoReplenishment = true }));
 });
 
 var app = builder.Build();

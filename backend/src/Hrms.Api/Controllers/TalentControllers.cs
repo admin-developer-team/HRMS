@@ -1,18 +1,28 @@
 using Hrms.Application;
 using Hrms.Domain;
+using Hrms.Infrastructure;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Hrms.Api.Controllers;
 
 [ApiController, Route("api/v1/payroll"), Authorize(Policy = Permissions.PayrollManage)]
-public sealed class PayrollController(IPayrollService service) : ControllerBase
+public sealed class PayrollController(IPayrollService service, IndiaPayrollEngine engine) : ControllerBase
 {
+    [HttpGet("policy")] public Task<PayrollPolicy> Policy(CancellationToken ct) => engine.GetPolicyAsync(ct);
+    [HttpPut("policy")] public Task<PayrollPolicy> SavePolicy(PayrollPolicyUpdate request, CancellationToken ct) => engine.SavePolicyAsync(request, ct);
+    [HttpGet("profiles/{employeeId:guid}")] public Task<EmployeePayrollProfile> Profile(Guid employeeId, CancellationToken ct) => engine.GetProfileAsync(employeeId, ct);
+    [HttpPut("profiles/{employeeId:guid}")] public Task<EmployeePayrollProfile> SaveProfile(Guid employeeId, EmployeePayrollProfileUpdate request, CancellationToken ct) => engine.SaveProfileAsync(employeeId, request, ct);
     [HttpPost("runs")] public Task<PayrollRunDto> Create(CreatePayrollRunRequest request, CancellationToken ct) => service.CreateAsync(request, ct);
     [HttpPost("runs/{id:guid}/calculate")] public Task<PayrollRunDto> Calculate(Guid id, CancellationToken ct) => service.CalculateAsync(id, ct);
+    [HttpPost("runs/{id:guid}/review")] public Task<PayrollRunDto> Review(Guid id, ReviewPayrollRequest request, CancellationToken ct) => service.ReviewAsync(id, request, ct);
+    [HttpPost("runs/{id:guid}/pay")] public Task<PayrollRunDto> Pay(Guid id, PayPayrollRequest request, CancellationToken ct) => service.MarkPaidAsync(id, request, ct);
     [HttpPut("runs/{id:guid}/status")] public Task<PayrollRunDto> Status(Guid id, [FromQuery] PayrollRunStatus status, [FromQuery] long version, CancellationToken ct) => service.ChangeStatusAsync(id, status, version, ct);
     [HttpGet("runs")] public Task<PagedResult<PayrollRunDto>> Search([FromQuery] int page = 1, [FromQuery] int pageSize = 25, [FromQuery] string? search = null, CancellationToken ct = default) => service.SearchAsync(new(page, pageSize, search), ct);
     [HttpGet("runs/{id:guid}/items")] public Task<IReadOnlyList<PayrollItemDto>> Items(Guid id, CancellationToken ct) => service.GetItemsAsync(id, ct);
+    [HttpGet("runs/{id:guid}/adjustments")] public Task<IReadOnlyList<PayrollAdjustment>> Adjustments(Guid id, CancellationToken ct) => engine.ListAdjustmentsAsync(id, ct);
+    [HttpPost("runs/{id:guid}/adjustments")] public Task<PayrollAdjustment> AddAdjustment(Guid id, PayrollAdjustmentRequest request, CancellationToken ct) => engine.AddAdjustmentAsync(id, request, ct);
+    [HttpDelete("runs/{id:guid}/adjustments/{adjustmentId:guid}")] public Task DeleteAdjustment(Guid id, Guid adjustmentId, CancellationToken ct) => engine.DeleteAdjustmentAsync(id, adjustmentId, ct);
 }
 
 [ApiController, Route("api/v1/recruitment"), Authorize(Policy = Permissions.RecruitmentManage)]

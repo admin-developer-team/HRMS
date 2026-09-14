@@ -16,7 +16,11 @@ public sealed class HrmsDbContext(DbContextOptions<HrmsDbContext> options, ICurr
 
     public DbSet<Tenant> Tenants => Set<Tenant>();
     public DbSet<TenantSubscription> TenantSubscriptions => Set<TenantSubscription>();
+    public DbSet<BillingCheckout> BillingCheckouts => Set<BillingCheckout>();
+    public DbSet<BillingWebhookEvent> BillingWebhookEvents => Set<BillingWebhookEvent>();
     public DbSet<UserAccount> Users => Set<UserAccount>();
+    public DbSet<AccountActivation> AccountActivations => Set<AccountActivation>();
+    public DbSet<SupportTicket> SupportTickets => Set<SupportTicket>();
     public DbSet<Role> Roles => Set<Role>();
     public DbSet<UserRole> UserRoles => Set<UserRole>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
@@ -45,6 +49,9 @@ public sealed class HrmsDbContext(DbContextOptions<HrmsDbContext> options, ICurr
     public DbSet<LeaveRequest> LeaveRequests => Set<LeaveRequest>();
     public DbSet<PayrollRun> PayrollRuns => Set<PayrollRun>();
     public DbSet<PayrollItem> PayrollItems => Set<PayrollItem>();
+    public DbSet<PayrollPolicy> PayrollPolicies => Set<PayrollPolicy>();
+    public DbSet<EmployeePayrollProfile> EmployeePayrollProfiles => Set<EmployeePayrollProfile>();
+    public DbSet<PayrollAdjustment> PayrollAdjustments => Set<PayrollAdjustment>();
     public DbSet<JobOpening> JobOpenings => Set<JobOpening>();
     public DbSet<Candidate> Candidates => Set<Candidate>();
     public DbSet<JobApplication> JobApplications => Set<JobApplication>();
@@ -78,7 +85,13 @@ public sealed class HrmsDbContext(DbContextOptions<HrmsDbContext> options, ICurr
         }
 
         modelBuilder.Entity<Tenant>().HasIndex(x => x.Slug).IsUnique();
+        modelBuilder.Entity<TenantSubscription>().HasIndex(x => new { x.BillingProvider, x.ProviderSubscriptionId }).IsUnique().HasFilter("\"ProviderSubscriptionId\" IS NOT NULL");
+        modelBuilder.Entity<BillingCheckout>().HasIndex(x => new { x.Provider, x.ProviderSubscriptionId }).IsUnique();
+        modelBuilder.Entity<BillingWebhookEvent>().HasIndex(x => new { x.Provider, x.ProviderEventId }).IsUnique();
         modelBuilder.Entity<UserAccount>().HasIndex(x => new { x.TenantId, x.Email }).IsUnique();
+        modelBuilder.Entity<AccountActivation>().HasIndex(x => x.TokenHash).IsUnique();
+        modelBuilder.Entity<SupportTicket>().HasIndex(x => x.Reference).IsUnique();
+        modelBuilder.Entity<SupportTicket>().HasIndex(x => new { x.TenantId, x.Status, x.CreatedAt });
         modelBuilder.Entity<Role>().HasIndex(x => new { x.TenantId, x.NormalizedName }).IsUnique();
         modelBuilder.Entity<UserRole>().HasIndex(x => new { x.TenantId, x.UserId, x.RoleId }).IsUnique().HasFilter("\"IsDeleted\" = false");
         modelBuilder.Entity<RefreshToken>().HasIndex(x => x.TokenHash).IsUnique();
@@ -102,7 +115,10 @@ public sealed class HrmsDbContext(DbContextOptions<HrmsDbContext> options, ICurr
         modelBuilder.Entity<HolidaySelection>().HasIndex(x => new { x.TenantId, x.HolidayId, x.EmployeeId }).IsUnique().HasFilter("\"IsDeleted\" = false");
         modelBuilder.Entity<LeaveBalance>().HasIndex(x => new { x.TenantId, x.EmployeeId, x.LeaveTypeId, x.Year }).IsUnique();
         modelBuilder.Entity<PayrollRun>().HasIndex(x => new { x.TenantId, x.PeriodStart, x.PeriodEnd });
-        modelBuilder.Entity<PayrollItem>().HasIndex(x => new { x.TenantId, x.PayrollRunId, x.EmployeeId }).IsUnique();
+        modelBuilder.Entity<PayrollItem>().HasIndex(x => new { x.TenantId, x.PayrollRunId, x.EmployeeId }).IsUnique().HasFilter("\"IsDeleted\" = false");
+        modelBuilder.Entity<PayrollPolicy>().HasIndex(x => x.TenantId).IsUnique();
+        modelBuilder.Entity<EmployeePayrollProfile>().HasIndex(x => new { x.TenantId, x.EmployeeId }).IsUnique();
+        modelBuilder.Entity<PayrollAdjustment>().HasIndex(x => new { x.TenantId, x.PayrollRunId, x.EmployeeId, x.Code }).IsUnique().HasFilter("\"IsDeleted\" = false");
         modelBuilder.Entity<JobOpening>().HasIndex(x => new { x.TenantId, x.Code }).IsUnique();
         modelBuilder.Entity<Candidate>().HasIndex(x => new { x.TenantId, x.Email }).IsUnique();
         modelBuilder.Entity<JobApplication>().HasIndex(x => new { x.TenantId, x.JobOpeningId, x.CandidateId }).IsUnique();

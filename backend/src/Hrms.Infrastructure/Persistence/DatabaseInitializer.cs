@@ -21,14 +21,20 @@ public sealed class DatabaseInitializer(HrmsDbContext db, ICurrentTenant current
             if (string.IsNullOrWhiteSpace(password) || password.Length < 8 || (!environment.IsDevelopment() && password.StartsWith("CHANGE", StringComparison.OrdinalIgnoreCase)))
                 throw new InvalidOperationException("Set Bootstrap:PlatformAdminPassword to a secure value of at least 8 characters before first startup.");
             var email = configuration["Bootstrap:PlatformAdminEmail"] ?? "platform-admin@local.invalid";
-            db.Tenants.Add(new Tenant { Id = PlatformTenantId, Name = "HRMS Platform", Slug = "platform", Status = TenantStatus.Active, DefaultCurrency = "USD", TimeZone = "UTC" });
+            db.Tenants.Add(new Tenant { Id = PlatformTenantId, Name = "HRMS Platform", Slug = "platform", Status = TenantStatus.Active, DefaultCurrency = "INR", TimeZone = "Asia/Kolkata" });
             currentTenant.Set(PlatformTenantId, "platform");
             db.Roles.Add(new Role { Id = PlatformRoleId, TenantId = PlatformTenantId, Name = "Platform Administrator", NormalizedName = "PLATFORM_ADMIN", PermissionsCsv = "*", IsSystem = true });
-            db.Users.Add(new UserAccount { Id = PlatformUserId, TenantId = PlatformTenantId, Email = email.Trim().ToLowerInvariant(), DisplayName = "Platform Administrator", PasswordHash = passwordHasher.Hash(password), IsActive = true, IsPlatformAdmin = true });
+            db.Users.Add(new UserAccount { Id = PlatformUserId, TenantId = PlatformTenantId, Email = email.Trim().ToLowerInvariant(), DisplayName = "Platform Administrator", PasswordHash = passwordHasher.Hash(password), IsActive = true, IsPlatformAdmin = true, SupportInboxEnabled = true });
             db.UserRoles.Add(new UserRole { TenantId = PlatformTenantId, UserId = PlatformUserId, RoleId = PlatformRoleId });
             await db.SaveChangesAsync(ct);
         }
         await EnsurePlatformEmailSettingsAsync(ct);
+        currentTenant.Set(PlatformTenantId, "platform");
+        if (!await db.Roles.AnyAsync(x => x.NormalizedName == "SUPPORT_AGENT", ct))
+        {
+            db.Roles.Add(new Role { TenantId = PlatformTenantId, Name = "Support Agent", NormalizedName = "SUPPORT_AGENT", PermissionsCsv = $"{Permissions.SupportRead},{Permissions.SupportManage}", IsSystem = true });
+            await db.SaveChangesAsync(ct);
+        }
         var tenants = await db.Tenants.IgnoreQueryFilters().Where(x => x.Id != PlatformTenantId).ToListAsync(ct);
         foreach (var tenant in tenants)
         {

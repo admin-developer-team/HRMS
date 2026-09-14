@@ -145,6 +145,23 @@ public sealed class WorkManagementScenarioTests
         await Assert.ThrowsAsync<DomainException>(() => h.Service.AddWorklogAsync(second.Id, new(Today, 500, null, null), Ct));
     }
 
+    [Fact]
+    public async Task Editing_and_deleting_worklogs_reconciles_remaining_estimate_and_records_history()
+    {
+        using var h = new Harness();
+        var item = await h.Item((await h.Project()).Id);
+        h.AsEmployee();
+        var log = await h.Service.AddWorklogAsync(item.Id, new(Today, 60, "Initial work", null), Ct);
+        Assert.Equal(60, (await h.Service.GetItemAsync(item.Id, Ct)).Item.RemainingEstimateMinutes);
+        log = await h.Service.UpdateWorklogAsync(item.Id, log.Id, new(Today, 90, "Corrected work", null, log.Version), Ct);
+        Assert.Equal(30, (await h.Service.GetItemAsync(item.Id, Ct)).Item.RemainingEstimateMinutes);
+        await h.Service.DeleteWorklogAsync(item.Id, log.Id, Ct);
+        var detail = await h.Service.GetItemAsync(item.Id, Ct);
+        Assert.Equal(120, detail.Item.RemainingEstimateMinutes);
+        Assert.Contains(detail.History, x => x.EventType == "worklog_updated");
+        Assert.Contains(detail.History, x => x.EventType == "worklog_deleted");
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(-1)]
@@ -181,7 +198,9 @@ public sealed class WorkManagementScenarioTests
         await h.Service.DeleteWorklogAsync(item.Id, log.Id, Ct);
         await h.Service.DeleteCommentAsync(item.Id, comment.Id, Ct);
         Assert.Equal(0, (await h.Service.GetTimeReportAsync(Today, Today, p.Id, null, Ct)).TotalMinutes);
-        Assert.NotEmpty((await h.Service.GetItemAsync(item.Id, Ct)).History);
+        var detail = await h.Service.GetItemAsync(item.Id, Ct);
+        Assert.Contains(detail.History, x => x.EventType == "comment_updated");
+        Assert.Contains(detail.History, x => x.EventType == "comment_deleted");
     }
 
     [Fact]

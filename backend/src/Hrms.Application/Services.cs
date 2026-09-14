@@ -98,6 +98,14 @@ public interface IPayrollService
     Task<PayrollRunDto> ChangeStatusAsync(Guid id, PayrollRunStatus status, long version, CancellationToken cancellationToken);
     Task<PagedResult<PayrollRunDto>> SearchAsync(PagedRequest request, CancellationToken cancellationToken);
     Task<IReadOnlyList<PayrollItemDto>> GetItemsAsync(Guid runId, CancellationToken cancellationToken);
+    Task<PayrollRunDto> ReviewAsync(Guid id, ReviewPayrollRequest request, CancellationToken cancellationToken);
+    Task<PayrollRunDto> MarkPaidAsync(Guid id, PayPayrollRequest request, CancellationToken cancellationToken);
+}
+
+public interface IPayrollCalculationEngine
+{
+    Task CalculateAsync(PayrollRun run, CancellationToken cancellationToken);
+    Task<bool> RequiresReviewAsync(CancellationToken cancellationToken);
 }
 
 public interface IRecruitmentService
@@ -321,7 +329,7 @@ public sealed class TenantService(
         tenant.Id, tenant.Name, tenant.Slug, tenant.Status, tenant.DefaultCurrency, tenant.TimeZone,
         subscription?.EmployeeLimit ?? 0, tenant.TrialEndsAt, subscription?.PlanCode ?? "unassigned",
         subscription?.StartsAt ?? tenant.CreatedAt, subscription?.EndsAt, subscription?.IsActive ?? false,
-        tenant.Version, subscription?.Version ?? 0);
+        tenant.Version, subscription?.Version ?? 0, tenant.PreferredPlanCode);
     private static void Required(string value, string name) { if (string.IsNullOrWhiteSpace(value)) throw new DomainException($"{name} is required."); }
     private static void CheckVersion(AuditableEntity entity, long version) { if (entity.Version != version) throw new DomainException("The record was changed by another user. Reload it and retry."); }
 }
@@ -363,14 +371,12 @@ public sealed class AuthService(
         if (!string.IsNullOrWhiteSpace(request.TenantSlug) && !string.Equals(request.TenantSlug.Trim(), slug, StringComparison.OrdinalIgnoreCase))
             throw new DomainException("This company workspace does not match the URL.");
         var now = DateTimeOffset.UtcNow;
-        var tenant = await tenants.FirstOrDefaultAsync(x => x.Slug == slug && (x.Status == TenantStatus.Active || (x.Status == TenantStatus.Trial && x.TrialEndsAt > now)), ct)
+        var tenant = await tenants.FirstOrDefaultAsync(x => x.Slug == slug && (x.Status == TenantStatus.Active || x.Status == TenantStatus.Trial), ct)
             ?? throw new DomainException("Invalid tenant or credentials.");
         currentTenant.Set(tenant.Id, tenant.Slug);
-        if (tenant.Slug != "platform")
-        {
-            var subscription = await subscriptions.FirstOrDefaultAsync(x => x.IsActive && x.StartsAt <= now && (!x.EndsAt.HasValue || x.EndsAt > now), ct);
-            if (subscription is null) throw new DomainException("This company subscription is inactive or expired. Contact the platform administrator.");
-        }
+        var billingOnly = tenant.Slug != "platform" &&
+            ((tenant.Status == TenantStatus.Trial && tenant.TrialEndsAt <= now) ||
+             !await subscriptions.AnyAsync(x => x.IsActive && x.StartsAt <= now && (!x.EndsAt.HasValue || x.EndsAt > now), ct));
         var email = request.Email.Trim().ToLowerInvariant();
         var user = await users.FirstOrDefaultAsync(x => x.Email == email, ct)
             ?? throw new DomainException("Invalid tenant or credentials.");
@@ -382,6 +388,8 @@ public sealed class AuthService(
             await unitOfWork.SaveChangesAsync(ct);
             throw new DomainException("Invalid tenant or credentials.");
         }
+        if (billingOnly && !await IsTenantAdministratorAsync(user.Id, ct))
+            throw new DomainException("This company subscription is inactive or expired. Contact the company administrator.");
         user.FailedLoginCount = 0;
         user.LockedUntil = null;
         user.LastLoginAt = DateTimeOffset.UtcNow;
@@ -397,7 +405,8 @@ public sealed class AuthService(
             CreatedAt = DateTimeOffset.UtcNow,
             Version = 1
         }, ct);
-        return await IssueAsync(user, ct);
+        var session = await IssueAsync(user, ct);
+        return session with { BillingOnly = billingOnly };
     }
 
     public async Task<TokenResponse> RefreshAsync(RefreshRequest request, CancellationToken ct)
@@ -406,16 +415,27 @@ public sealed class AuthService(
         var now = DateTimeOffset.UtcNow;
         var tenant = await tenants.GetByIdAsync(currentTenant.TenantId.Value, ct)
             ?? throw new DomainException("Company is unavailable.");
-        if (tenant.Status is not (TenantStatus.Active or TenantStatus.Trial) || (tenant.Status == TenantStatus.Trial && tenant.TrialEndsAt <= now))
+        if (tenant.Status is not (TenantStatus.Active or TenantStatus.Trial))
             throw new DomainException("Company access is suspended, cancelled, or expired.");
-        if (tenant.Slug != "platform" && !await subscriptions.AnyAsync(x => x.IsActive && x.StartsAt <= now && (!x.EndsAt.HasValue || x.EndsAt > now), ct))
-            throw new DomainException("This company subscription is inactive or expired. Contact the platform administrator.");
+        var billingOnly = tenant.Slug != "platform" &&
+            ((tenant.Status == TenantStatus.Trial && tenant.TrialEndsAt <= now) ||
+             !await subscriptions.AnyAsync(x => x.IsActive && x.StartsAt <= now && (!x.EndsAt.HasValue || x.EndsAt > now), ct));
         var hash = tokenService.HashRefreshToken(request.RefreshToken);
         var stored = await refreshTokens.FirstOrDefaultAsync(x => x.TokenHash == hash, ct);
         if (stored is null || !stored.IsActive) throw new DomainException("Refresh token is invalid or expired.");
         var user = await users.GetByIdAsync(stored.UserId, ct) ?? throw new DomainException("User no longer exists.");
         if (!user.IsActive || user.LockedUntil > DateTimeOffset.UtcNow) throw new DomainException("Account is inactive or locked.");
-        return await IssueAsync(user, ct, stored);
+        if (billingOnly && !await IsTenantAdministratorAsync(user.Id, ct))
+            throw new DomainException("This company subscription is inactive or expired. Contact the company administrator.");
+        var session = await IssueAsync(user, ct, stored);
+        return session with { BillingOnly = billingOnly };
+    }
+
+    private async Task<bool> IsTenantAdministratorAsync(Guid userId, CancellationToken ct)
+    {
+        var links = await userRoles.ListAsync(x => x.UserId == userId, cancellationToken: ct);
+        var ids = links.Select(x => x.RoleId).ToHashSet();
+        return await roles.AnyAsync(x => ids.Contains(x.Id) && x.NormalizedName == "TENANT_ADMIN", ct);
     }
 
     public async Task RevokeAsync(RefreshRequest request, CancellationToken ct)
@@ -611,7 +631,8 @@ public sealed class EmployeeService(IRepository<Employee> employees, IRepository
         var email = r.WorkEmail.Trim().ToLowerInvariant();
         if (await employees.AnyAsync(x => x.Id != id && (x.EmployeeNumber.ToLower() == employeeNumber || x.WorkEmail == email), ct)
             || await users.AnyAsync(x => x.Email == email && x.Id != e.UserId, ct)) throw new DomainException("Employee number or work email already exists.");
-        if (r.Status is EmploymentStatus.Terminated or EmploymentStatus.Resigned) e.TerminationDate ??= DateOnly.FromDateTime(DateTime.UtcNow);
+        if (r.Status is EmploymentStatus.Terminated or EmploymentStatus.Resigned)
+            e.TerminationDate ??= DateOnly.FromDateTime(DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromMinutes(330)).DateTime);
         else if (r.Status is EmploymentStatus.Active or EmploymentStatus.Probation or EmploymentStatus.NoticePeriod or EmploymentStatus.Inactive) e.TerminationDate = null;
         e.EmployeeNumber = r.EmployeeNumber.Trim(); e.FirstName = r.FirstName.Trim(); e.LastName = r.LastName.Trim(); e.WorkEmail = r.WorkEmail.Trim().ToLowerInvariant(); e.Phone = r.Phone; e.HireDate = r.HireDate;
         e.Status = r.Status; e.EmploymentType = r.EmploymentType; e.DepartmentId = r.DepartmentId; e.DesignationId = r.DesignationId;
@@ -976,21 +997,125 @@ public sealed class WorkforceOperationsService(IRepository<Shift> shifts, IRepos
     private static ShiftDto Map(Shift x) => new(x.Id, x.Name, x.StartsAt, x.EndsAt, x.GraceMinutes, x.IsNightShift); private static HolidayDto Map(Holiday x) => new(x.Id, x.Name, x.Date, x.LocationId, x.IsOptional, x.Version); private static TimesheetDto Map(TimesheetEntry x) => new(x.Id, x.EmployeeId, x.WorkDate, x.ProjectCode, x.Description, x.Hours, x.Status, x.Version); private static EmployeeDocumentDto Map(EmployeeDocument x) => new(x.Id, x.EmployeeId, x.DocumentType, x.FileName, x.StorageKey, x.ContentType, x.ExpiresOn, x.Status, x.Version); private static AnnouncementDto Map(Announcement x) => new(x.Id, x.Title, x.Body, x.PublishedAt, x.ExpiresAt, x.Audience);
 }
 
-public sealed class PayrollService(IRepository<PayrollRun> runs, IRepository<PayrollItem> items, IRepository<Employee> employees, ICurrentTenant tenant, IUnitOfWork unitOfWork, INotificationService notifications) : ServiceBase(tenant), IPayrollService
+public sealed class PayrollService(
+    IRepository<PayrollRun> runs, IRepository<PayrollItem> items, ICurrentTenant tenant, ICurrentUser actor,
+    IUnitOfWork unitOfWork, INotificationService notifications, IPayrollCalculationEngine calculator)
+    : ServiceBase(tenant), IPayrollService
 {
-    public async Task<PayrollRunDto> CreateAsync(CreatePayrollRunRequest r, CancellationToken ct) { if (r.PeriodEnd < r.PeriodStart) throw new DomainException("Payroll period is invalid."); if (await runs.AnyAsync(x => x.PeriodStart == r.PeriodStart && x.PeriodEnd == r.PeriodEnd && x.Status != PayrollRunStatus.Cancelled, ct)) throw new DomainException("A payroll run already exists for this period."); var x = new PayrollRun { TenantId = TenantId, Name = r.Name.Trim(), PeriodStart = r.PeriodStart, PeriodEnd = r.PeriodEnd, PaymentDate = r.PaymentDate, Currency = r.Currency.ToUpperInvariant() }; await runs.AddAsync(x, ct); await unitOfWork.SaveChangesAsync(ct); return Map(x); }
+    public async Task<PayrollRunDto> CreateAsync(CreatePayrollRunRequest request, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Trim().Length > 120) throw new DomainException("Enter a payroll run name.");
+        if (request.PeriodStart.Day != 1 || request.PeriodEnd != request.PeriodStart.AddMonths(1).AddDays(-1))
+            throw new DomainException("India payroll runs must cover one complete calendar month.");
+        if (request.PaymentDate < request.PeriodStart) throw new DomainException("Payment date cannot precede the payroll period.");
+        if (!string.Equals(request.Currency, "INR", StringComparison.OrdinalIgnoreCase))
+            throw new DomainException("India payroll must use INR.");
+        if (await runs.AnyAsync(x => x.Status != PayrollRunStatus.Cancelled
+            && x.PeriodStart <= request.PeriodEnd && x.PeriodEnd >= request.PeriodStart, ct))
+            throw new DomainException("An overlapping payroll run already exists.");
+        var run = new PayrollRun { TenantId = TenantId, Name = request.Name.Trim(), PeriodStart = request.PeriodStart,
+            PeriodEnd = request.PeriodEnd, PaymentDate = request.PaymentDate, Currency = "INR" };
+        await runs.AddAsync(run, ct);
+        await unitOfWork.SaveChangesAsync(ct);
+        return Map(run);
+    }
+
     public async Task<PayrollRunDto> CalculateAsync(Guid id, CancellationToken ct)
     {
-        var run = await runs.GetByIdAsync(id, ct) ?? throw new KeyNotFoundException("Payroll run not found."); if (run.Status != PayrollRunStatus.Draft) throw new DomainException("Only draft payroll can be calculated.");
-        var existing = await items.ListAsync(x => x.PayrollRunId == id, cancellationToken: ct); foreach (var old in existing) items.Remove(old);
-        var workforce = await employees.ListAsync(x => x.Status == EmploymentStatus.Active || x.Status == EmploymentStatus.Probation || x.Status == EmploymentStatus.NoticePeriod, cancellationToken: ct);
-        foreach (var employee in workforce) { var gross = employee.BaseSalary; var item = new PayrollItem { TenantId = TenantId, PayrollRunId = run.Id, EmployeeId = employee.Id, BasicPay = employee.BaseSalary, GrossPay = gross, NetPay = gross }; await items.AddAsync(item, ct); run.GrossTotal += item.GrossPay; run.NetTotal += item.NetPay; }
-        run.Status = PayrollRunStatus.Processing; await unitOfWork.SaveChangesAsync(ct); return Map(run);
+        var run = await runs.GetByIdAsync(id, ct) ?? throw new KeyNotFoundException("Payroll run not found.");
+        if (run.Status is not (PayrollRunStatus.Draft or PayrollRunStatus.Processing))
+            throw new DomainException("Only draft or processing payroll can be recalculated.");
+        await calculator.CalculateAsync(run, ct);
+        run.Status = PayrollRunStatus.Processing;
+        run.CalculatedAt = DateTimeOffset.UtcNow;
+        run.StatutoryReviewedAt = null;
+        run.StatutoryReviewedBy = null;
+        await unitOfWork.SaveChangesAsync(ct);
+        return Map(run);
     }
-    public async Task<PayrollRunDto> ChangeStatusAsync(Guid id, PayrollRunStatus status, long version, CancellationToken ct) { var x = await runs.GetByIdAsync(id, ct) ?? throw new KeyNotFoundException("Payroll run not found."); CheckVersion(x, version); var valid = (x.Status, status) is (PayrollRunStatus.Processing, PayrollRunStatus.Approved) or (PayrollRunStatus.Approved, PayrollRunStatus.Paid) or (_, PayrollRunStatus.Cancelled); if (!valid) throw new DomainException($"Payroll cannot move from {x.Status} to {status}."); x.Status = status; if (status == PayrollRunStatus.Paid) { var employeeIds = (await items.ListAsync(i => i.PayrollRunId == id, cancellationToken: ct)).Select(i => (Guid?)i.EmployeeId); await notifications.QueueForEmployeesAsync(employeeIds, "Salary paid", $"Payroll for {x.PeriodStart:dd MMM yyyy} to {x.PeriodEnd:dd MMM yyyy} has been marked paid.", "payroll", "/my-services", ct); } await unitOfWork.SaveChangesAsync(ct); return Map(x); }
-    public async Task<PagedResult<PayrollRunDto>> SearchAsync(PagedRequest r, CancellationToken ct) { var query = r.Search?.Trim().ToLowerInvariant(); System.Linq.Expressions.Expression<Func<PayrollRun, bool>> p = x => string.IsNullOrEmpty(query) || x.Name.ToLower().Contains(query) || x.Currency.ToLower().Contains(query); var total = await runs.CountAsync(p, ct); var rows = await runs.ListAsync(p, q => q.OrderByDescending(x => x.PeriodStart), skip: r.Skip, take: r.SafePageSize, cancellationToken: ct); return new(rows.Select(Map).ToArray(), r.SafePage, r.SafePageSize, total); }
-    public async Task<IReadOnlyList<PayrollItemDto>> GetItemsAsync(Guid runId, CancellationToken ct) => (await items.ListAsync(x => x.PayrollRunId == runId, q => q.OrderBy(x => x.EmployeeId), cancellationToken: ct)).Select(x => new PayrollItemDto(x.Id, x.EmployeeId, x.BasicPay, x.Allowances, x.OvertimePay, x.Deductions, x.Taxes, x.GrossPay, x.NetPay)).ToArray();
-    private static PayrollRunDto Map(PayrollRun x) => new(x.Id, x.Name, x.PeriodStart, x.PeriodEnd, x.PaymentDate, x.Status, x.Currency, x.GrossTotal, x.DeductionTotal, x.NetTotal, x.Version);
+
+    public async Task<PayrollRunDto> ReviewAsync(Guid id, ReviewPayrollRequest request, CancellationToken ct)
+    {
+        var run = await runs.GetByIdAsync(id, ct) ?? throw new KeyNotFoundException("Payroll run not found.");
+        CheckVersion(run, request.Version);
+        if (run.Status != PayrollRunStatus.Processing || run.CalculatedAt is null)
+            throw new DomainException("Calculate payroll before statutory review.");
+        if (request.Confirmation != "REVIEWED")
+            throw new DomainException("Confirm statutory deductions and employee bank details with REVIEWED.");
+        if (!await items.AnyAsync(x => x.PayrollRunId == run.Id, ct))
+            throw new DomainException("A payroll run without employees cannot be reviewed.");
+        run.StatutoryReviewedAt = DateTimeOffset.UtcNow;
+        run.StatutoryReviewedBy = actor.UserId;
+        await unitOfWork.SaveChangesAsync(ct);
+        return Map(run);
+    }
+
+    public async Task<PayrollRunDto> ChangeStatusAsync(Guid id, PayrollRunStatus status, long version, CancellationToken ct)
+    {
+        var run = await runs.GetByIdAsync(id, ct) ?? throw new KeyNotFoundException("Payroll run not found.");
+        CheckVersion(run, version);
+        if (status == PayrollRunStatus.Approved && run.Status == PayrollRunStatus.Processing)
+        {
+            if (run.StatutoryReviewedAt is null && await calculator.RequiresReviewAsync(ct))
+                throw new DomainException("Review statutory deductions before approval.");
+            run.Status = status;
+            run.ApprovedAt = DateTimeOffset.UtcNow;
+            run.ApprovedBy = actor.UserId;
+        }
+        else if (status == PayrollRunStatus.Cancelled && run.Status is PayrollRunStatus.Draft or PayrollRunStatus.Processing)
+            run.Status = status;
+        else
+            throw new DomainException($"Payroll cannot move from {run.Status} to {status}. Use bank disbursement confirmation to mark it paid.");
+        await unitOfWork.SaveChangesAsync(ct);
+        return Map(run);
+    }
+
+    public async Task<PayrollRunDto> MarkPaidAsync(Guid id, PayPayrollRequest request, CancellationToken ct)
+    {
+        var run = await runs.GetByIdAsync(id, ct) ?? throw new KeyNotFoundException("Payroll run not found.");
+        CheckVersion(run, request.Version);
+        if (run.Status != PayrollRunStatus.Approved) throw new DomainException("Only approved payroll can be marked paid.");
+        if (string.IsNullOrWhiteSpace(request.PaymentReference) || request.PaymentReference.Trim().Length is < 6 or > 120)
+            throw new DomainException("Enter a bank transfer or disbursement reference of at least six characters.");
+        var indiaToday = DateOnly.FromDateTime(DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromMinutes(330)).DateTime);
+        var paidOn = request.PaidOn ?? indiaToday;
+        if (paidOn < run.PeriodStart || paidOn > indiaToday)
+            throw new DomainException("Actual payment date must be within the payroll period or later, and cannot be in the future.");
+        run.Status = PayrollRunStatus.Paid;
+        run.PaymentDate = paidOn;
+        run.PaidAt = DateTimeOffset.UtcNow;
+        run.PaymentReference = request.PaymentReference.Trim();
+        var employeeIds = (await items.ListAsync(x => x.PayrollRunId == id, cancellationToken: ct)).Select(x => (Guid?)x.EmployeeId);
+        await notifications.QueueForEmployeesAsync(employeeIds, "Salary paid",
+            $"Payroll for {run.PeriodStart:dd MMM yyyy} to {run.PeriodEnd:dd MMM yyyy} was recorded as paid.",
+            "payroll", "/my-services", ct);
+        await unitOfWork.SaveChangesAsync(ct);
+        return Map(run);
+    }
+
+    public async Task<PagedResult<PayrollRunDto>> SearchAsync(PagedRequest request, CancellationToken ct)
+    {
+        var query = request.Search?.Trim().ToLowerInvariant();
+        System.Linq.Expressions.Expression<Func<PayrollRun, bool>> predicate =
+            x => string.IsNullOrEmpty(query) || x.Name.ToLower().Contains(query);
+        var total = await runs.CountAsync(predicate, ct);
+        var rows = await runs.ListAsync(predicate, q => q.OrderByDescending(x => x.PeriodStart),
+            skip: request.Skip, take: request.SafePageSize, cancellationToken: ct);
+        return new(rows.Select(Map).ToArray(), request.SafePage, request.SafePageSize, total);
+    }
+
+    public async Task<IReadOnlyList<PayrollItemDto>> GetItemsAsync(Guid runId, CancellationToken ct)
+    {
+        _ = await runs.GetByIdAsync(runId, ct) ?? throw new KeyNotFoundException("Payroll run not found.");
+        return (await items.ListAsync(x => x.PayrollRunId == runId,
+            q => q.OrderBy(x => x.EmployeeId), cancellationToken: ct))
+            .Select(x => new PayrollItemDto(x.Id, x.EmployeeId, x.BasicPay, x.Allowances, x.OvertimePay,
+                x.Deductions, x.Taxes, x.GrossPay, x.NetPay, x.BreakdownJson)).ToArray();
+    }
+
+    private static PayrollRunDto Map(PayrollRun run) => new(run.Id, run.Name, run.PeriodStart, run.PeriodEnd,
+        run.PaymentDate, run.Status, run.Currency, run.GrossTotal, run.DeductionTotal, run.NetTotal,
+        run.Version, run.CalculatedAt, run.StatutoryReviewedAt, run.ApprovedAt, run.PaidAt, run.PaymentReference);
 }
 
 public sealed class RecruitmentService(IRepository<JobOpening> jobs, IRepository<Candidate> candidates, IRepository<JobApplication> applications, ICurrentTenant tenant, IUnitOfWork unitOfWork, INotificationService notifications, IEmailQueue? emailQueue = null) : ServiceBase(tenant), IRecruitmentService

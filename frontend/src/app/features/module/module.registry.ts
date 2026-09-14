@@ -3,7 +3,7 @@ import { correctionsView, myAttendanceSessionsView } from './attendance-correcti
 
 const option = (value: string) => ({ label: value.replace(/([a-z])([A-Z])/g, '$1 $2'), value });
 const options = (...values: string[]) => values.map(option);
-const currencies = options('USD', 'SGD', 'INR', 'EUR', 'GBP');
+const currencies = options('INR');
 const employees = {
   optionsEndpoint: '/employees?page=1&pageSize=200',
   optionsShape: 'paged' as const,
@@ -426,6 +426,7 @@ export const MODULES: Record<string, ModuleDefinition> = {
         label: 'Payslips',
         endpoint: '/me/payslips',
         listShape: 'array',
+        rowActions: [{ label: 'Open payslip', icon: 'receipt_long', method: 'navigate', path: '/payslip/{payrollRunId}' }],
         columns: [
           { key: 'runName', label: 'Pay period' },
           { key: 'periodStart', label: 'From', type: 'date' },
@@ -716,13 +717,7 @@ export const MODULES: Record<string, ModuleDefinition> = {
             label: 'Time zone',
             type: 'select',
             required: true,
-            options: options(
-              'Asia/Kolkata',
-              'Asia/Singapore',
-              'UTC',
-              'Europe/London',
-              'America/New_York',
-            ),
+            options: options('Asia/Kolkata'),
             defaultValue: 'Asia/Kolkata',
           },
           {
@@ -744,7 +739,7 @@ export const MODULES: Record<string, ModuleDefinition> = {
               { key: 'name', label: 'Company name', type: 'text', required: true },
               { key: 'status', label: 'Lifecycle status', type: 'select', required: true, options: options('Trial', 'Active', 'Suspended', 'Cancelled'), help: 'Active is the permanent/live customer state. Suspended and cancelled companies cannot sign in.' },
               { key: 'defaultCurrency', label: 'Currency', type: 'select', required: true, options: currencies },
-              { key: 'timeZone', label: 'Time zone', type: 'select', required: true, options: options('Asia/Kolkata', 'Asia/Singapore', 'UTC', 'Europe/London', 'America/New_York') },
+              { key: 'timeZone', label: 'Time zone', type: 'select', required: true, options: options('Asia/Kolkata') },
               { key: 'trialEndsAt', label: 'Trial ends', type: 'datetime-local', help: 'Required only while lifecycle status is Trial.' },
               { key: 'planCode', label: 'Subscription plan', type: 'select', required: true, options: options('trial', 'starter', 'professional', 'enterprise') },
               { key: 'employeeLimit', label: 'Employee limit', type: 'number', required: true, min: 1 },

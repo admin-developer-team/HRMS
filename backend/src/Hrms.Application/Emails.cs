@@ -10,6 +10,7 @@ public static class EmailTemplateKeys
 {
     public const string DefaultNotification = "notification.default";
     public const string AccountCreated = "account.created";
+    public const string AccountActivation = "account.activation";
     public const string PasswordReset = "account.password-reset";
     public const string CandidateApplicationReceived = "candidate.application-received";
     public const string CandidateStageChanged = "candidate.stage-changed";
