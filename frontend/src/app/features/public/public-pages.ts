@@ -2,6 +2,7 @@ import { Component, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ApiService } from '../../core/api.service';
+import { AuthService } from '../../core/auth.service';
 import { workspaceSlug, workspaceUrl } from '../../core/workspace-url';
 
 @Component({
@@ -96,8 +97,10 @@ export class GetStartedPage {
 })
 export class ActivatePage {
   private readonly api = inject(ApiService); private readonly route = inject(ActivatedRoute);
+  private readonly auth = inject(AuthService);
   token = this.route.snapshot.queryParamMap.get('token') ?? '';
   password = ''; confirm = ''; legalName = ''; timeZone = ''; busy = false; done = false; error = '';
+  constructor() { this.auth.beginPublicActivation(); }
   submit(): void {
     if (this.password !== this.confirm) { this.error = 'Passwords do not match.'; return; }
     if (!this.token) { this.error = 'This activation link is missing its token.'; return; }

@@ -82,6 +82,13 @@ export class AuthService {
     void this.router.navigate(['/login'], { queryParams: { workspaceMismatch: '1' } });
   }
 
+  beginPublicActivation(): void {
+    localStorage.removeItem(SESSION_KEY);
+    sessionStorage.removeItem(SESSION_KEY);
+    this.rememberSession = false;
+    this.state.set(null);
+  }
+
   private clearSession(): void {
     localStorage.removeItem(SESSION_KEY);
     sessionStorage.removeItem(SESSION_KEY);
