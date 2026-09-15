@@ -125,7 +125,7 @@ public sealed class EmailOutboxWorker(IServiceScopeFactory scopeFactory, ILogger
                 model["applicationUrl"] = tenantBaseUrl;
                 var relativeLink = model.GetValueOrDefault("link") ?? string.Empty;
                 model["tenantSlug"] = company.Slug;
-                model["actionUrl"] = BuildActionUrl(tenantBaseUrl, relativeLink);
+                model["actionUrl"] = BuildActionUrl(tenantBaseUrl, relativeLink, item.TemplateKey);
                 if (!string.IsNullOrWhiteSpace(tenantBaseUrl))
                 {
                     var recipient = await db.Users.FirstOrDefaultAsync(x => x.Email == item.ToEmail && x.IsActive, ct);
@@ -179,12 +179,13 @@ public sealed class EmailOutboxWorker(IServiceScopeFactory scopeFactory, ILogger
         return result;
     }
 
-    internal static string BuildActionUrl(string? baseUrl, string relativeLink)
+    public static string BuildActionUrl(string? baseUrl, string relativeLink, string? templateKey = null)
     {
         if (string.IsNullOrWhiteSpace(baseUrl)) return string.Empty;
         var destination = string.IsNullOrWhiteSpace(relativeLink) ? "/" : relativeLink;
         if (Uri.TryCreate(destination, UriKind.Absolute, out var absolute)) destination = absolute.PathAndQuery;
         if (!destination.StartsWith('/')) destination = "/" + destination;
+        if (templateKey == EmailTemplateKeys.AccountActivation) return $"{baseUrl.TrimEnd('/')}{destination}";
         return $"{baseUrl.TrimEnd('/')}/login?returnUrl={Uri.EscapeDataString(destination)}";
     }
 

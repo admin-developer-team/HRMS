@@ -130,6 +130,20 @@ public sealed class EmailNotificationTests
         Assert.Equal(expected, Hrms.Infrastructure.EmailOutboxWorker.SafeDestination(requested, "/dashboard"));
     }
 
+    [Fact]
+    public void Account_activation_link_opens_password_setup_without_requiring_login()
+    {
+        const string baseUrl = "https://acme.hrms.example";
+        const string activationPath = "/activate?token=activation-token";
+
+        Assert.Equal(
+            "https://acme.hrms.example/activate?token=activation-token",
+            Hrms.Infrastructure.EmailOutboxWorker.BuildActionUrl(baseUrl, activationPath, EmailTemplateKeys.AccountActivation));
+        Assert.Equal(
+            "https://acme.hrms.example/login?returnUrl=%2Factivate%3Ftoken%3Dactivation-token",
+            Hrms.Infrastructure.EmailOutboxWorker.BuildActionUrl(baseUrl, activationPath));
+    }
+
     private sealed class MutableTenant : ICurrentTenant
     {
         public Guid? TenantId { get; private set; } = Guid.NewGuid();
