@@ -10,7 +10,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Hrms.Infrastructure;
 
-public sealed record PublicTrialRequest(string CompanyName, string Slug, string AdminName, string AdminEmail, string? PreferredPlanCode);
+public sealed record PublicTrialRequest(string CompanyName, string Slug, string AdminName, string AdminEmail,
+    string? PreferredPlanCode, string? ApplicationBaseUrl = null);
 public sealed record ActivateAccountRequest(string Token, string Password, string? LegalName, string? TimeZone);
 public sealed record SupportTicketRequest(string ContactName, string ContactEmail, string Category, string Subject, string Description);
 public sealed record SupportTicketDto(Guid Id, string Reference, string ContactName, string ContactEmail, string Category, string Subject,
@@ -223,16 +224,17 @@ public sealed class PlatformExperienceService(HrmsDbContext db, ICurrentTenant c
     private async Task QueueActivationAsync(UserAccount user, string kind, string? applicationBaseUrl, CancellationToken ct)
     {
         var token = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
+        var activationUrl = BuildActivationUrl(applicationBaseUrl, currentTenant.Slug, token);
         db.AccountActivations.Add(new AccountActivation { TenantId = user.TenantId, UserId = user.Id,
             Kind = kind, TokenHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token))), ExpiresAt = DateTimeOffset.UtcNow.AddDays(7) });
         QueueEmail(user.Email, user.DisplayName, kind == "trial" ? "Activate your 30-day PeopleFlow trial" : "Activate your PeopleFlow support account",
             kind == "trial" ? "Your company workspace is ready. Set your password to start the 30-day trial." : "Your support workspace is ready. Set your password to get started.",
-            user.TenantId, $"/activate?token={token}", EmailTemplateKeys.AccountActivation, applicationBaseUrl);
+            user.TenantId, $"/activate?token={token}", EmailTemplateKeys.AccountActivation, applicationBaseUrl, activationUrl);
         await Task.CompletedTask;
     }
 
     private void QueueEmail(string email, string? name, string title, string message, Guid? tenantId, string link,
-        string templateKey = EmailTemplateKeys.DefaultNotification, string? applicationBaseUrl = null)
+        string templateKey = EmailTemplateKeys.DefaultNotification, string? applicationBaseUrl = null, string? actionUrl = null)
     {
         db.EmailOutboxItems.Add(new EmailOutboxItem { TenantId = tenantId ?? PlatformId, ToEmail = email, ToName = name,
             TemplateKey = templateKey,
@@ -241,9 +243,21 @@ public sealed class PlatformExperienceService(HrmsDbContext db, ICurrentTenant c
                 ["title"] = title,
                 ["message"] = message,
                 ["link"] = link,
-                ["applicationBaseUrl"] = applicationBaseUrl
+                ["applicationBaseUrl"] = applicationBaseUrl,
+                ["actionUrl"] = actionUrl
             }),
             NextAttemptAt = DateTimeOffset.UtcNow });
+    }
+
+    public static string? BuildActivationUrl(string? applicationBaseUrl, string? tenantSlug, string token)
+    {
+        if (string.IsNullOrWhiteSpace(applicationBaseUrl) || string.IsNullOrWhiteSpace(tenantSlug) ||
+            string.IsNullOrWhiteSpace(token) || !Uri.TryCreate(applicationBaseUrl, UriKind.Absolute, out var origin) ||
+            origin.Scheme is not ("http" or "https")) return null;
+        var builder = new UriBuilder(origin) { Path = "/activate", Query = $"token={Uri.EscapeDataString(token)}" };
+        if (tenantSlug != "platform" && !builder.Host.StartsWith(tenantSlug + ".", StringComparison.OrdinalIgnoreCase))
+            builder.Host = $"{tenantSlug}.{builder.Host}";
+        return builder.Uri.AbsoluteUri;
     }
 
     private async Task<IReadOnlyList<UserAccount>> SupportRecipientsAsync(CancellationToken ct)

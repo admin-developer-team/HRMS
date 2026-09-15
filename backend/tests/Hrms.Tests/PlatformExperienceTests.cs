@@ -34,6 +34,9 @@ public sealed class PlatformExperienceTests
         var emailModel = JsonSerializer.Deserialize<Dictionary<string, string>>(email.ModelJson)!;
         Assert.Equal("http://localhost:4200", emailModel["applicationBaseUrl"]);
         var link = emailModel["link"];
+        Assert.Equal(
+            $"http://acme-studio.localhost:4200{link}",
+            emailModel["actionUrl"]);
         var emailBaseUrl = EmailOutboxWorker.ResolveTenantBaseUrl(
             "https://hrms.avntechnologies.co.in",
             emailModel["applicationBaseUrl"],

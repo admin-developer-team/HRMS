@@ -13,11 +13,11 @@ public sealed class PublicPlatformController(
 {
     [HttpPost("trials"), AllowAnonymous, EnableRateLimiting("public-forms")]
     public async Task<IActionResult> Trial(PublicTrialRequest request, CancellationToken ct)
-    { await service.RequestTrialAsync(request, CurrentApplicationBaseUrl(), ct); return Accepted(new { message = "Check your email to activate your company workspace." }); }
+    { await service.RequestTrialAsync(request, CurrentApplicationBaseUrl(request.ApplicationBaseUrl), ct); return Accepted(new { message = "Check your email to activate your company workspace." }); }
 
     [HttpPost("trials/resend"), AllowAnonymous, EnableRateLimiting("public-forms")]
     public async Task<IActionResult> Resend(ResendTrialRequest request, CancellationToken ct)
-    { await service.ResendTrialAsync(request.Slug, request.Email, CurrentApplicationBaseUrl(), ct); return Accepted(new { message = "If the pending trial exists, another activation email has been queued." }); }
+    { await service.ResendTrialAsync(request.Slug, request.Email, CurrentApplicationBaseUrl(request.ApplicationBaseUrl), ct); return Accepted(new { message = "If the pending trial exists, another activation email has been queued." }); }
 
     [HttpPost("activate"), AllowAnonymous, EnableRateLimiting("public-forms")]
     public async Task<IActionResult> Activate(ActivateAccountRequest request, CancellationToken ct)
@@ -27,10 +27,11 @@ public sealed class PublicPlatformController(
     public async Task<IActionResult> Support(SupportTicketRequest request, CancellationToken ct)
     { var reference = await service.CreateTicketAsync(request, ct); return Accepted(new { reference }); }
 
-    private string? CurrentApplicationBaseUrl()
+    private string? CurrentApplicationBaseUrl(string? submittedBaseUrl)
     {
         var candidates = new[]
         {
+            submittedBaseUrl,
             Request.Headers.Origin.FirstOrDefault(),
             Request.Headers.Referer.FirstOrDefault(),
             $"{Request.Scheme}://{Request.Host}"
@@ -47,7 +48,7 @@ public sealed class PublicPlatformController(
     }
 }
 
-public sealed record ResendTrialRequest(string Slug, string Email);
+public sealed record ResendTrialRequest(string Slug, string Email, string? ApplicationBaseUrl = null);
 
 [ApiController, Route("api/v1/platform/support"), Authorize]
 public sealed class PlatformSupportController(PlatformExperienceService service) : ControllerBase

@@ -69,13 +69,15 @@ export class GetStartedPage {
     if (this.busy) return;
     this.slug = this.slug.trim().toLowerCase(); this.busy = true; this.error = '';
     this.api.post('/public/trials', { companyName: this.companyName, slug: this.slug, adminName: this.adminName,
-      adminEmail: this.adminEmail, preferredPlanCode: this.preferredPlanCode }).subscribe({
+      adminEmail: this.adminEmail, preferredPlanCode: this.preferredPlanCode, applicationBaseUrl: window.location.origin }).subscribe({
       next: () => { this.busy = false; this.done = true; this.companyUrl = workspaceUrl(this.slug); },
       error: e => { this.busy = false; this.error = e.error?.detail || 'We could not create the workspace. Please try again.'; },
     });
   }
   resend(): void {
-    this.busy = true; this.api.post('/public/trials/resend', { slug: this.slug, email: this.adminEmail }).subscribe({
+    this.busy = true; this.api.post('/public/trials/resend', {
+      slug: this.slug, email: this.adminEmail, applicationBaseUrl: window.location.origin,
+    }).subscribe({
       next: () => { this.busy = false; this.resendMessage = 'If the account is pending, another email has been queued.'; },
       error: () => { this.busy = false; this.resendMessage = 'Could not resend right now. Please try again later.'; },
     });

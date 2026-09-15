@@ -129,8 +129,10 @@ public sealed class EmailOutboxWorker(IServiceScopeFactory scopeFactory, ILogger
                 model["applicationUrl"] = tenantBaseUrl;
                 var relativeLink = model.GetValueOrDefault("link") ?? string.Empty;
                 model["tenantSlug"] = company.Slug;
-                model["actionUrl"] = BuildActionUrl(tenantBaseUrl, relativeLink, item.TemplateKey);
-                if (!string.IsNullOrWhiteSpace(tenantBaseUrl))
+                var isAccountActivation = IsAccountActivation(item.TemplateKey, relativeLink);
+                var queuedActivationUrl = model.GetValueOrDefault("actionUrl");
+                model["actionUrl"] = SelectActionUrl(tenantBaseUrl, relativeLink, item.TemplateKey, queuedActivationUrl, company.Slug);
+                if (!isAccountActivation && !string.IsNullOrWhiteSpace(tenantBaseUrl))
                 {
                     var recipient = await db.Users.FirstOrDefaultAsync(x => x.Email == item.ToEmail && x.IsActive, ct);
                     if (recipient is not null)
@@ -164,7 +166,7 @@ public sealed class EmailOutboxWorker(IServiceScopeFactory scopeFactory, ILogger
         }
     }
 
-    private static RenderedEmail Render(EmailOutboxItem item, EmailTemplate template, IReadOnlyDictionary<string, string?> model)
+    public static RenderedEmail Render(EmailOutboxItem item, EmailTemplate template, IReadOnlyDictionary<string, string?> model)
     {
         var subject = Replace(template.SubjectTemplate, model, false);
         var html = Replace(template.HtmlTemplate, model, true);
@@ -189,9 +191,25 @@ public sealed class EmailOutboxWorker(IServiceScopeFactory scopeFactory, ILogger
         var destination = string.IsNullOrWhiteSpace(relativeLink) ? "/" : relativeLink;
         if (Uri.TryCreate(destination, UriKind.Absolute, out var absolute)) destination = absolute.PathAndQuery;
         if (!destination.StartsWith('/')) destination = "/" + destination;
-        if (templateKey == EmailTemplateKeys.AccountActivation) return $"{baseUrl.TrimEnd('/')}{destination}";
+        if (IsAccountActivation(templateKey, destination)) return $"{baseUrl.TrimEnd('/')}{destination}";
         return $"{baseUrl.TrimEnd('/')}/login?returnUrl={Uri.EscapeDataString(destination)}";
     }
+
+    private static bool IsAccountActivation(string? templateKey, string destination) =>
+        templateKey == EmailTemplateKeys.AccountActivation ||
+        destination.StartsWith("/activate?token=", StringComparison.OrdinalIgnoreCase);
+
+    public static string SelectActionUrl(string tenantBaseUrl, string relativeLink, string? templateKey,
+        string? queuedActionUrl, string tenantSlug) =>
+        IsAccountActivation(templateKey, relativeLink) && IsValidActivationUrl(queuedActionUrl, tenantSlug)
+            ? queuedActionUrl!
+            : BuildActionUrl(tenantBaseUrl, relativeLink, templateKey);
+
+    private static bool IsValidActivationUrl(string? value, string tenantSlug) =>
+        Uri.TryCreate(value, UriKind.Absolute, out var uri) && uri.Scheme is "http" or "https" &&
+        uri.AbsolutePath.Equals("/activate", StringComparison.OrdinalIgnoreCase) &&
+        uri.Query.StartsWith("?token=", StringComparison.OrdinalIgnoreCase) &&
+        (tenantSlug == "platform" || uri.Host.StartsWith(tenantSlug + ".", StringComparison.OrdinalIgnoreCase));
 
     public static string ResolveTenantBaseUrl(string? configuredUrl, string? requestedUrl, string? baseDomain, string slug) =>
         TenantDomains.BaseUrlForTenant(

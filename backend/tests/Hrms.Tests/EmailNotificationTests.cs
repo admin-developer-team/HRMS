@@ -140,7 +140,10 @@ public sealed class EmailNotificationTests
             "https://acme.hrms.example/activate?token=activation-token",
             Hrms.Infrastructure.EmailOutboxWorker.BuildActionUrl(baseUrl, activationPath, EmailTemplateKeys.AccountActivation));
         Assert.Equal(
-            "https://acme.hrms.example/login?returnUrl=%2Factivate%3Ftoken%3Dactivation-token",
+            "https://acme.hrms.example/login?returnUrl=%2Fdashboard",
+            Hrms.Infrastructure.EmailOutboxWorker.BuildActionUrl(baseUrl, "/dashboard"));
+        Assert.Equal(
+            "https://acme.hrms.example/activate?token=activation-token",
             Hrms.Infrastructure.EmailOutboxWorker.BuildActionUrl(baseUrl, activationPath));
     }
 
@@ -154,6 +157,38 @@ public sealed class EmailNotificationTests
                 "http://localhost:4200",
                 "hrms.avntechnologies.co.in",
                 "acme"));
+    }
+
+    [Fact]
+    public void Email_worker_preserves_the_precomputed_activation_url()
+    {
+        const string queued = "http://acme.localhost:4201/activate?token=activation-token";
+
+        var actionUrl = Hrms.Infrastructure.EmailOutboxWorker.SelectActionUrl(
+            "https://acme.hrms.avntechnologies.co.in",
+            "/activate?token=activation-token",
+            EmailTemplateKeys.AccountActivation,
+            queued,
+            "acme");
+        Assert.Equal(queued, actionUrl);
+
+        var template = Assert.Single(EmailTemplateCatalog.CreateDefaults(Guid.NewGuid()),
+            x => x.Key == EmailTemplateKeys.DefaultNotification);
+        var rendered = Hrms.Infrastructure.EmailOutboxWorker.Render(
+            new EmailOutboxItem { ToEmail = "admin@example.test", TemplateKey = EmailTemplateKeys.AccountActivation },
+            template,
+            new Dictionary<string, string?>
+            {
+                ["title"] = "Activate your trial",
+                ["recipientName"] = "Admin",
+                ["message"] = "Set your password.",
+                ["companyName"] = "Acme",
+                ["actionUrl"] = actionUrl
+            });
+
+        Assert.Contains($"href=\"{queued}\"", rendered.HtmlBody);
+        Assert.DoesNotContain("/login", rendered.HtmlBody);
+        Assert.DoesNotContain("/dashboard", rendered.HtmlBody);
     }
 
     private sealed class MutableTenant : ICurrentTenant

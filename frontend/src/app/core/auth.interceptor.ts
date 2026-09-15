@@ -5,17 +5,28 @@ import { catchError, finalize, switchMap, throwError } from 'rxjs';
 import { AuthService } from './auth.service';
 import { LoadingService, SKIP_GLOBAL_LOADING } from './loading.service';
 
+export function isPublicRequestUrl(url: string): boolean {
+  return [
+    '/auth/login',
+    '/auth/workspace',
+    '/auth/email-link/redeem',
+    '/auth/email-link/tenant',
+    '/public/trials',
+    '/public/trials/resend',
+    '/public/activate',
+    '/public/support-tickets',
+  ].some((path) => url.endsWith(path));
+}
+
 export const authInterceptor: HttpInterceptorFn = (request, next) => {
   const auth = inject(AuthService);
   const loading = inject(LoadingService);
   const router = inject(Router);
   const token = auth.accessToken();
   const tenantId = auth.tenantId();
-  const emailRedemption = request.url.endsWith('/auth/email-link/redeem');
-  const publicAuthRequest = emailRedemption || request.url.endsWith('/auth/login')
-    || request.url.endsWith('/auth/workspace') || request.url.endsWith('/auth/email-link/tenant');
+  const publicRequest = isPublicRequestUrl(request.url);
 
-  const secured = token && !publicAuthRequest
+  const secured = token && !publicRequest
     ? request.clone({
         setHeaders: {
           Authorization: `Bearer ${token}`,
@@ -35,9 +46,10 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
       if (
         error.status === 401 &&
         !auth.session()?.billingOnly &&
+        !publicRequest &&
         !request.url.endsWith('/auth/login') &&
         !request.url.endsWith('/auth/refresh') &&
-        !emailRedemption
+        !request.url.endsWith('/auth/email-link/redeem')
       ) {
         return auth.refreshSession().pipe(
           switchMap((session) =>
