@@ -19,7 +19,10 @@ public sealed class PlatformExperienceTests
         await db.SaveChangesAsync();
         var service = Service(db, tenant);
 
-        await service.RequestTrialAsync(new("Acme Studio", "acme-studio", "Alex Morgan", "alex@example.test", "professional"), default);
+        await service.RequestTrialAsync(
+            new("Acme Studio", "acme-studio", "Alex Morgan", "alex@example.test", "professional"),
+            "http://localhost:4200",
+            default);
 
         var company = await db.Tenants.IgnoreQueryFilters().SingleAsync(x => x.Slug == "acme-studio");
         Assert.Null(company.TrialEndsAt);
@@ -28,7 +31,17 @@ public sealed class PlatformExperienceTests
         Assert.False(admin.IsActive);
         var email = await db.EmailOutboxItems.IgnoreQueryFilters().SingleAsync(x => x.ToEmail == admin.Email);
         Assert.Equal(EmailTemplateKeys.AccountActivation, email.TemplateKey);
-        var link = JsonSerializer.Deserialize<Dictionary<string, string>>(email.ModelJson)!["link"];
+        var emailModel = JsonSerializer.Deserialize<Dictionary<string, string>>(email.ModelJson)!;
+        Assert.Equal("http://localhost:4200", emailModel["applicationBaseUrl"]);
+        var link = emailModel["link"];
+        var emailBaseUrl = EmailOutboxWorker.ResolveTenantBaseUrl(
+            "https://hrms.avntechnologies.co.in",
+            emailModel["applicationBaseUrl"],
+            "hrms.avntechnologies.co.in",
+            company.Slug);
+        Assert.Equal(
+            $"http://acme-studio.localhost:4200{link}",
+            EmailOutboxWorker.BuildActionUrl(emailBaseUrl, link!, email.TemplateKey));
         var token = link!.Split("token=")[1];
 
         tenant.Set(company.Id, company.Slug);

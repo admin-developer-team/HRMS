@@ -121,7 +121,11 @@ public sealed class EmailOutboxWorker(IServiceScopeFactory scopeFactory, ILogger
                 var model = JsonSerializer.Deserialize<Dictionary<string, string?>>(item.ModelJson) ?? [];
                 model["companyName"] = company.Name;
                 model["recipientName"] = item.ToName ?? "there";
-                var tenantBaseUrl = TenantDomains.BaseUrlForTenant(configuration.ApplicationBaseUrl, baseDomain, company.Slug);
+                var tenantBaseUrl = ResolveTenantBaseUrl(
+                    configuration.ApplicationBaseUrl,
+                    model.GetValueOrDefault("applicationBaseUrl"),
+                    baseDomain,
+                    company.Slug);
                 model["applicationUrl"] = tenantBaseUrl;
                 var relativeLink = model.GetValueOrDefault("link") ?? string.Empty;
                 model["tenantSlug"] = company.Slug;
@@ -188,6 +192,12 @@ public sealed class EmailOutboxWorker(IServiceScopeFactory scopeFactory, ILogger
         if (templateKey == EmailTemplateKeys.AccountActivation) return $"{baseUrl.TrimEnd('/')}{destination}";
         return $"{baseUrl.TrimEnd('/')}/login?returnUrl={Uri.EscapeDataString(destination)}";
     }
+
+    public static string ResolveTenantBaseUrl(string? configuredUrl, string? requestedUrl, string? baseDomain, string slug) =>
+        TenantDomains.BaseUrlForTenant(
+            string.IsNullOrWhiteSpace(requestedUrl) ? configuredUrl : requestedUrl,
+            baseDomain,
+            slug);
 
     public static string SafeDestination(string? requested, string fallback)
     {

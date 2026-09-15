@@ -6,15 +6,18 @@ using Microsoft.AspNetCore.RateLimiting;
 namespace Hrms.Api.Controllers;
 
 [ApiController, Route("api/v1/public")]
-public sealed class PublicPlatformController(PlatformExperienceService service) : ControllerBase
+public sealed class PublicPlatformController(
+    PlatformExperienceService service,
+    IConfiguration configuration,
+    IHostEnvironment environment) : ControllerBase
 {
     [HttpPost("trials"), AllowAnonymous, EnableRateLimiting("public-forms")]
     public async Task<IActionResult> Trial(PublicTrialRequest request, CancellationToken ct)
-    { await service.RequestTrialAsync(request, ct); return Accepted(new { message = "Check your email to activate your company workspace." }); }
+    { await service.RequestTrialAsync(request, CurrentApplicationBaseUrl(), ct); return Accepted(new { message = "Check your email to activate your company workspace." }); }
 
     [HttpPost("trials/resend"), AllowAnonymous, EnableRateLimiting("public-forms")]
     public async Task<IActionResult> Resend(ResendTrialRequest request, CancellationToken ct)
-    { await service.ResendTrialAsync(request.Slug, request.Email, ct); return Accepted(new { message = "If the pending trial exists, another activation email has been queued." }); }
+    { await service.ResendTrialAsync(request.Slug, request.Email, CurrentApplicationBaseUrl(), ct); return Accepted(new { message = "If the pending trial exists, another activation email has been queued." }); }
 
     [HttpPost("activate"), AllowAnonymous, EnableRateLimiting("public-forms")]
     public async Task<IActionResult> Activate(ActivateAccountRequest request, CancellationToken ct)
@@ -23,6 +26,25 @@ public sealed class PublicPlatformController(PlatformExperienceService service) 
     [HttpPost("support-tickets"), AllowAnonymous, EnableRateLimiting("public-forms")]
     public async Task<IActionResult> Support(SupportTicketRequest request, CancellationToken ct)
     { var reference = await service.CreateTicketAsync(request, ct); return Accepted(new { reference }); }
+
+    private string? CurrentApplicationBaseUrl()
+    {
+        var candidates = new[]
+        {
+            Request.Headers.Origin.FirstOrDefault(),
+            Request.Headers.Referer.FirstOrDefault(),
+            $"{Request.Scheme}://{Request.Host}"
+        };
+        var baseDomain = configuration["Tenancy:BaseDomain"]?.Trim().TrimEnd('.');
+        foreach (var candidate in candidates)
+        {
+            if (!Uri.TryCreate(candidate, UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https")) continue;
+            var isLocal = environment.IsDevelopment() && uri.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase);
+            var isConfiguredDomain = !string.IsNullOrWhiteSpace(baseDomain) && uri.Host.Equals(baseDomain, StringComparison.OrdinalIgnoreCase);
+            if (isLocal || isConfiguredDomain) return uri.GetLeftPart(UriPartial.Authority).TrimEnd('/');
+        }
+        return null;
+    }
 }
 
 public sealed record ResendTrialRequest(string Slug, string Email);

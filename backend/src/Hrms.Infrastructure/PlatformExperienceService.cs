@@ -25,7 +25,10 @@ public sealed class PlatformExperienceService(HrmsDbContext db, ICurrentTenant c
     private static readonly Guid PlatformId = DatabaseInitializer.PlatformTenantId;
     private static readonly string[] ReservedSlugs = ["platform", "www", "api", "app", "admin", "mail", "support", "billing", "status", "login", "signup", "help", "static"];
 
-    public async Task RequestTrialAsync(PublicTrialRequest request, CancellationToken ct)
+    public Task RequestTrialAsync(PublicTrialRequest request, CancellationToken ct) =>
+        RequestTrialAsync(request, null, ct);
+
+    public async Task RequestTrialAsync(PublicTrialRequest request, string? applicationBaseUrl, CancellationToken ct)
     {
         if (currentTenant.TenantId != PlatformId) throw new UnauthorizedAccessException("Start a trial on the platform website.");
         var slug = request.Slug.Trim().ToLowerInvariant();
@@ -56,13 +59,16 @@ public sealed class PlatformExperienceService(HrmsDbContext db, ICurrentTenant c
                 StartsAt = DateTimeOffset.UtcNow, IsActive = false });
             db.LeaveTypes.Add(new LeaveType { TenantId = tenant.Id, Name = "Annual Leave", Code = "ANNUAL", AnnualAllowance = 20, IsPaid = true });
             db.LeaveTypes.Add(new LeaveType { TenantId = tenant.Id, Name = "Sick Leave", Code = "SICK", AnnualAllowance = 10, IsPaid = true });
-            await QueueActivationAsync(admin, "trial", ct);
+            await QueueActivationAsync(admin, "trial", applicationBaseUrl, ct);
             await db.SaveChangesAsync(ct);
         }
         finally { currentTenant.Set(PlatformId, "platform"); }
     }
 
-    public async Task ResendTrialAsync(string slug, string email, CancellationToken ct)
+    public Task ResendTrialAsync(string slug, string email, CancellationToken ct) =>
+        ResendTrialAsync(slug, email, null, ct);
+
+    public async Task ResendTrialAsync(string slug, string email, string? applicationBaseUrl, CancellationToken ct)
     {
         if (currentTenant.TenantId != PlatformId) throw new UnauthorizedAccessException();
         var tenant = await db.Tenants.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.Slug == slug.Trim().ToLower() && x.Status == TenantStatus.Trial && x.TrialEndsAt == null && !x.IsDeleted, ct);
@@ -73,7 +79,7 @@ public sealed class PlatformExperienceService(HrmsDbContext db, ICurrentTenant c
             var user = await db.Users.FirstOrDefaultAsync(x => x.Email == email.Trim().ToLower() && !x.IsActive, ct);
             if (user is null) return;
             foreach (var old in await db.AccountActivations.Where(x => x.UserId == user.Id && x.UsedAt == null).ToListAsync(ct)) old.UsedAt = DateTimeOffset.UtcNow;
-            await QueueActivationAsync(user, "trial", ct);
+            await QueueActivationAsync(user, "trial", applicationBaseUrl, ct);
             await db.SaveChangesAsync(ct);
         }
         finally { currentTenant.Set(PlatformId, "platform"); }
@@ -210,26 +216,33 @@ public sealed class PlatformExperienceService(HrmsDbContext db, ICurrentTenant c
             PasswordHash = hasher.Hash(Convert.ToHexString(RandomNumberGenerator.GetBytes(32))), IsActive = false, SupportInboxEnabled = true };
         db.Users.Add(user);
         db.UserRoles.Add(new UserRole { TenantId = PlatformId, UserId = user.Id, RoleId = role.Id });
-        await QueueActivationAsync(user, "support", ct);
+        await QueueActivationAsync(user, "support", null, ct);
         await db.SaveChangesAsync(ct);
     }
 
-    private async Task QueueActivationAsync(UserAccount user, string kind, CancellationToken ct)
+    private async Task QueueActivationAsync(UserAccount user, string kind, string? applicationBaseUrl, CancellationToken ct)
     {
         var token = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
         db.AccountActivations.Add(new AccountActivation { TenantId = user.TenantId, UserId = user.Id,
             Kind = kind, TokenHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token))), ExpiresAt = DateTimeOffset.UtcNow.AddDays(7) });
         QueueEmail(user.Email, user.DisplayName, kind == "trial" ? "Activate your 30-day PeopleFlow trial" : "Activate your PeopleFlow support account",
             kind == "trial" ? "Your company workspace is ready. Set your password to start the 30-day trial." : "Your support workspace is ready. Set your password to get started.",
-            user.TenantId, $"/activate?token={token}", EmailTemplateKeys.AccountActivation);
+            user.TenantId, $"/activate?token={token}", EmailTemplateKeys.AccountActivation, applicationBaseUrl);
         await Task.CompletedTask;
     }
 
-    private void QueueEmail(string email, string? name, string title, string message, Guid? tenantId, string link, string templateKey = EmailTemplateKeys.DefaultNotification)
+    private void QueueEmail(string email, string? name, string title, string message, Guid? tenantId, string link,
+        string templateKey = EmailTemplateKeys.DefaultNotification, string? applicationBaseUrl = null)
     {
         db.EmailOutboxItems.Add(new EmailOutboxItem { TenantId = tenantId ?? PlatformId, ToEmail = email, ToName = name,
             TemplateKey = templateKey,
-            ModelJson = JsonSerializer.Serialize(new Dictionary<string, string?> { ["title"] = title, ["message"] = message, ["link"] = link }),
+            ModelJson = JsonSerializer.Serialize(new Dictionary<string, string?>
+            {
+                ["title"] = title,
+                ["message"] = message,
+                ["link"] = link,
+                ["applicationBaseUrl"] = applicationBaseUrl
+            }),
             NextAttemptAt = DateTimeOffset.UtcNow });
     }
 

@@ -144,6 +144,18 @@ public sealed class EmailNotificationTests
             Hrms.Infrastructure.EmailOutboxWorker.BuildActionUrl(baseUrl, activationPath));
     }
 
+    [Fact]
+    public void Activation_email_prefers_the_signup_website_over_saved_production_url()
+    {
+        Assert.Equal(
+            "http://acme.localhost:4200",
+            Hrms.Infrastructure.EmailOutboxWorker.ResolveTenantBaseUrl(
+                "https://hrms.avntechnologies.co.in",
+                "http://localhost:4200",
+                "hrms.avntechnologies.co.in",
+                "acme"));
+    }
+
     private sealed class MutableTenant : ICurrentTenant
     {
         public Guid? TenantId { get; private set; } = Guid.NewGuid();
