@@ -44,16 +44,18 @@ public sealed record CreateEmployeeRequest(
     string EmployeeNumber, string FirstName, string LastName, string WorkEmail, DateOnly HireDate,
     EmploymentType EmploymentType = EmploymentType.Permanent, Guid? DepartmentId = null,
     Guid? DesignationId = null, Guid? LocationId = null, Guid? ManagerId = null,
-    decimal BaseSalary = 0, string SalaryCurrency = "INR", string? Phone = null);
+    decimal BaseSalary = 0, string SalaryCurrency = "INR", string? Phone = null,
+    TimeOnly? OfficeStartsAt = null, TimeOnly? OfficeEndsAt = null);
 public sealed record UpdateEmployeeRequest(
     string EmployeeNumber, string FirstName, string LastName, string WorkEmail, string? Phone, DateOnly HireDate, EmploymentStatus Status,
     EmploymentType EmploymentType, Guid? DepartmentId, Guid? DesignationId, Guid? LocationId,
-    Guid? ManagerId, decimal BaseSalary, string SalaryCurrency, long Version);
+    Guid? ManagerId, decimal BaseSalary, string SalaryCurrency, long Version,
+    TimeOnly? OfficeStartsAt = null, TimeOnly? OfficeEndsAt = null);
 public sealed record EmployeeDto(
     Guid Id, string EmployeeNumber, string FirstName, string LastName, string FullName, string WorkEmail, string? Phone,
     DateOnly HireDate, EmploymentStatus Status, EmploymentType EmploymentType, Guid? DepartmentId,
     Guid? DesignationId, Guid? LocationId, Guid? ManagerId, decimal BaseSalary,
-    string SalaryCurrency, Guid? UserId, long Version);
+    string SalaryCurrency, Guid? UserId, long Version, TimeOnly? OfficeStartsAt = null, TimeOnly? OfficeEndsAt = null);
 public sealed record LoginHistoryDto(DateTimeOffset LoggedInAt, string? IpAddress, string? UserAgent);
 
 public sealed record CreateDepartmentRequest(string Name, string Code, Guid? ParentDepartmentId = null);
@@ -74,6 +76,7 @@ public sealed record ClockRequest(Guid EmployeeId, DateTimeOffset? Timestamp = n
     decimal? Latitude = null, decimal? Longitude = null, decimal? AccuracyMeters = null, string? Address = null,
     string? IpAddress = null, string? UserAgent = null);
 public sealed record SelfClockRequest(decimal? Latitude = null, decimal? Longitude = null, decimal? AccuracyMeters = null, string? Address = null, string Source = "web", string? Notes = null);
+public sealed record AttendanceLocationRequest(string Action, decimal Latitude, decimal Longitude, decimal AccuracyMeters);
 public sealed record AttendanceDto(Guid Id, Guid EmployeeId, DateOnly WorkDate, DateTimeOffset? ClockedInAt, DateTimeOffset? ClockedOutAt,
     AttendanceStatus Status, string SessionState, decimal WorkHours, decimal OvertimeHours, string? Source, string? Notes,
     decimal? ClockInLatitude, decimal? ClockInLongitude, decimal? ClockInAccuracyMeters, string? ClockInAddress, string? ClockInIpAddress, string? ClockInUserAgent,

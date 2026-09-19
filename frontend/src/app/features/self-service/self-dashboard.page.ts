@@ -33,6 +33,7 @@ export class SelfDashboardPage implements OnInit, OnDestroy {
   readonly error = signal('');
   readonly success = signal('');
   readonly locationStatus = signal('Location is requested only when you check in or out.');
+  readonly lastLocationUrl = signal<string | null>(null);
   readonly dashboard = signal<SelfDashboard | null>(null);
   readonly history = signal<AttendanceRecord[]>([]);
   readonly now = signal(new Date());
@@ -42,6 +43,7 @@ export class SelfDashboardPage implements OnInit, OnDestroy {
   });
   readonly profilePhotoUrl = signal<string | null>(null);
   private clockTimer?: number;
+  private locationAttempt = 0;
 
   ngOnInit(): void {
     this.load();
@@ -71,62 +73,71 @@ export class SelfDashboardPage implements OnInit, OnDestroy {
       .subscribe({ next: (result) => this.history.set(result.items ?? []) });
   }
 
-  async clock(action: 'clock-in' | 'clock-out'): Promise<void> {
+  clock(action: 'clock-in' | 'clock-out'): void {
+    if (this.clocking()) return;
     this.error.set('');
     this.success.set('');
+    this.lastLocationUrl.set(null);
     this.clocking.set(true);
-    try {
-      let latitude: number | undefined;
-      let longitude: number | undefined;
-      let accuracyMeters: number | undefined;
-      if (this.dashboard()?.requireLocationCapture) {
-        const location = await this.getLocation();
-        latitude = Number(location.coords.latitude.toFixed(6));
-        longitude = Number(location.coords.longitude.toFixed(6));
-        accuracyMeters = Number(location.coords.accuracy.toFixed(2));
-        this.locationStatus.set(`Location captured within approximately ${Math.round(accuracyMeters)} metres.`);
-      }
-      this.api
-        .post<AttendanceRecord>(`/me/attendance/${action}`, {
-          latitude,
-          longitude,
-          accuracyMeters,
-          address: latitude !== undefined && longitude !== undefined ? `${latitude}, ${longitude}` : undefined,
-          source: 'web',
-        })
-        .pipe(finalize(() => this.clocking.set(false)))
-        .subscribe({
-          next: () => {
-            this.success.set(
-              action === 'clock-in'
-                ? 'You are checked in. Your time and location were recorded.'
-                : 'You are checked out. Your time and location were recorded.',
-            );
-            this.load();
-          },
-          error: (error: HttpErrorResponse) =>
-            this.error.set(error.error?.detail ?? `Unable to ${action.replace('-', ' ')}.`),
-        });
-    } catch (error) {
-      this.clocking.set(false);
-      this.error.set(
-        error instanceof GeolocationPositionError && error.code === error.PERMISSION_DENIED
-          ? 'Location permission is required by your attendance policy. Allow location access and try again.'
-          : 'Your location could not be captured. Check device location services and try again.',
-      );
-      this.locationStatus.set('Location was not recorded.');
-    }
+    const attempt = ++this.locationAttempt;
+    const location = this.dashboard()?.requireLocationCapture ? this.getLocation() : null;
+    if (location) this.locationStatus.set('Recording your time. Location is being checked in the background…');
+    this.api
+      .post<AttendanceRecord>(`/me/attendance/${action}`, {
+        source: 'web',
+      })
+      .pipe(finalize(() => this.clocking.set(false)))
+      .subscribe({
+        next: record => {
+          this.success.set(action === 'clock-in' ? 'You are checked in. Your time was recorded.' : 'You are checked out. Your time was recorded.');
+          this.load();
+          if (location) void location.then(position => this.attachLocation(record.id, action, position, attempt));
+        },
+        error: (error: HttpErrorResponse) =>
+          this.error.set(error.error?.detail ?? `Unable to ${action.replace('-', ' ')}.`),
+      });
   }
 
-  private getLocation(): Promise<GeolocationPosition> {
-    if (!navigator.geolocation) return Promise.reject(new Error('Geolocation is unavailable.'));
-    return new Promise((resolve, reject) =>
-      navigator.geolocation.getCurrentPosition(resolve, reject, {
-        enableHighAccuracy: true,
-        timeout: 15_000,
-        maximumAge: 0,
-      }),
-    );
+  private attachLocation(recordId: string, action: 'clock-in' | 'clock-out', position: GeolocationPosition | null, attempt: number): void {
+    if (!position || !Number.isFinite(position.coords.latitude) || !Number.isFinite(position.coords.longitude) ||
+        !Number.isFinite(position.coords.accuracy)) {
+      if (attempt === this.locationAttempt) this.locationStatus.set('Attendance time saved. Location was unavailable; your manager can review it.');
+      return;
+    }
+    const latitude = Number(position.coords.latitude.toFixed(7));
+    const longitude = Number(position.coords.longitude.toFixed(7));
+    const accuracyMeters = Number(position.coords.accuracy.toFixed(2));
+    this.api.put<void>(`/me/attendance/${recordId}/location`, { action, latitude, longitude, accuracyMeters }).subscribe({
+      next: () => {
+        if (attempt !== this.locationAttempt) return;
+        this.locationStatus.set(`Location saved. Browser estimated accuracy: approximately ${Math.round(accuracyMeters)} metres.`);
+        this.lastLocationUrl.set(`https://www.openstreetmap.org/?mlat=${latitude}&mlon=${longitude}#map=17/${latitude}/${longitude}`);
+      },
+      error: () => { if (attempt === this.locationAttempt) this.locationStatus.set('Attendance time saved. Location could not be added; your manager can review it.'); },
+    });
+  }
+
+  private getLocation(): Promise<GeolocationPosition | null> {
+    if (!navigator.geolocation) return Promise.resolve(null);
+    return new Promise(resolve => {
+      let finished = false;
+      const finish = (position: GeolocationPosition | null) => {
+        if (finished) return;
+        finished = true;
+        window.clearTimeout(timer);
+        resolve(position);
+      };
+      const timer = window.setTimeout(() => finish(null), 8_000);
+      try {
+        navigator.geolocation.getCurrentPosition(
+          position => finish(position),
+          () => finish(null),
+          { enableHighAccuracy: true, maximumAge: 10_000, timeout: 6_000 },
+        );
+      } catch {
+        finish(null);
+      }
+    });
   }
 
   private loadProfilePhoto(): void {

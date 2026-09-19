@@ -79,6 +79,84 @@ public sealed class EnterpriseWorkflowTests
     }
 
     [Fact]
+    public async Task Employee_office_hours_override_company_policy_and_snapshot_attendance()
+    {
+        using var h = new Harness();
+        await h.Attendance.UpdatePolicyAsync(new(new(9, 0), new(17, 0), 0, 0, ["Monday"], false), Ct);
+        var employee = await h.Db.Employees.FindAsync([h.A], Ct);
+        employee!.OfficeStartsAt = new(10, 0);
+        employee.OfficeEndsAt = new(17, 0);
+        await h.Db.SaveChangesAsync(Ct);
+
+        await h.Attendance.ClockInAsync(new(h.A, At(10)), Ct);
+        await h.Attendance.ClockOutAsync(new(h.A, At(17)), Ct);
+        employee.OfficeStartsAt = new(11, 0);
+        employee.OfficeEndsAt = new(18, 0);
+        await h.Db.SaveChangesAsync(Ct);
+
+        var worked = Assert.Single((await h.Attendance.ReportAsync(new(), h.A, Day, Day, Ct)).Items);
+        Assert.Equal(7, worked.RequiredHours);
+        Assert.Equal(0, worked.LateMinutes);
+        Assert.Equal(0, worked.EarlyDepartureMinutes);
+        Assert.Equal("Compliant", worked.Status);
+        var absent = Assert.Single((await h.Attendance.ReportAsync(new(), h.A, Day.AddDays(7), Day.AddDays(7), Ct)).Items);
+        Assert.Equal(7, absent.RequiredHours);
+    }
+
+    [Fact]
+    public async Task Attendance_time_saves_without_location_and_later_accepts_approximate_reading()
+    {
+        using var h = new Harness();
+        await h.Attendance.UpdatePolicyAsync(new(new(9, 0), new(17, 0), 0, 0, ["Monday"], true), Ct);
+        var checkIn = await h.Attendance.ClockInAsync(new(h.A), Ct);
+        Assert.Null(checkIn.ClockInLatitude);
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => h.Attendance.AttachLocationAsync(checkIn.Id, h.B, new("clock-in", 28.44754m, 77.07128m, 1200), Ct));
+        await h.Attendance.AttachLocationAsync(checkIn.Id, h.A, new("clock-in", 28.44754m, 77.07128m, 1200), Ct);
+        await Assert.ThrowsAsync<DomainException>(() => h.Attendance.AttachLocationAsync(checkIn.Id, h.A, new("clock-in", 28.4m, 77.0m, 8), Ct));
+        var checkOut = await h.Attendance.ClockOutAsync(new(h.A), Ct);
+        await h.Attendance.AttachLocationAsync(checkOut.Id, h.A, new("clock-out", 28.44755m, 77.07129m, 850), Ct);
+        var saved = await h.Db.AttendanceRecords.FindAsync([checkIn.Id], Ct);
+        Assert.Equal(1200, saved!.ClockInAccuracyMeters);
+        Assert.Equal(850, saved.ClockOutAccuracyMeters);
+    }
+
+    [Fact]
+    public async Task Meeting_visibility_is_limited_to_organizer_invitees_and_administrators()
+    {
+        using var h = new Harness();
+        foreach (var id in new[] { h.A, h.B, h.C })
+        {
+            h.Db.Users.Add(new UserAccount { Id = id, TenantId = h.Id, Email = $"{id}@example.test", DisplayName = id.ToString(), IsActive = true });
+            (await h.Db.Employees.FindAsync([id], Ct))!.UserId = id;
+        }
+        await h.Db.SaveChangesAsync(Ct);
+        h.AsEmployee(h.A);
+        var start = DateTimeOffset.UtcNow.AddDays(1);
+        var created = await h.Meetings.CreateAsync(new("Planning review", "Quarterly plan", start, start.AddHours(1),
+            "Room 2", null, [h.A, h.B]), Ct);
+        Assert.Single(h.Emails.Items, x => x.Email == $"{h.B}@example.test" && x.Key == EmailTemplateKeys.ForNotification("meeting"));
+        Assert.Single(h.Emails.Items, x => x.Email == $"{h.A}@example.test" && x.Key == EmailTemplateKeys.ForNotification("meeting"));
+        Assert.Single(await h.Meetings.ListAsync(start.AddHours(-1), start.AddHours(2), Ct));
+
+        h.AsEmployee(h.B);
+        Assert.Single(await h.Meetings.ListAsync(start.AddHours(-1), start.AddHours(2), Ct));
+        Assert.Single((await h.Calendar.GetAsync(start.Year, start.Month, null, Ct)).Meetings!);
+        h.AsEmployee(h.C);
+        Assert.Empty(await h.Meetings.ListAsync(start.AddHours(-1), start.AddHours(2), Ct));
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => h.Meetings.UpdateAsync(created.Id,
+            new("Changed meeting", null, start, start.AddHours(1), null, null, [h.C], created.Version), Ct));
+
+        h.User.Admin = true;
+        Assert.Single(await h.Meetings.ListAsync(start.AddHours(-1), start.AddHours(2), Ct));
+        var updated = await h.Meetings.UpdateAsync(created.Id,
+            new("Planning review updated", "Revised plan", start, start.AddHours(1), "Room 3", null, [h.A, h.B], created.Version), Ct);
+        Assert.Equal(2, h.Emails.Items.Count(x => x.Email == $"{h.A}@example.test" && x.Key == EmailTemplateKeys.ForNotification("meeting")));
+        await h.Meetings.CancelAsync(updated.Id, updated.Version, Ct);
+        Assert.Equal(3, h.Emails.Items.Count(x => x.Email == $"{h.A}@example.test" && x.Key == EmailTemplateKeys.ForNotification("meeting")));
+        Assert.NotNull((await h.Db.Meetings.FindAsync([created.Id], Ct))!.CancelledAt);
+    }
+
+    [Fact]
     public async Task Concurrent_open_session_constraint_is_part_of_model()
     {
         using var h = new Harness();
@@ -379,6 +457,13 @@ public sealed class EnterpriseWorkflowTests
             Task.FromResult<(IReadOnlyList<CalendarObservance>, bool)>(([], false));
     }
 
+    private sealed class CapturingEmailQueue : IEmailQueue
+    {
+        public List<(string Email, string Key)> Items { get; } = [];
+        public Task QueueAsync(string toEmail, string? toName, string templateKey, IReadOnlyDictionary<string, string?> model, CancellationToken ct)
+        { Items.Add((toEmail, templateKey)); return Task.CompletedTask; }
+    }
+
     private sealed class Harness : IDisposable
     {
         public CurrentTenant Tenant { get; } = new(); public Actor User { get; } = new();
@@ -389,6 +474,7 @@ public sealed class EnterpriseWorkflowTests
         public WorkManagementService Work { get; } public WorkPlanningService Planning { get; }
         public LeaveService Leave { get; } public IdentityAdminService Identity { get; }
         public CalendarService Calendar { get; }
+        public MeetingService Meetings { get; } public CapturingEmailQueue Emails { get; } = new();
         public Harness()
         {
             Tenant.Set(Guid.NewGuid());
@@ -396,13 +482,14 @@ public sealed class EnterpriseWorkflowTests
             Db.Tenants.Add(new Tenant { Id = Id, Name = "Enterprise QA", Slug = "enterprise-qa", TimeZone = "UTC", Status = TenantStatus.Active });
             foreach (var id in new[] { A, B, C }) Db.Employees.Add(new Employee { Id = id, TenantId = Id, EmployeeNumber = id.ToString(), FirstName = id == A ? "Asha" : id == B ? "Rohan" : "Leena", LastName = "Test", WorkEmail = $"{id}@example.test", HireDate = new(2025, 1, 1), ManagerId = id == A ? B : null });
             Db.SaveChangesAsync().GetAwaiter().GetResult();
-            var notifications = new NotificationService(R<UserNotification>(), R<Employee>(), R<UserAccount>(), R<Role>(), R<UserRole>(), Tenant, User, Db);
+            var notifications = new NotificationService(R<UserNotification>(), R<Employee>(), R<UserAccount>(), R<Role>(), R<UserRole>(), Tenant, User, Db, Emails);
+            Meetings = new(R<Meeting>(), R<MeetingAttendee>(), R<Employee>(), R<UserAccount>(), R<Tenant>(), Tenant, User, Db, notifications, Emails);
             Attendance = new(R<AttendanceRecord>(), R<AttendancePolicy>(), R<Employee>(), R<Tenant>(), R<Holiday>(), R<HolidaySelection>(), R<LeaveRequest>(), Tenant, Db);
             Corrections = new(R<AttendanceCorrection>(), R<AttendanceRecord>(), R<Employee>(), R<AttendancePolicy>(), R<Tenant>(), R<Holiday>(), R<HolidaySelection>(), R<LeaveRequest>(), Tenant, User, Db, notifications);
             Work = new(R<WorkProject>(), R<WorkProjectMember>(), R<WorkItem>(), R<WorkItemAssignee>(), R<WorkItemComment>(), R<WorkLog>(), R<WorkItemHistory>(), R<Employee>(), Tenant, User, Db, notifications);
             Planning = new(R<WorkSprint>(), R<WorkProject>(), R<WorkProjectMember>(), R<WorkItem>(), R<WorkItemHistory>(), Work, Tenant, User, Db);
             Leave = new(R<LeaveType>(), R<LeaveBalance>(), R<LeaveRequest>(), R<Employee>(), R<StoredDocument>(), Tenant, User, Db, notifications, R<AttendancePolicy>(), R<Holiday>(), R<HolidaySelection>(), R<Tenant>());
-            Calendar = new(R<Holiday>(), R<HolidaySelection>(), R<Employee>(), R<Location>(), R<LeaveRequest>(), R<AttendanceRecord>(), R<AttendancePolicy>(), R<Tenant>(), Tenant, User, Db, new NoPublicHolidays());
+            Calendar = new(R<Holiday>(), R<HolidaySelection>(), R<Employee>(), R<Location>(), R<LeaveRequest>(), R<AttendanceRecord>(), R<AttendancePolicy>(), R<Tenant>(), Tenant, User, Db, new NoPublicHolidays(), Meetings);
             Identity = new(R<UserAccount>(), R<Role>(), R<UserRole>(), R<Employee>(), R<RefreshToken>(), new Pbkdf2PasswordHasher(), Tenant, Db, notifications, User);
         }
         private Repository<T> R<T>() where T : AuditableEntity => new(Db);

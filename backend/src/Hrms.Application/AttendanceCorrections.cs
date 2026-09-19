@@ -53,7 +53,8 @@ public sealed class AttendanceCorrectionService(IRepository<AttendanceCorrection
         if (original is not null && (original.EmployeeId != employeeId || original.WorkDate != r.WorkDate))
             throw new DomainException("The selected session does not belong to this employee and workday.");
         if (AttendanceCalendar.WorkDate(r.RequestedClockIn, AttendanceCalendar.Zone(company?.TimeZone),
-                original?.ScheduledStartAt ?? policy.OfficeStartsAt, original?.ScheduledEndAt ?? policy.OfficeEndsAt) != r.WorkDate)
+                original?.ScheduledStartAt ?? person.OfficeStartsAt ?? policy.OfficeStartsAt,
+                original?.ScheduledEndAt ?? person.OfficeEndsAt ?? policy.OfficeEndsAt) != r.WorkDate)
             throw new DomainException("Check-in must fall on the selected workday in the company time zone.");
         if (await corrections.AnyAsync(x => x.EmployeeId == employeeId && x.WorkDate == r.WorkDate && x.Status == WorkflowStatus.Pending, ct))
             throw new DomainException("An attendance correction is already pending for this workday.");
@@ -97,7 +98,9 @@ public sealed class AttendanceCorrectionService(IRepository<AttendanceCorrection
             else
             {
                 record = new AttendanceRecord { TenantId = TenantId, EmployeeId = row.EmployeeId, WorkDate = row.WorkDate,
-                    ScheduledStartAt = policy.OfficeStartsAt, ScheduledEndAt = policy.OfficeEndsAt, RequiredMinutes = policy.RequiredMinutesPerDay,
+                    ScheduledStartAt = person.OfficeStartsAt ?? policy.OfficeStartsAt,
+                    ScheduledEndAt = person.OfficeEndsAt ?? policy.OfficeEndsAt,
+                    RequiredMinutes = AttendanceCalendar.DurationMinutes(person.OfficeStartsAt ?? policy.OfficeStartsAt, person.OfficeEndsAt ?? policy.OfficeEndsAt),
                     LateGraceMinutes = policy.LateGraceMinutes, EarlyDepartureGraceMinutes = policy.EarlyDepartureGraceMinutes };
                 await records.AddAsync(record, ct);
                 row.AttendanceRecordId = record.Id;

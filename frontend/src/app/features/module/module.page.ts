@@ -436,7 +436,7 @@ export class ModulePage implements OnInit, OnDestroy {
     if (!row) return null;
     const point = this.coordinates(row, kind);
     if (!point) return null;
-    const offset = 0.006;
+    const offset = 0.0015;
     const bbox = [
       point.longitude - offset,
       point.latitude - offset,

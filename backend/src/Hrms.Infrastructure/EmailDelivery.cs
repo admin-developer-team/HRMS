@@ -69,7 +69,7 @@ public sealed class EmailOutboxWorker(IServiceScopeFactory scopeFactory, ILogger
     private DateTimeOffset _nextLinkCleanupAt = DateTimeOffset.MinValue;
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(10));
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(5));
         do
         {
             try { await ProcessBatchAsync(stoppingToken); }
@@ -103,9 +103,11 @@ public sealed class EmailOutboxWorker(IServiceScopeFactory scopeFactory, ILogger
             if (item is null || item.SentAt is not null || item.NextAttemptAt > DateTimeOffset.UtcNow) continue;
             tenant.Set(item.TenantId);
             item.AttemptCount++;
+            item.Version++;
+            item.UpdatedAt = DateTimeOffset.UtcNow;
             item.NextAttemptAt = DateTimeOffset.UtcNow.AddMinutes(5);
             try { await db.SaveChangesAsync(ct); }
-            catch (DbUpdateConcurrencyException) { db.ChangeTracker.Clear(); continue; }
+            catch (DbUpdateConcurrencyException) { db.ChangeTracker.Clear(); tenant.Clear(); continue; }
 
             try
             {
@@ -159,8 +161,20 @@ public sealed class EmailOutboxWorker(IServiceScopeFactory scopeFactory, ILogger
             catch (Exception ex)
             {
                 item.LastError = ex.Message.Length > 2000 ? ex.Message[..2000] : ex.Message;
-                item.NextAttemptAt = DateTimeOffset.UtcNow.AddMinutes(Math.Min(60, Math.Pow(2, item.AttemptCount)));
-                logger.LogWarning(ex, "Email {EmailId} delivery attempt {Attempt} failed.", item.Id, item.AttemptCount);
+                item.NextAttemptAt = DateTimeOffset.UtcNow.Add(item.AttemptCount switch
+                {
+                    1 => TimeSpan.FromSeconds(20),
+                    2 => TimeSpan.FromMinutes(1),
+                    3 => TimeSpan.FromMinutes(3),
+                    4 => TimeSpan.FromMinutes(10),
+                    5 => TimeSpan.FromMinutes(20),
+                    _ => TimeSpan.FromMinutes(60)
+                });
+                if (item.AttemptCount >= 8)
+                    logger.LogError(ex, "Email {EmailId} stopped after {Attempt} delivery attempts.", item.Id, item.AttemptCount);
+                else
+                    logger.LogWarning(ex, "Email {EmailId} delivery attempt {Attempt} failed; retry at {NextAttemptAt}.",
+                        item.Id, item.AttemptCount, item.NextAttemptAt);
             }
             finally { await db.SaveChangesAsync(ct); db.ChangeTracker.Clear(); tenant.Clear(); }
         }

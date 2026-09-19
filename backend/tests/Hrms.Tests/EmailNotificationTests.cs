@@ -54,6 +54,29 @@ public sealed class EmailNotificationTests
     }
 
     [Fact]
+    public async Task Background_email_test_uses_the_outbox_and_reports_delivery_state()
+    {
+        var tenant = new MutableTenant();
+        await using var db = new HrmsDbContext(new DbContextOptionsBuilder<HrmsDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, tenant, new TestCurrentUser(), new TestNotificationPublisher());
+        db.EmailConfigurations.Add(new EmailConfiguration { TenantId = tenant.TenantId!.Value, IsEnabled = true });
+        await db.SaveChangesAsync();
+        var service = new EmailAdministrationService(new Repository<EmailConfiguration>(db), new Repository<EmailTemplate>(db),
+            new Repository<Tenant>(db), new Repository<UserAccount>(db), tenant, new TestCurrentUser(), db,
+            new StubProtector(), new StubTransport(), new Repository<EmailOutboxItem>(db));
+
+        var queued = await service.QueueTestAsync(new("admin@example.test"), default);
+        Assert.Equal("queued", queued.Status);
+        var row = await db.EmailOutboxItems.SingleAsync();
+        Assert.Equal(EmailTemplateKeys.DefaultNotification, row.TemplateKey);
+        Assert.Equal("admin@example.test", row.ToEmail);
+        row.AttemptCount = 1; row.LastError = "Temporary failure";
+        Assert.Equal("retrying", (await service.GetDeliveryStatusAsync(row.Id, default)).Status);
+        row.SentAt = DateTimeOffset.UtcNow;
+        Assert.Equal("accepted", (await service.GetDeliveryStatusAsync(row.Id, default)).Status);
+    }
+
+    [Fact]
     public void Account_templates_use_secure_action_without_exposing_password()
     {
         var templates = EmailTemplateCatalog.CreateDefaults(Guid.NewGuid());
@@ -202,5 +225,16 @@ public sealed class EmailNotificationTests
     private sealed class FixedGlobalEmailConfigurationReader(bool enabled) : IGlobalEmailConfigurationReader
     {
         public Task<bool> IsEnabledAsync(CancellationToken ct) => Task.FromResult(enabled);
+    }
+
+    private sealed class StubProtector : IEmailSecretProtector
+    {
+        public string Protect(string value) => value;
+        public string Unprotect(string value) => value;
+    }
+
+    private sealed class StubTransport : IEmailTransport
+    {
+        public Task SendAsync(EmailDeliverySettings settings, RenderedEmail email, CancellationToken ct) => Task.CompletedTask;
     }
 }

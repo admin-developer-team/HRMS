@@ -63,6 +63,8 @@ public sealed class HrmsDbContext(DbContextOptions<HrmsDbContext> options, ICurr
     public DbSet<TrainingCourse> TrainingCourses => Set<TrainingCourse>();
     public DbSet<TrainingEnrollment> TrainingEnrollments => Set<TrainingEnrollment>();
     public DbSet<Announcement> Announcements => Set<Announcement>();
+    public DbSet<Meeting> Meetings => Set<Meeting>();
+    public DbSet<MeetingAttendee> MeetingAttendees => Set<MeetingAttendee>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
     public DbSet<WorkProject> WorkProjects => Set<WorkProject>();
@@ -126,6 +128,9 @@ public sealed class HrmsDbContext(DbContextOptions<HrmsDbContext> options, ICurr
         modelBuilder.Entity<Asset>().HasIndex(x => new { x.TenantId, x.AssetTag }).IsUnique();
         modelBuilder.Entity<ExpenseClaim>().HasIndex(x => new { x.TenantId, x.ClaimNumber }).IsUnique();
         modelBuilder.Entity<TrainingEnrollment>().HasIndex(x => new { x.TenantId, x.CourseId, x.EmployeeId });
+        modelBuilder.Entity<Meeting>().HasIndex(x => new { x.TenantId, x.StartsAt, x.EndsAt });
+        modelBuilder.Entity<MeetingAttendee>().HasIndex(x => new { x.TenantId, x.MeetingId, x.EmployeeId }).IsUnique().HasFilter("\"IsDeleted\" = false");
+        modelBuilder.Entity<MeetingAttendee>().HasIndex(x => new { x.TenantId, x.EmployeeId, x.MeetingId });
         modelBuilder.Entity<WorkProject>().HasIndex(x => new { x.TenantId, x.Key }).IsUnique();
         modelBuilder.Entity<WorkProjectMember>().HasIndex(x => new { x.TenantId, x.ProjectId, x.EmployeeId })
             .IsUnique().HasFilter("\"IsDeleted\" = false");

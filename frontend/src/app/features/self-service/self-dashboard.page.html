@@ -84,7 +84,7 @@
         <mat-icon>location_on</mat-icon
         ><span
           ><b>{{ dashboard()?.requireLocationCapture ? 'Location verification' : 'Attendance privacy' }}</b>
-          @if (dashboard()?.requireLocationCapture) { {{ locationStatus() }} Your browser asks permission before every capture. }
+          @if (dashboard()?.requireLocationCapture) { {{ locationStatus() }} @if (lastLocationUrl(); as url) { <a [href]="url" target="_blank" rel="noopener noreferrer">View captured location</a> } }
           @else { Your company does not require location for attendance. }</span
         >
       </div>

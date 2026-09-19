@@ -23,7 +23,7 @@ public static class EmailTemplateKeys
     public static readonly string[] NotificationKinds =
     [
         "leave", "attendance", "timesheet", "document", "announcement", "payroll", "recruitment",
-        "performance", "asset", "expense", "training", "security", "work"
+        "performance", "asset", "expense", "training", "security", "work", "meeting"
     ];
 }
 
@@ -68,7 +68,7 @@ public static class EmailTemplateCatalog
             ["leave"] = "Leave", ["attendance"] = "Attendance", ["timesheet"] = "Timesheet",
             ["document"] = "Employee document", ["announcement"] = "Announcement", ["payroll"] = "Payroll",
             ["recruitment"] = "Recruitment", ["performance"] = "Performance", ["asset"] = "Asset",
-            ["expense"] = "Expense", ["training"] = "Training", ["security"] = "Account security", ["work"] = "Work management"
+            ["expense"] = "Expense", ["training"] = "Training", ["security"] = "Account security", ["work"] = "Work management", ["meeting"] = "Meeting"
         };
         rows.AddRange(EmailTemplateKeys.NotificationKinds.Select(kind =>
             New(tenantId, EmailTemplateKeys.ForNotification(kind), names[kind] + " notification", "{{companyName}} · {{title}}", html, text)));
@@ -90,6 +90,8 @@ public sealed record EmailTemplateDto(Guid Id, string Key, string Name, string S
 public sealed record UpdateEmailTemplateRequest(string SubjectTemplate, string HtmlTemplate,
     string? TextTemplate, bool IsEnabled, long Version);
 public sealed record SendTestEmailRequest(string? RecipientEmail);
+public sealed record EmailDeliveryStatusDto(Guid Id, string Status, int Attempts, DateTimeOffset? SentAt,
+    DateTimeOffset NextAttemptAt, string? LastError);
 public sealed record EmailDeliverySettings(string Host, int Port, string? Username, string? Password,
     bool UseTls, string FromEmail, string FromName, string? ReplyToEmail);
 public sealed record RenderedEmail(string ToEmail, string? ToName, string Subject, string HtmlBody, string TextBody);
@@ -122,6 +124,8 @@ public interface IEmailAdministrationService
     Task<IReadOnlyList<EmailTemplateDto>> ListTemplatesAsync(CancellationToken ct);
     Task<EmailTemplateDto> UpdateTemplateAsync(Guid id, UpdateEmailTemplateRequest request, CancellationToken ct);
     Task SendTestAsync(SendTestEmailRequest request, CancellationToken ct);
+    Task<EmailDeliveryStatusDto> QueueTestAsync(SendTestEmailRequest request, CancellationToken ct);
+    Task<EmailDeliveryStatusDto> GetDeliveryStatusAsync(Guid id, CancellationToken ct);
 }
 
 public sealed class EmailQueue(IGlobalEmailConfigurationReader configuration, IRepository<EmailOutboxItem> outbox,
@@ -142,6 +146,8 @@ public sealed class EmailQueue(IGlobalEmailConfigurationReader configuration, IR
             ToName = string.IsNullOrWhiteSpace(toName) ? null : toName.Trim(),
             TemplateKey = templateKey.Trim().ToLowerInvariant(),
             ModelJson = JsonSerializer.Serialize(model),
+            CreatedAt = DateTimeOffset.UtcNow,
+            Version = 1,
             NextAttemptAt = DateTimeOffset.UtcNow
         }, ct);
     }
@@ -156,7 +162,8 @@ public sealed class EmailAdministrationService(
     ICurrentUser user,
     IUnitOfWork unitOfWork,
     IEmailSecretProtector protector,
-    IEmailTransport transport) : IEmailAdministrationService
+    IEmailTransport transport,
+    IRepository<EmailOutboxItem> outbox) : IEmailAdministrationService
 {
     private Guid TenantId => tenant.TenantId ?? throw new UnauthorizedAccessException("Tenant identity is missing.");
 
@@ -227,6 +234,38 @@ public sealed class EmailAdministrationService(
             throw new DomainException("The saved SMTP password can no longer be decrypted. Enter the SMTP key again and save the settings.");
         }
     }
+
+    public async Task<EmailDeliveryStatusDto> QueueTestAsync(SendTestEmailRequest request, CancellationToken ct)
+    {
+        var config = await configurations.FirstOrDefaultAsync(x => true, ct);
+        if (config is not { IsEnabled: true }) throw new DomainException("Enable and save email settings before testing queued delivery.");
+        var currentUser = user.UserId.HasValue ? await users.GetByIdAsync(user.UserId.Value, ct) : null;
+        var recipient = NullIfBlank(request.RecipientEmail) ?? currentUser?.Email ?? throw new DomainException("A test recipient is required.");
+        try { _ = new MailAddress(recipient); } catch (FormatException) { throw new DomainException("Test recipient email is invalid."); }
+        var now = DateTimeOffset.UtcNow;
+        var row = new EmailOutboxItem
+        {
+            TenantId = TenantId, ToEmail = recipient.ToLowerInvariant(), ToName = currentUser?.DisplayName,
+            TemplateKey = EmailTemplateKeys.DefaultNotification,
+            ModelJson = JsonSerializer.Serialize(new Dictionary<string, string?>
+            {
+                ["title"] = "Queued email delivery test",
+                ["message"] = "This message used the same background delivery queue as company, meeting, leave, and work emails.",
+                ["link"] = "/settings"
+            }),
+            CreatedAt = now, NextAttemptAt = now, Version = 1
+        };
+        await outbox.AddAsync(row, ct);
+        await unitOfWork.SaveChangesAsync(ct);
+        return DeliveryStatus(row);
+    }
+
+    public async Task<EmailDeliveryStatusDto> GetDeliveryStatusAsync(Guid id, CancellationToken ct) =>
+        DeliveryStatus(await outbox.GetByIdAsync(id, ct) ?? throw new KeyNotFoundException("Email delivery test not found."));
+
+    private static EmailDeliveryStatusDto DeliveryStatus(EmailOutboxItem row) =>
+        new(row.Id, row.SentAt.HasValue ? "accepted" : row.AttemptCount >= 8 ? "failed" : row.AttemptCount > 0 ? "retrying" : "queued",
+            row.AttemptCount, row.SentAt, row.NextAttemptAt, row.LastError);
 
     public static EmailDeliverySettings ToDeliverySettings(EmailConfiguration row, IEmailSecretProtector protector) =>
         new(row.Host, row.Port, row.Username,

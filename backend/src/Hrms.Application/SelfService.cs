@@ -72,8 +72,10 @@ public sealed class SelfService(
         return new(MapProfile(employee), todayAttendance is null ? null : MapPrivateAttendance(todayAttendance), todayTotalHours, todayRows.Count, policy.RequireLocationCapture, pendingLeave, balances.Sum(x => x.Available), pendingTimesheets, openExpenses, trainingDue, news.Take(5).ToArray());
     }
 
-    public async Task<AttendanceDto> ClockInAsync(SelfClockRequest r, string? ip, string? agent, CancellationToken ct) { await EnforceLocationPolicy(r, ct); return RemoveLocation(await attendanceService.ClockInAsync(ToClock(r, ip, agent), ct)); }
-    public async Task<AttendanceDto> ClockOutAsync(SelfClockRequest r, string? ip, string? agent, CancellationToken ct) { await EnforceLocationPolicy(r, ct); return RemoveLocation(await attendanceService.ClockOutAsync(ToClock(r, ip, agent), ct)); }
+    public async Task<AttendanceDto> ClockInAsync(SelfClockRequest r, string? ip, string? agent, CancellationToken ct) => RemoveLocation(await attendanceService.ClockInAsync(ToClock(r, ip, agent), ct));
+    public async Task<AttendanceDto> ClockOutAsync(SelfClockRequest r, string? ip, string? agent, CancellationToken ct) => RemoveLocation(await attendanceService.ClockOutAsync(ToClock(r, ip, agent), ct));
+    public Task AttachAttendanceLocationAsync(Guid attendanceId, AttendanceLocationRequest r, CancellationToken ct) =>
+        attendanceService.AttachLocationAsync(attendanceId, EmployeeId, r, ct);
     public async Task<PagedResult<AttendanceDto>> GetAttendanceAsync(PagedRequest r, DateOnly? from, DateOnly? to, CancellationToken ct)
     {
         var result = await attendanceService.SearchAsync(r, EmployeeId, from, to, ct);
@@ -203,11 +205,6 @@ public sealed class SelfService(
         ClockInIpAddress = null, ClockInUserAgent = null, ClockOutLatitude = null, ClockOutLongitude = null,
         ClockOutAccuracyMeters = null, ClockOutAddress = null, ClockOutIpAddress = null, ClockOutUserAgent = null
     };
-    private async Task EnforceLocationPolicy(SelfClockRequest r, CancellationToken ct)
-    {
-        var policy = (await attendanceService.GetPolicyAsync(ct))[0];
-        if (policy.RequireLocationCapture && (!r.Latitude.HasValue || !r.Longitude.HasValue || !r.AccuracyMeters.HasValue)) throw new DomainException("Your company requires location for check-in and check-out.");
-    }
     private static SelfProfileDto MapProfile(Employee x) => new(x.Id, x.EmployeeNumber, x.FullName, x.WorkEmail, x.Phone, x.HireDate, x.Status, x.EmploymentType, x.DepartmentId, x.DesignationId, x.LocationId, x.ManagerId, x.SalaryCurrency, x.BaseSalary);
     private static AssetDto MapAsset(Asset x) => new(x.Id, x.AssetTag, x.Name, x.Category, x.SerialNumber, x.Status);
     private static TimesheetDto MapTimesheet(TimesheetEntry x) => new(x.Id, x.EmployeeId, x.WorkDate, x.ProjectCode, x.Description, x.Hours, x.Status, x.Version);

@@ -88,7 +88,7 @@ public sealed class PlatformExperienceService(HrmsDbContext db, ICurrentTenant c
 
     public async Task ActivateAsync(ActivateAccountRequest request, CancellationToken ct)
     {
-        if (request.Password.Length is < 12 or > 256) throw new DomainException("Use a password of at least 12 characters.");
+        if (request.Password.Length is < 8 or > 256) throw new DomainException("Use a password of at least 8 characters.");
         if (string.IsNullOrWhiteSpace(request.Token)) throw new DomainException("The activation link is invalid or expired.");
         var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(request.Token)));
         var invite = await db.AccountActivations.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.TokenHash == hash && !x.IsDeleted, ct);
@@ -246,6 +246,8 @@ public sealed class PlatformExperienceService(HrmsDbContext db, ICurrentTenant c
                 ["applicationBaseUrl"] = applicationBaseUrl,
                 ["actionUrl"] = actionUrl
             }),
+            CreatedAt = DateTimeOffset.UtcNow,
+            Version = 1,
             NextAttemptAt = DateTimeOffset.UtcNow });
     }
 

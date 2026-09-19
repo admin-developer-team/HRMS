@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ApiService } from '../../core/api.service';
@@ -51,13 +51,13 @@ export class HomePage {
   selector: 'app-get-started', imports: [FormsModule, RouterLink], styleUrl: './public-pages.scss',
   template: `<div class="public-site form-site"><nav class="public-nav"><a class="logo" routerLink="/"><span class="logo-mark" aria-hidden="true"><i></i><i></i><i></i></span><strong>PeopleFlow<span>.</span></strong></a><div class="nav-actions"><a routerLink="/help">Need help?</a><a routerLink="/login">Sign in</a></div></nav>
     <main class="form-layout"><div class="form-intro"><span class="eyebrow">YOUR NEXT CHAPTER STARTS HERE</span><h1>Your people platform,<br><em>ready in minutes.</em></h1><p>Start a 30-day trial. We’ll email a secure link to set your password and open your company workspace.</p><div class="step-list"><div><b>01</b><span>Create your workspace</span></div><div><b>02</b><span>Activate from your email</span></div><div><b>03</b><span>Explore for 30 days</span></div></div></div>
-      <section class="form-card">@if (done) { <span class="success-icon">✓</span><h2>Check your inbox</h2><p>We sent an activation link to <strong>{{ adminEmail }}</strong>. Set your password to start the trial.</p><p>Your workspace: <a [href]="companyUrl">{{ companyUrl }}</a></p><button type="button" class="outline-button" (click)="resend()" [disabled]="busy">Resend activation email</button>@if (resendMessage) { <p class="form-note">{{ resendMessage }}</p> } } @else {
+      <section class="form-card">@if (done()) { <span class="success-icon">✓</span><h2>Check your inbox</h2><p>We sent an activation link to <strong>{{ adminEmail }}</strong>. Set your password to start the trial.</p><p>Your workspace: <a [href]="companyUrl()">{{ companyUrl() }}</a></p><button type="button" class="outline-button" (click)="resend()" [disabled]="busy()">Resend activation email</button>@if (resendMessage()) { <p class="form-note">{{ resendMessage() }}</p> } } @else {
         <span class="card-kicker">GET STARTED FREE</span><h2>Create your company</h2><p>Only the essentials for now. You can finish your company profile later.</p>
         <form (ngSubmit)="submit()"><label>Company name<input name="companyName" [(ngModel)]="companyName" required minlength="2" placeholder="Acme Studio" /></label>
           <label>Workspace address<div class="slug-input"><input name="slug" [(ngModel)]="slug" required minlength="3" pattern="[a-z0-9][a-z0-9-]*[a-z0-9]" placeholder="acme" /><span>.{{ domain }}</span></div></label>
           <div class="form-row"><label>Your name<input name="adminName" [(ngModel)]="adminName" required placeholder="Alex Morgan" /></label><label>Work email<input name="adminEmail" [(ngModel)]="adminEmail" type="email" required placeholder="alex@company.com" /></label></div>
           <label>Plan to explore<select name="preferredPlanCode" [(ngModel)]="preferredPlanCode"><option value="starter">Starter</option><option value="professional">Professional</option><option value="enterprise">Enterprise</option></select></label>
-          @if (error) { <p class="form-error">{{ error }}</p> }<button class="form-submit" [disabled]="busy" type="submit">{{ busy ? 'Creating your workspace…' : 'Start 30-day free trial' }} <span>↗</span></button>
+          @if (error()) { <p class="form-error">{{ error() }}</p> }<button class="form-submit" [disabled]="busy()" type="submit">{{ busy() ? 'Creating your workspace…' : 'Start 30-day free trial' }} <span>↗</span></button>
           <small>No payment details needed today. Your trial begins when you activate your account.</small></form>
         } </section></main></div>`,
 })
@@ -65,22 +65,28 @@ export class GetStartedPage {
   private readonly api = inject(ApiService);
   companyName = ''; slug = ''; adminName = ''; adminEmail = ''; preferredPlanCode = 'starter';
   domain = window.location.hostname === 'localhost' ? 'localhost' : window.location.hostname;
-  companyUrl = ''; busy = false; done = false; error = ''; resendMessage = '';
+  companyUrl = signal(''); busy = signal(false); done = signal(false); error = signal(''); resendMessage = signal('');
   submit(): void {
-    if (this.busy) return;
-    this.slug = this.slug.trim().toLowerCase(); this.busy = true; this.error = '';
+    if (this.busy()) return;
+    this.slug = this.slug.trim().toLowerCase(); this.busy.set(true); this.error.set('');
     this.api.post('/public/trials', { companyName: this.companyName, slug: this.slug, adminName: this.adminName,
       adminEmail: this.adminEmail, preferredPlanCode: this.preferredPlanCode, applicationBaseUrl: window.location.origin }).subscribe({
-      next: () => { this.busy = false; this.done = true; this.companyUrl = workspaceUrl(this.slug); },
-      error: e => { this.busy = false; this.error = e.error?.detail || 'We could not create the workspace. Please try again.'; },
+      next: () => { this.busy.set(false); this.done.set(true); this.companyUrl.set(workspaceUrl(this.slug)); },
+      error: e => {
+        this.busy.set(false);
+        const seconds = Number(e.headers?.get('Retry-After'));
+        this.error.set(e.status === 429
+          ? `Too many signup attempts from this network. ${Number.isFinite(seconds) && seconds > 0 ? `Try again in about ${Math.ceil(seconds / 60)} minute(s). ` : 'Please wait a few minutes. '}If an earlier attempt succeeded, check your email for the activation link.`
+          : e.error?.detail || 'We could not create the workspace. Please try again.');
+      },
     });
   }
   resend(): void {
-    this.busy = true; this.api.post('/public/trials/resend', {
+    this.busy.set(true); this.api.post('/public/trials/resend', {
       slug: this.slug, email: this.adminEmail, applicationBaseUrl: window.location.origin,
     }).subscribe({
-      next: () => { this.busy = false; this.resendMessage = 'If the account is pending, another email has been queued.'; },
-      error: () => { this.busy = false; this.resendMessage = 'Could not resend right now. Please try again later.'; },
+      next: () => { this.busy.set(false); this.resendMessage.set('If the account is pending, another email has been queued.'); },
+      error: () => { this.busy.set(false); this.resendMessage.set('Could not resend right now. Please try again later.'); },
     });
   }
 }
@@ -88,26 +94,30 @@ export class GetStartedPage {
 @Component({
   selector: 'app-activate', imports: [FormsModule, RouterLink], styleUrl: './public-pages.scss',
   template: `<div class="public-site form-site"><nav class="public-nav"><a class="logo" routerLink="/"><span class="logo-mark" aria-hidden="true"><i></i><i></i><i></i></span><strong>PeopleFlow<span>.</span></strong></a><a routerLink="/help">Need help?</a></nav>
-  <main class="single-form"><section class="form-card"><span class="card-kicker">SECURE ACCOUNT SETUP</span>@if (done) { <span class="success-icon">✓</span><h1>Your account is ready.</h1><p>Your 30-day trial has started. Sign in to explore your workspace.</p><a class="form-submit" routerLink="/login">Continue to sign in <span>↗</span></a> } @else { <h1>Make it yours.</h1><p>Set your password now. The remaining company details can wait.</p>
-    <form (ngSubmit)="submit()"><label>Password<input name="password" [(ngModel)]="password" type="password" required minlength="12" autocomplete="new-password" placeholder="At least 12 characters" /></label>
-      <label>Confirm password<input name="confirm" [(ngModel)]="confirm" type="password" required autocomplete="new-password" /></label>
+  <main class="single-form"><section class="form-card"><span class="card-kicker">SECURE ACCOUNT SETUP</span>@if (done()) { <span class="success-icon">✓</span><h1>Your account is ready.</h1><p>Your 30-day trial has started. Sign in to explore your workspace.</p><a class="form-submit" routerLink="/login">Continue to sign in <span>↗</span></a> } @else { <h1>Make it yours.</h1><p>Set your password now. The remaining company details can wait.</p>
+    <form (ngSubmit)="submit()"><label>Password<input name="password" [(ngModel)]="password" [type]="showPassword() ? 'text' : 'password'" required minlength="8" maxlength="256" autocomplete="new-password" placeholder="At least 8 characters" /></label>
+      <div class="password-guidance"><span>{{ password.length >= 8 ? '✓' : '○' }} At least 8 characters</span><span>{{ password.length >= 12 ? '✓' : '○' }} Longer is stronger</span><button type="button" (click)="showPassword.set(!showPassword())">{{ showPassword() ? 'Hide password' : 'Show password' }}</button></div>
+      <label>Confirm password<input name="confirm" [(ngModel)]="confirm" type="password" required maxlength="256" autocomplete="new-password" /></label>
+      @if (confirm && password !== confirm) { <small class="form-error">Passwords do not match.</small> }
       <label>Legal company name <span class="optional">optional</span><input name="legalName" [(ngModel)]="legalName" placeholder="Add later if you prefer" /></label>
       <label>Time zone <span class="optional">optional</span><select name="timeZone" [(ngModel)]="timeZone"><option value="">Use Asia/Kolkata</option><option value="Asia/Kolkata">Asia/Kolkata</option></select></label>
-      @if (error) { <p class="form-error">{{ error }}</p> }<button class="form-submit" [disabled]="busy" type="submit">{{ busy ? 'Activating…' : 'Activate my account' }} <span>↗</span></button></form> }</section></main></div>`,
+      @if (error()) { <p class="form-error">{{ error() }}</p> }<button class="form-submit" [disabled]="busy() || password.length < 8 || password !== confirm" type="submit">{{ busy() ? 'Activating…' : 'Activate my account' }} <span>↗</span></button></form> }</section></main></div>`,
 })
 export class ActivatePage {
   private readonly api = inject(ApiService); private readonly route = inject(ActivatedRoute);
   private readonly auth = inject(AuthService);
   token = this.route.snapshot.queryParamMap.get('token') ?? '';
-  password = ''; confirm = ''; legalName = ''; timeZone = ''; busy = false; done = false; error = '';
+  password = ''; confirm = ''; legalName = ''; timeZone = ''; busy = signal(false); done = signal(false); error = signal('');
+  showPassword = signal(false);
   constructor() { this.auth.beginPublicActivation(); }
   submit(): void {
-    if (this.password !== this.confirm) { this.error = 'Passwords do not match.'; return; }
-    if (!this.token) { this.error = 'This activation link is missing its token.'; return; }
-    this.busy = true; this.error = '';
+    if (this.password.length < 8 || this.password.length > 256) { this.error.set('Use a password of at least 8 characters.'); return; }
+    if (this.password !== this.confirm) { this.error.set('Passwords do not match.'); return; }
+    if (!this.token) { this.error.set('This activation link is missing its token.'); return; }
+    this.busy.set(true); this.error.set('');
     this.api.post('/public/activate', { token: this.token, password: this.password, legalName: this.legalName, timeZone: this.timeZone }).subscribe({
-      next: () => { this.busy = false; this.done = true; this.password = ''; this.confirm = ''; },
-      error: e => { this.busy = false; this.error = e.error?.detail || 'This link could not be used. Request another invitation.'; },
+      next: () => { this.busy.set(false); this.done.set(true); this.password = ''; this.confirm = ''; },
+      error: e => { this.busy.set(false); this.error.set(e.error?.detail || 'This link could not be used. Request another invitation.'); },
     });
   }
 }

@@ -25,10 +25,21 @@ public static class DependencyInjection
         services.AddHttpContextAccessor();
         var dataProtection = services.AddDataProtection().SetApplicationName("PeopleFlow.HRMS");
         var keyPath = configuration["DataProtection:KeysPath"];
+        var usingWindowsProfileKeys = false;
+        if (string.IsNullOrWhiteSpace(keyPath) && OperatingSystem.IsWindows())
+        {
+            var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            if (!string.IsNullOrWhiteSpace(localAppData))
+            {
+                keyPath = Path.Combine(localAppData, "ASP.NET", "DataProtection-Keys");
+                usingWindowsProfileKeys = true;
+            }
+        }
         if (!string.IsNullOrWhiteSpace(keyPath))
         {
             Directory.CreateDirectory(keyPath);
             dataProtection.PersistKeysToFileSystem(new DirectoryInfo(keyPath));
+            if (usingWindowsProfileKeys && OperatingSystem.IsWindows()) dataProtection.ProtectKeysWithDpapi();
         }
         services.AddScoped<ICurrentTenant, CurrentTenant>();
         services.AddScoped<ICurrentUser, CurrentUser>();
@@ -86,6 +97,7 @@ public static class DependencyInjection
         services.AddScoped<IWorkforceOperationsService, WorkforceOperationsService>();
         services.AddScoped<IGlobalSearchService, GlobalSearchService>();
         services.AddScoped<CalendarService>();
+        services.AddScoped<MeetingService>();
         services.AddMemoryCache();
         services.AddHttpClient<IPublicHolidaySource, PublicHolidaySource>(client => client.Timeout = TimeSpan.FromSeconds(8));
         services.AddScoped<IndiaPayrollEngine>();

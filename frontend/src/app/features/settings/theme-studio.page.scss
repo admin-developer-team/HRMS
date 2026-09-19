@@ -261,6 +261,10 @@
 }
 
 .test-recipient { margin-right: auto; min-width: 260px; }
+.email-delivery-status { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 12px; padding: 12px 14px; border: 1px solid #d8e5f3; border-radius: 10px; background: #f6faff; }
+.email-delivery-status > div { display: grid; gap: 3px; min-width: 0; }
+.email-delivery-status strong { color: #193c65; font-size: .9rem; }
+.email-delivery-status span, .email-delivery-status small { color: #536b87; font-size: .8rem; overflow-wrap: anywhere; }
 
 .email-template-card textarea {
   width: 100%;

@@ -5,7 +5,6 @@
       <h1>Company calendar</h1>
       <p>See what is observed, what your office has approved, and the days that matter to you.</p>
     </div>
-    @if (canManage()) { <button class="primary" type="button" (click)="openCreate()"><span class="material-symbols-rounded">add</span> Add holiday</button> }
   </header>
 
   <div class="stats">
@@ -32,15 +31,22 @@
             @if (day.optional.length) { <span class="event optional-event">{{ day.optional[0].name }}</span> }
             @if (day.suggested.length && !day.office.length && !day.optional.length) { <span class="event public-event">{{ day.suggested[0].name }}</span> }
             @if (day.leave.length) { <span class="event leave-event">Leave · {{ day.leave[0].status }}</span> }
+            @if (day.meetings.length) { <span class="event meeting-event">{{ day.meetings[0].title }}{{ day.meetings.length > 1 ? ' +' + (day.meetings.length - 1) : '' }}</span> }
             @if (day.attendance.length) { <span class="attendance-dot" title="Attendance recorded"></span> }
           </button>
         }
       </div>
-      <div class="legend"><span><i class="office-dot"></i> Office closed</span><span><i class="optional-dot"></i> Optional</span><span><i class="public-dot"></i> Public calendar</span><span><i class="leave-dot"></i> Leave</span><span><i class="attendance-legend"></i> Attendance</span></div>
+      <div class="legend"><span><i class="office-dot"></i> Office closed</span><span><i class="optional-dot"></i> Optional</span><span><i class="public-dot"></i> Public calendar</span><span><i class="leave-dot"></i> Leave</span><span><i class="meeting-dot"></i> Meetings</span><span><i class="attendance-legend"></i> Attendance</span></div>
     </section>
 
     <aside class="details">
-      <div class="details-heading"><span class="eyebrow">SELECTED DAY</span><h2>{{ selectedDate() | date:'EEEE, d MMMM' }}</h2><p>{{ selectedDate() | date:'yyyy' }}</p></div>
+      <div class="details-heading"><div><span class="eyebrow">SELECTED DAY</span><h2>{{ selectedDate() | date:'EEEE, d MMMM' }}</h2><p>{{ selectedDate() | date:'yyyy' }}</p></div>
+        <div class="add-menu" #addMenu><button type="button" class="add-day-button" aria-label="Add to selected day" [attr.aria-expanded]="addMenuOpen()" aria-haspopup="true" (click)="addMenuOpen.set(!addMenuOpen())"><span class="material-symbols-rounded">add</span></button>
+          @if (addMenuOpen()) { <div class="add-menu-options"><button type="button" (click)="openMeetingCreate()"><span class="material-symbols-rounded">groups</span> Schedule meeting</button>
+            @if (canManage()) { <button type="button" (click)="openCreate()"><span class="material-symbols-rounded">celebration</span> Add holiday</button> }
+          </div> }
+        </div>
+      </div>
       @if (selectedDay(); as day) {
         @if (day.isWeekend) { <div class="detail-item rest"><span class="material-symbols-rounded">weekend</span><div><strong>Scheduled rest day</strong><p>Based on your company's working days.</p></div></div> }
         @for (holiday of day.office; track holiday.id) {
@@ -60,8 +66,15 @@
           </div></div>
         }
         @for (leave of day.leave; track leave.startsOn) { <div class="detail-item leave-detail"><span class="material-symbols-rounded">beach_access</span><div><strong>Leave {{ leave.status.toLowerCase() }}</strong><p>{{ leave.startsOn | date:'d MMM' }} – {{ leave.endsOn | date:'d MMM' }}</p></div></div> }
+        @for (meeting of day.meetings; track meeting.id) { <div class="detail-item meeting-detail"><span class="material-symbols-rounded">groups</span><div><strong>{{ meeting.title }}</strong><p>{{ meeting.startsAt | date:'EEE, d MMM, h:mm a' }} – {{ meeting.endsAt | date:'h:mm a' }}</p><p>Organized by {{ meeting.organizerName }} · {{ meeting.attendees.length }} attendee{{ meeting.attendees.length === 1 ? '' : 's' }}</p>
+          @if (meeting.description) { <p>{{ meeting.description }}</p> }
+          @if (meeting.location) { <p>Location: {{ meeting.location }}</p> }
+          @if (meeting.meetingUrl) { <a [href]="meeting.meetingUrl" target="_blank" rel="noopener noreferrer">Join meeting</a> }
+          @if (meeting.attendees.length) { <p>With {{ attendeeNames(meeting) }}</p> }
+          @if (meeting.canEdit) { <div class="inline-actions"><button type="button" (click)="openMeetingEdit(meeting)">Edit</button><button type="button" (click)="cancelMeeting(meeting)">Cancel meeting</button></div> }
+        </div></div> }
         @for (attendance of day.attendance; track attendance.date) { <div class="detail-item attendance-detail"><span class="material-symbols-rounded">schedule</span><div><strong>Attendance recorded</strong><p>{{ attendance.workHours }} hours · {{ attendance.status }}</p></div></div> }
-        @if (!day.isWeekend && !day.office.length && !day.optional.length && !day.suggested.length && !day.leave.length && !day.attendance.length) { <div class="empty-day"><span class="material-symbols-rounded">wb_sunny</span><strong>Nothing planned for this day</strong><p>Enjoy the space on your calendar.</p></div> }
+        @if (!day.isWeekend && !day.office.length && !day.optional.length && !day.suggested.length && !day.leave.length && !day.attendance.length && !day.meetings.length) { <div class="empty-day"><span class="material-symbols-rounded">wb_sunny</span><strong>Nothing planned for this day</strong><p>Enjoy the space on your calendar.</p></div> }
       }
       <div class="source-note"><span class="material-symbols-rounded">info_outline</span><p>@if (month()?.suggestionsAvailable) { Public dates for {{ month()?.countryCode }} are suggested from {{ month()?.countryCode === 'IN' ? 'Google Calendar' : 'Nager.Date' }}. HR confirms office holidays. } @else { Public suggestions are unavailable for this location or moment. Your company calendar still works. }</p></div>
     </aside>
@@ -79,6 +92,26 @@
       <label>Applies to<select name="locationId" [(ngModel)]="form.locationId"><option value="">All locations</option>@for (location of locations(); track location.id) { <option [value]="location.id">{{ location.name }}</option> }</select></label>
       <div class="type-choices"><label [class.active]="!form.isOptional"><input type="radio" name="kind" [value]="false" [(ngModel)]="form.isOptional" /><strong>Office holiday</strong><small>Everyone at this location is off</small></label><label [class.active]="form.isOptional"><input type="radio" name="kind" [value]="true" [(ngModel)]="form.isOptional" /><strong>Optional holiday</strong><small>Employees may choose this day</small></label></div>
       <div class="editor-actions"><button type="button" (click)="editorOpen.set(false)">Cancel</button><button class="primary" type="submit" [disabled]="saving()">{{ saving() ? 'Saving…' : 'Save holiday' }}</button></div>
+    </form>
+  </section>
+}
+
+@if (meetingEditorOpen()) {
+  <div class="dialog-backdrop" (click)="meetingEditorOpen.set(false)"></div>
+  <section class="editor meeting-editor" role="dialog" aria-modal="true" aria-labelledby="meeting-editor-title">
+    <div class="editor-heading"><div><span class="eyebrow">TEAM CALENDAR</span><h2 id="meeting-editor-title">{{ editingMeetingId() ? 'Edit meeting' : 'Schedule meeting' }}</h2></div><button type="button" aria-label="Close" (click)="meetingEditorOpen.set(false)"><span class="material-symbols-rounded">close</span></button></div>
+    <p>Times are entered in your device’s time zone. Invited employees receive a calendar notification and email.</p>
+    <form (ngSubmit)="saveMeeting()">
+      <label>Title<input name="meetingTitle" [(ngModel)]="meetingForm.title" required minlength="3" maxlength="150" placeholder="e.g. Project planning" /></label>
+      <div class="meeting-time-row"><label>Starts<input name="meetingStartsAt" [(ngModel)]="meetingForm.startsAt" required type="datetime-local" /></label><label>Ends<input name="meetingEndsAt" [(ngModel)]="meetingForm.endsAt" required type="datetime-local" /></label></div>
+      <label>Details<textarea name="meetingDescription" [(ngModel)]="meetingForm.description" maxlength="4000" rows="3" placeholder="Agenda and preparation"></textarea></label>
+      <label>Room or place<input name="meetingLocation" [(ngModel)]="meetingForm.location" maxlength="300" placeholder="Optional" /></label>
+      <label>Video meeting link<input name="meetingUrl" [(ngModel)]="meetingForm.meetingUrl" type="url" maxlength="1000" placeholder="https://…" /></label>
+      <div class="attendee-picker"><strong>Invite employees</strong><input [ngModel]="peopleSearch()" (ngModelChange)="peopleSearch.set($event); loadPeople()" name="peopleSearch" placeholder="Search by name or email" />
+        <div class="attendee-list">@for (person of people(); track person.employeeId) { <label><input type="checkbox" [checked]="meetingForm.attendeeEmployeeIds.includes(person.employeeId)" (change)="toggleAttendee(person.employeeId, $any($event.target).checked)" /><span>{{ person.name }}<small>{{ person.workEmail }}</small></span></label> } @empty { <small>No active employees found.</small> }</div>
+        <small>{{ meetingForm.attendeeEmployeeIds.length }} selected</small>
+      </div>
+      <div class="editor-actions"><button type="button" (click)="meetingEditorOpen.set(false)">Cancel</button><button class="primary" type="submit" [disabled]="saving()">{{ saving() ? 'Saving…' : editingMeetingId() ? 'Save meeting' : 'Schedule meeting' }}</button></div>
     </form>
   </section>
 }
