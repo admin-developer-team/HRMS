@@ -169,6 +169,6 @@ jobs:
         run: |
           sleep 5
           curl --fail --silent --show-error \
-            https://hrms.avntechnologies.co.in/ > /dev/null
+            https://hrms.ssym.co.in/ > /dev/null
 
           echo "HRMS deployment completed successfully."
