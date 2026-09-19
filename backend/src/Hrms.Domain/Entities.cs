@@ -159,6 +159,8 @@ public sealed class Employee : TenantEntity
     public Guid? DesignationId { get; set; }
     public Guid? LocationId { get; set; }
     public Guid? ManagerId { get; set; }
+    public TimeOnly? OfficeStartsAt { get; set; }
+    public TimeOnly? OfficeEndsAt { get; set; }
     public decimal BaseSalary { get; set; }
     public string SalaryCurrency { get; set; } = "INR";
     public string? BankAccountMasked { get; set; }
@@ -501,6 +503,24 @@ public sealed class Announcement : TenantEntity
     public DateTimeOffset PublishedAt { get; set; }
     public DateTimeOffset? ExpiresAt { get; set; }
     public string Audience { get; set; } = "all";
+}
+
+public sealed class Meeting : TenantEntity
+{
+    public Guid OrganizerUserId { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public DateTimeOffset StartsAt { get; set; }
+    public DateTimeOffset EndsAt { get; set; }
+    public string? Location { get; set; }
+    public string? MeetingUrl { get; set; }
+    public DateTimeOffset? CancelledAt { get; set; }
+}
+
+public sealed class MeetingAttendee : TenantEntity
+{
+    public Guid MeetingId { get; set; }
+    public Guid EmployeeId { get; set; }
 }
 
 public sealed class AuditLog : TenantEntity

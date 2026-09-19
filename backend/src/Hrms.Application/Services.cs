@@ -66,6 +66,7 @@ public interface IAttendanceService
 {
     Task<AttendanceDto> ClockInAsync(ClockRequest request, CancellationToken cancellationToken);
     Task<AttendanceDto> ClockOutAsync(ClockRequest request, CancellationToken cancellationToken);
+    Task AttachLocationAsync(Guid attendanceId, Guid employeeId, AttendanceLocationRequest request, CancellationToken cancellationToken);
     Task<PagedResult<AttendanceDto>> SearchAsync(PagedRequest request, Guid? employeeId, DateOnly? from, DateOnly? to, CancellationToken cancellationToken);
     Task<IReadOnlyList<AttendancePolicyDto>> GetPolicyAsync(CancellationToken cancellationToken);
     Task<AttendancePolicyDto> UpdatePolicyAsync(UpdateAttendancePolicyRequest request, CancellationToken cancellationToken);
@@ -164,6 +165,7 @@ public interface ISelfService
     Task<SelfDashboardDto> GetDashboardAsync(CancellationToken cancellationToken);
     Task<AttendanceDto> ClockInAsync(SelfClockRequest request, string? ipAddress, string? userAgent, CancellationToken cancellationToken);
     Task<AttendanceDto> ClockOutAsync(SelfClockRequest request, string? ipAddress, string? userAgent, CancellationToken cancellationToken);
+    Task AttachAttendanceLocationAsync(Guid attendanceId, AttendanceLocationRequest request, CancellationToken cancellationToken);
     Task<PagedResult<AttendanceDto>> GetAttendanceAsync(PagedRequest request, DateOnly? from, DateOnly? to, CancellationToken cancellationToken);
     Task<PagedResult<DailyAttendanceReportDto>> GetAttendanceReportAsync(PagedRequest request, DateOnly? from, DateOnly? to, CancellationToken cancellationToken);
     Task<IReadOnlyList<AttendanceSummaryDto>> GetAttendanceSummaryAsync(DateOnly? from, DateOnly? to, CancellationToken cancellationToken);
@@ -591,6 +593,7 @@ public sealed class EmployeeService(IRepository<Employee> employees, IRepository
     public async Task<EmployeeDto> CreateAsync(CreateEmployeeRequest r, CancellationToken ct)
     {
         Required(r.EmployeeNumber, "Employee number"); Required(r.FirstName, "First name"); Required(r.WorkEmail, "Work email");
+        ValidateOfficeHours(r.OfficeStartsAt, r.OfficeEndsAt);
         await ValidateEmployee(null, r.FirstName, r.WorkEmail, r.BaseSalary, r.SalaryCurrency, r.EmploymentType, r.DepartmentId, r.DesignationId, r.LocationId, r.ManagerId, ct);
         var employeeNumber = r.EmployeeNumber.Trim().ToLowerInvariant(); var email = r.WorkEmail.Trim().ToLowerInvariant();
         if (await employees.AnyAsync(x => x.EmployeeNumber.ToLower() == employeeNumber || x.WorkEmail == email, ct))
@@ -603,7 +606,8 @@ public sealed class EmployeeService(IRepository<Employee> employees, IRepository
             TenantId = TenantId, EmployeeNumber = r.EmployeeNumber.Trim(), FirstName = r.FirstName.Trim(), LastName = r.LastName.Trim(),
             WorkEmail = r.WorkEmail.Trim().ToLowerInvariant(), Phone = r.Phone, HireDate = r.HireDate, EmploymentType = r.EmploymentType,
             DepartmentId = r.DepartmentId, DesignationId = r.DesignationId, LocationId = r.LocationId, ManagerId = r.ManagerId,
-            BaseSalary = r.BaseSalary, SalaryCurrency = r.SalaryCurrency.ToUpperInvariant()
+            BaseSalary = r.BaseSalary, SalaryCurrency = r.SalaryCurrency.ToUpperInvariant(),
+            OfficeStartsAt = r.OfficeStartsAt, OfficeEndsAt = r.OfficeEndsAt
         };
         await employees.AddAsync(e, ct); await unitOfWork.SaveChangesAsync(ct); return Map(e);
     }
@@ -621,6 +625,7 @@ public sealed class EmployeeService(IRepository<Employee> employees, IRepository
     public async Task<EmployeeDto> UpdateAsync(Guid id, UpdateEmployeeRequest r, CancellationToken ct)
     {
         var e = await employees.GetByIdAsync(id, ct) ?? throw new KeyNotFoundException("Employee not found."); CheckVersion(e, r.Version);
+        ValidateOfficeHours(r.OfficeStartsAt, r.OfficeEndsAt);
         var previousStatus = e.Status;
         Required(r.EmployeeNumber, "Employee number");
         await ValidateEmployee(id, r.FirstName, r.WorkEmail, r.BaseSalary, r.SalaryCurrency, r.EmploymentType, r.DepartmentId, r.DesignationId, r.LocationId, r.ManagerId, ct);
@@ -637,6 +642,7 @@ public sealed class EmployeeService(IRepository<Employee> employees, IRepository
         e.EmployeeNumber = r.EmployeeNumber.Trim(); e.FirstName = r.FirstName.Trim(); e.LastName = r.LastName.Trim(); e.WorkEmail = r.WorkEmail.Trim().ToLowerInvariant(); e.Phone = r.Phone; e.HireDate = r.HireDate;
         e.Status = r.Status; e.EmploymentType = r.EmploymentType; e.DepartmentId = r.DepartmentId; e.DesignationId = r.DesignationId;
         e.LocationId = r.LocationId; e.ManagerId = r.ManagerId; e.BaseSalary = r.BaseSalary; e.SalaryCurrency = r.SalaryCurrency.ToUpperInvariant();
+        e.OfficeStartsAt = r.OfficeStartsAt; e.OfficeEndsAt = r.OfficeEndsAt;
         if (e.UserId.HasValue && await users.GetByIdAsync(e.UserId.Value, ct) is { } account) { account.Email = e.WorkEmail; account.DisplayName = e.FullName; account.IsActive = r.Status is not (EmploymentStatus.Inactive or EmploymentStatus.Terminated or EmploymentStatus.Resigned or EmploymentStatus.Suspended); if (!account.IsActive) { foreach (var token in await refreshTokens.ListAsync(x => x.UserId == account.Id && x.RevokedAt == null, cancellationToken: ct)) token.RevokedAt = DateTimeOffset.UtcNow; if (previousStatus != r.Status && emailQueue is not null) await emailQueue.QueueAsync(account.Email, account.DisplayName, EmailTemplateKeys.ForNotification("security"), new Dictionary<string, string?> { ["title"] = "Employment status updated", ["message"] = $"Your employment status was changed to {r.Status}. Your HRMS account access is now disabled.", ["link"] = "/login" }, ct); } }
         await unitOfWork.SaveChangesAsync(ct); return Map(e);
     }
@@ -676,7 +682,12 @@ public sealed class EmployeeService(IRepository<Employee> employees, IRepository
         try { using var value = System.Text.Json.JsonDocument.Parse(json); return value.RootElement.TryGetProperty("UserAgent", out var agent) ? agent.GetString() : null; }
         catch (System.Text.Json.JsonException) { return null; }
     }
-    private static EmployeeDto Map(Employee e) => new(e.Id, e.EmployeeNumber, e.FirstName, e.LastName, e.FullName, e.WorkEmail, e.Phone, e.HireDate, e.Status, e.EmploymentType, e.DepartmentId, e.DesignationId, e.LocationId, e.ManagerId, e.BaseSalary, e.SalaryCurrency, e.UserId, e.Version);
+    private static void ValidateOfficeHours(TimeOnly? start, TimeOnly? end)
+    {
+        if (start.HasValue != end.HasValue) throw new DomainException("Set both employee office start and end times, or leave both blank to use company hours.");
+        if (start.HasValue) _ = AttendanceCalendar.DurationMinutes(start.Value, end!.Value);
+    }
+    private static EmployeeDto Map(Employee e) => new(e.Id, e.EmployeeNumber, e.FirstName, e.LastName, e.FullName, e.WorkEmail, e.Phone, e.HireDate, e.Status, e.EmploymentType, e.DepartmentId, e.DesignationId, e.LocationId, e.ManagerId, e.BaseSalary, e.SalaryCurrency, e.UserId, e.Version, e.OfficeStartsAt, e.OfficeEndsAt);
 }
 
 public sealed class OrganizationService(IRepository<Department> departments, IRepository<Designation> designations, IRepository<Location> locations, ICurrentTenant tenant, IUnitOfWork unitOfWork) : ServiceBase(tenant), IOrganizationService
@@ -791,6 +802,29 @@ public sealed class LeaveService(IRepository<LeaveType> types, IRepository<Leave
 
 public sealed class AttendanceService(IRepository<AttendanceRecord> records, IRepository<AttendancePolicy> policies, IRepository<Employee> employees, IRepository<Tenant> tenants, IRepository<Holiday> holidays, IRepository<HolidaySelection> holidaySelections, IRepository<LeaveRequest> leaveRequests, ICurrentTenant tenant, IUnitOfWork unitOfWork) : ServiceBase(tenant), IAttendanceService
 {
+    public async Task AttachLocationAsync(Guid attendanceId, Guid employeeId, AttendanceLocationRequest r, CancellationToken ct)
+    {
+        var row = await records.GetByIdAsync(attendanceId, ct) ?? throw new KeyNotFoundException("Attendance session not found.");
+        if (row.EmployeeId != employeeId) throw new UnauthorizedAccessException("You can only attach your own attendance location.");
+        if (r.Latitude is < -90 or > 90 || r.Longitude is < -180 or > 180 || r.AccuracyMeters < 0)
+            throw new DomainException("Location coordinates are invalid.");
+        var now = DateTimeOffset.UtcNow;
+        if (r.Action == "clock-in")
+        {
+            if (row.ClockedInAt is null || now - row.ClockedInAt > TimeSpan.FromMinutes(2) || row.ClockInLatitude.HasValue)
+                throw new DomainException("Check-in location can only be attached shortly after check-in.");
+            row.ClockInLatitude = r.Latitude; row.ClockInLongitude = r.Longitude; row.ClockInAccuracyMeters = r.AccuracyMeters;
+        }
+        else if (r.Action == "clock-out")
+        {
+            if (row.ClockedOutAt is null || now - row.ClockedOutAt > TimeSpan.FromMinutes(2) || row.ClockOutLatitude.HasValue)
+                throw new DomainException("Check-out location can only be attached shortly after check-out.");
+            row.ClockOutLatitude = r.Latitude; row.ClockOutLongitude = r.Longitude; row.ClockOutAccuracyMeters = r.AccuracyMeters;
+        }
+        else throw new DomainException("Attendance action is invalid.");
+        await unitOfWork.SaveChangesAsync(ct);
+    }
+
     public async Task<AttendanceDto> ClockInAsync(ClockRequest r, CancellationToken ct)
     {
         ValidateCoordinates(r);
@@ -800,14 +834,16 @@ public sealed class AttendanceService(IRepository<AttendanceRecord> records, IRe
         if (at > DateTimeOffset.UtcNow.AddMinutes(5)) throw new DomainException("Check-in time cannot be in the future.");
         var policy = await Policy(ct);
         var company = await tenants.GetByIdAsync(TenantId, ct);
-        var date = AttendanceCalendar.WorkDate(at, AttendanceCalendar.Zone(company?.TimeZone), policy.OfficeStartsAt, policy.OfficeEndsAt);
+        var scheduledStart = employee.OfficeStartsAt ?? policy.OfficeStartsAt;
+        var scheduledEnd = employee.OfficeEndsAt ?? policy.OfficeEndsAt;
+        var date = AttendanceCalendar.WorkDate(at, AttendanceCalendar.Zone(company?.TimeZone), scheduledStart, scheduledEnd);
         if (date < employee.HireDate) throw new DomainException("Attendance cannot precede the employee's hire date.");
         if (await records.AnyAsync(x => x.EmployeeId == r.EmployeeId && x.ClockedOutAt == null, ct)) throw new DomainException("Employee already has an open attendance session.");
         if (await records.AnyAsync(x => x.EmployeeId == r.EmployeeId && x.ClockedOutAt > at, ct)) throw new DomainException("Check-in cannot overlap or precede an existing attendance session.");
         var source = NormalizeSource(r.Source);
         var notes = NormalizeNotes(r.Notes);
         if (source == "admin" && notes is null) throw new DomainException("A reason is required for a manual attendance entry.");
-        var x = new AttendanceRecord { TenantId = TenantId, EmployeeId = r.EmployeeId, WorkDate = date, ClockedInAt = at, Source = source, Notes = notes, ScheduledStartAt = policy.OfficeStartsAt, ScheduledEndAt = policy.OfficeEndsAt, RequiredMinutes = policy.RequiredMinutesPerDay, LateGraceMinutes = policy.LateGraceMinutes, EarlyDepartureGraceMinutes = policy.EarlyDepartureGraceMinutes, ClockInLatitude = r.Latitude, ClockInLongitude = r.Longitude, ClockInAccuracyMeters = r.AccuracyMeters, ClockInAddress = r.Address, ClockInIpAddress = r.IpAddress, ClockInUserAgent = r.UserAgent };
+        var x = new AttendanceRecord { TenantId = TenantId, EmployeeId = r.EmployeeId, WorkDate = date, ClockedInAt = at, Source = source, Notes = notes, ScheduledStartAt = scheduledStart, ScheduledEndAt = scheduledEnd, RequiredMinutes = AttendanceCalendar.DurationMinutes(scheduledStart, scheduledEnd), LateGraceMinutes = policy.LateGraceMinutes, EarlyDepartureGraceMinutes = policy.EarlyDepartureGraceMinutes, ClockInLatitude = r.Latitude, ClockInLongitude = r.Longitude, ClockInAccuracyMeters = r.AccuracyMeters, ClockInAddress = r.Address, ClockInIpAddress = r.IpAddress, ClockInUserAgent = r.UserAgent };
         await records.AddAsync(x, ct);
         employee.UpdatedAt = DateTimeOffset.UtcNow;
         await unitOfWork.SaveChangesAsync(ct);
@@ -912,7 +948,9 @@ public sealed class AttendanceService(IRepository<AttendanceRecord> records, IRe
                 {
                     if (!isWorkingDay && !holiday) continue;
                     var status = fixedHoliday ? "Company holiday" : optionalHoliday ? "Optional holiday" : onLeave ? "On approved leave" : date == today ? "Not checked in" : "Absent";
-                    var scheduledHours = holiday || onLeave ? 0 : Math.Round(policy.RequiredMinutesPerDay / 60m, 2);
+                    var scheduledMinutes = person.OfficeStartsAt.HasValue && person.OfficeEndsAt.HasValue
+                        ? AttendanceCalendar.DurationMinutes(person.OfficeStartsAt.Value, person.OfficeEndsAt.Value) : policy.RequiredMinutesPerDay;
+                    var scheduledHours = holiday || onLeave ? 0 : Math.Round(scheduledMinutes / 60m, 2);
                     var shortfallHours = date == today ? 0 : scheduledHours;
                     result.Add(new DailyAttendanceReportDto(person.Id, person.FullName, date, null, null, 0, scheduledHours, 0, 0, 0, shortfallHours, 0, status));
                     continue;
@@ -924,11 +962,11 @@ public sealed class AttendanceService(IRepository<AttendanceRecord> records, IRe
                 var liveHours = open.Where(x => DateTimeOffset.UtcNow - x.ClockedInAt!.Value <= TimeSpan.FromHours(24)).Sum(x => Math.Max(0, (decimal)(DateTimeOffset.UtcNow - x.ClockedInAt!.Value).TotalHours));
                 var total = Math.Round(daySessions.Sum(x => x.WorkHours) + liveHours, 2);
                 var snapshot = daySessions.OrderBy(x => x.ClockedInAt).First();
-                var scheduledStart = snapshot.ScheduledStartAt ?? policy.OfficeStartsAt;
-                var scheduledEnd = snapshot.ScheduledEndAt ?? policy.OfficeEndsAt;
+                var scheduledStart = snapshot.ScheduledStartAt ?? person.OfficeStartsAt ?? policy.OfficeStartsAt;
+                var scheduledEnd = snapshot.ScheduledEndAt ?? person.OfficeEndsAt ?? policy.OfficeEndsAt;
                 var lateGrace = snapshot.LateGraceMinutes ?? policy.LateGraceMinutes;
                 var earlyGrace = snapshot.EarlyDepartureGraceMinutes ?? policy.EarlyDepartureGraceMinutes;
-                var requiredMinutes = snapshot.RequiredMinutes ?? policy.RequiredMinutesPerDay;
+                var requiredMinutes = snapshot.RequiredMinutes ?? AttendanceCalendar.DurationMinutes(scheduledStart, scheduledEnd);
                 var firstTime = first.HasValue ? TimeZoneInfo.ConvertTime(first.Value, zone).DateTime : (DateTime?)null;
                 var lastTime = last.HasValue ? TimeZoneInfo.ConvertTime(last.Value, zone).DateTime : (DateTime?)null;
                 var schedule = AttendanceCalendar.Schedule(date, scheduledStart, scheduledEnd);
@@ -942,6 +980,8 @@ public sealed class AttendanceService(IRepository<AttendanceRecord> records, IRe
                 else if (open.Length > 0) issues.Add("In progress");
                 else if (daySessions.Any(x => x.ClockedInAt.HasValue && x.ClockedOutAt.HasValue && x.ClockedOutAt.Value - x.ClockedInAt.Value > TimeSpan.FromHours(24))) issues.Add("Review required");
                 if (holiday) issues.Add("Worked on holiday"); else if (onLeave) issues.Add("Worked during approved leave");
+                if (policy.RequireLocationCapture && daySessions.Any(x => x.ClockInLatitude is null || (x.ClockedOutAt.HasValue && x.ClockOutLatitude is null)))
+                    issues.Add("Location unavailable");
                 if (late > 0) issues.Add("Late arrival");
                 if (early > 0) issues.Add("Early departure");
                 if (shortfall > 0) issues.Add("Insufficient hours");

@@ -1,4 +1,5 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { DatePipe } from '@angular/common';
+import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -15,7 +16,7 @@ import { DocumentComponent } from '../../shared/document/document.component';
 
 @Component({
   selector: 'app-theme-studio-page',
-  imports: [FormsModule, MatButtonModule, MatIconModule, MatProgressSpinnerModule, MatSlideToggleModule, DocumentComponent],
+  imports: [DatePipe, FormsModule, MatButtonModule, MatIconModule, MatProgressSpinnerModule, MatSlideToggleModule, DocumentComponent],
   templateUrl: './theme-studio.page.html',
   styleUrl: './theme-studio.page.scss',
 })
@@ -25,6 +26,7 @@ export class ThemeStudioPage {
   readonly company = inject(CompanyProfileService);
   private readonly toast = inject(ToastService);
   private readonly api = inject(ApiService);
+  private readonly destroyRef = inject(DestroyRef);
   readonly savingCompany = signal(false);
   readonly profile = signal<SelfDashboard['profile'] | null>(null);
   readonly managedEmployee = signal<Employee | null>(null);
@@ -55,6 +57,9 @@ export class ThemeStudioPage {
   readonly testRecipient = signal('');
   readonly savingEmail = signal(false);
   readonly testingEmail = signal(false);
+  readonly testingEmailQueue = signal(false);
+  readonly queuedEmailStatus = signal<EmailDeliveryStatus | null>(null);
+  private queuePollTimer?: ReturnType<typeof setTimeout>;
   readonly savingTemplate = signal(false);
   readonly selectedEmailTemplate = computed(() => this.emailTemplates().find(x => x.id === this.selectedEmailTemplateId()) ?? null);
   readonly templateSubject = signal('');
@@ -75,6 +80,7 @@ export class ThemeStudioPage {
   readonly dark = signal(this.themes.current().scheme === 'dark');
 
   constructor() {
+    this.destroyRef.onDestroy(() => { if (this.queuePollTimer) clearTimeout(this.queuePollTimer); });
     this.company.load().subscribe({ next: (profile) => {
       this.companyName.set(profile.name); this.legalName.set(profile.legalName ?? '');
       this.currency.set(profile.defaultCurrency); this.timeZone.set(profile.timeZone); this.locale.set(profile.locale);
@@ -187,6 +193,34 @@ export class ThemeStudioPage {
       });
   }
 
+  testEmailQueue(): void {
+    if (this.queuePollTimer) clearTimeout(this.queuePollTimer);
+    this.queuedEmailStatus.set(null);
+    this.testingEmailQueue.set(true);
+    this.api.post<EmailDeliveryStatus>('/email-settings/test-queue', { recipientEmail: this.testRecipient().trim() || null })
+      .pipe(finalize(() => this.testingEmailQueue.set(false))).subscribe({
+        next: status => { this.queuedEmailStatus.set(status); this.pollEmailQueue(status.id, 0); },
+        error: () => this.toast.error('Could not queue a test email. Save and enable email settings first.'),
+      });
+  }
+
+  refreshEmailQueueStatus(): void {
+    const id = this.queuedEmailStatus()?.id;
+    if (id) this.pollEmailQueue(id, 0);
+  }
+
+  private pollEmailQueue(id: string, count: number): void {
+    if (this.queuePollTimer) clearTimeout(this.queuePollTimer);
+    this.api.get<EmailDeliveryStatus>(`/email-settings/delivery/${id}`).subscribe({
+      next: status => {
+        this.queuedEmailStatus.set(status);
+        if (status.status !== 'accepted' && status.status !== 'failed' && count < 12)
+          this.queuePollTimer = setTimeout(() => this.pollEmailQueue(id, count + 1), 5000);
+      },
+      error: () => this.toast.error('Could not read the queued email status.'),
+    });
+  }
+
   selectEmailTemplate(id: string): void {
     this.selectedEmailTemplateId.set(id);
     const template = this.emailTemplates().find(x => x.id === id);
@@ -284,4 +318,9 @@ interface EmailConfiguration {
 interface EmailTemplate {
   id: string; key: string; name: string; subjectTemplate: string; htmlTemplate: string; textTemplate?: string;
   isEnabled: boolean; isSystem: boolean; version: number;
+}
+
+interface EmailDeliveryStatus {
+  id: string; status: 'queued' | 'retrying' | 'accepted' | 'failed'; attempts: number;
+  sentAt: string | null; nextAttemptAt: string; lastError: string | null;
 }

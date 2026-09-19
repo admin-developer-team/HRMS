@@ -1036,7 +1036,7 @@ export const MODULES: Record<string, ModuleDefinition> = {
           { key: 'lateGraceMinutes', label: 'Arrival grace', type: 'minutes' },
           { key: 'earlyDepartureGraceMinutes', label: 'Departure grace', type: 'minutes' },
           { key: 'workingDays', label: 'Working days' },
-          { key: 'requireLocationCapture', label: 'Location required', type: 'status' },
+          { key: 'requireLocationCapture', label: 'Location requested', type: 'status' },
         ],
         rowActions: [{
           label: 'Edit attendance policy', icon: 'edit', method: 'put', path: '/attendance/policy',
@@ -1046,7 +1046,7 @@ export const MODULES: Record<string, ModuleDefinition> = {
             { key: 'lateGraceMinutes', label: 'Arrival grace period (minutes)', type: 'number', required: true, min: 0, sourceKey: 'lateGraceMinutes' },
             { key: 'earlyDepartureGraceMinutes', label: 'Departure grace period (minutes)', type: 'number', required: true, min: 0, sourceKey: 'earlyDepartureGraceMinutes' },
             { key: 'workingDays', label: 'Working days', type: 'multiselect', required: true, sourceKey: 'workingDays', options: options('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday') },
-            { key: 'requireLocationCapture', label: 'Location verification', type: 'checkbox', sourceKey: 'requireLocationCapture', checkboxLabel: 'Require employees to share their location when checking in and out' },
+            { key: 'requireLocationCapture', label: 'Location capture', type: 'checkbox', sourceKey: 'requireLocationCapture', checkboxLabel: 'Request location at check-in and check-out; save attendance even if location is unavailable' },
             versionField,
           ],
         }],

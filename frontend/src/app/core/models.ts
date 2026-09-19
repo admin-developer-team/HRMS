@@ -109,6 +109,8 @@ export interface Employee {
   designationId?: string;
   locationId?: string;
   managerId?: string;
+  officeStartsAt?: string | null;
+  officeEndsAt?: string | null;
   baseSalary: number;
   salaryCurrency: string;
   userId?: string;

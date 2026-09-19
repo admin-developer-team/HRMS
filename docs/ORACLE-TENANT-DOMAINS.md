@@ -37,6 +37,23 @@ for commands and a workspace verification request.
 
 ## Email and migration
 
+Before enabling platform email on the Oracle Ubuntu service, configure a persistent
+ASP.NET Core Data Protection key ring. Set `DataProtection__KeysPath=/var/lib/hrms/keys`
+in the API service environment. Create that directory outside the release directory,
+give only the API service account read/write access, and include it in backups. Keep
+the same directory across API restarts and deployments. If the service already has
+an SMTP password saved, preserve its existing Data Protection key files when moving
+to this directory; otherwise re-enter and save the SMTP key after the move. Multiple
+API instances must use the same key ring. Container deployments must mount it on a
+persistent volume.
+
+After deployment, use **Test SMTP directly** and then **Test background delivery**
+in platform email settings. The second test follows the same outbox and worker as
+meeting, leave, work, and account emails and shows whether SMTP accepted it or why
+it is retrying. Keep the API service running and monitor its email delivery warnings.
+SMTP acceptance does not guarantee when a recipient's mailbox provider displays the
+message.
+
 The platform email configuration should keep its public application base URL
 set to `https://hrms.avntechnologies.co.in`. The worker now derives each
 company's URL from its slug. New account invitations and notification links

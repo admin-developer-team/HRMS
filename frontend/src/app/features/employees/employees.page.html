@@ -294,6 +294,14 @@
         </div>
       </div>
       <div class="form-section">
+        <h3>Office hours</h3>
+        <p>Leave both times blank to use the company attendance policy. Set both for an individual schedule.</p>
+        <div class="form-grid">
+          <div class="field"><label>Office start</label><input type="time" formControlName="officeStartsAt" /></div>
+          <div class="field"><label>Office end</label><input type="time" formControlName="officeEndsAt" /></div>
+        </div>
+      </div>
+      <div class="form-section">
         <h3>Compensation</h3>
         <div class="form-grid">
           <div class="field">
@@ -354,7 +362,7 @@
       <div class="form-grid">
         <div class="field wide">
           <label>Temporary password *</label
-          ><input type="password" formControlName="password" autocomplete="new-password" /><small
+          ><input type="password" formControlName="password" autocomplete="new-password" minlength="8" maxlength="256" /><small
             class="field-help"
             >Minimum 8 characters. Share it securely.</small
           >
@@ -416,7 +424,7 @@
       <div class="form-grid">
         <div class="field wide">
           <label>New temporary password *</label
-          ><input type="password" formControlName="password" autocomplete="new-password" /><small
+          ><input type="password" formControlName="password" autocomplete="new-password" minlength="8" maxlength="256" /><small
             class="field-help"
             >Minimum 8 characters. It will be emailed with the company-specific sign-in link.</small
           >

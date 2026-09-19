@@ -59,10 +59,10 @@
         <div class="settings-head"><div><h2>Account security</h2><p>Change your password. All active refresh sessions will be revoked.</p></div></div>
         <div class="password-grid">
           <div class="field"><label>Current password</label><input type="password" autocomplete="current-password" [ngModel]="currentPassword()" (ngModelChange)="currentPassword.set($event)" /></div>
-          <div class="field"><label>New password</label><input type="password" autocomplete="new-password" [ngModel]="newPassword()" (ngModelChange)="newPassword.set($event)" /></div>
+          <div class="field"><label>New password</label><input type="password" autocomplete="new-password" minlength="8" maxlength="256" [ngModel]="newPassword()" (ngModelChange)="newPassword.set($event)" /><small>At least 8 characters. Longer passphrases are stronger.</small></div>
           <div class="field"><label>Confirm new password</label><input type="password" autocomplete="new-password" [ngModel]="confirmPassword()" (ngModelChange)="confirmPassword.set($event)" /></div>
         </div>
-        <div class="setting-actions"><button mat-raised-button class="primary-button" [disabled]="savingPassword() || !currentPassword() || !newPassword() || !confirmPassword()" (click)="changePassword()">@if (savingPassword()) { <mat-spinner diameter="17" /> } @else { <mat-icon>password</mat-icon> } Change password</button></div>
+        <div class="setting-actions"><button mat-raised-button class="primary-button" [disabled]="savingPassword() || !currentPassword() || newPassword().length < 8 || newPassword() !== confirmPassword()" (click)="changePassword()">@if (savingPassword()) { <mat-spinner diameter="17" /> } @else { <mat-icon>password</mat-icon> } Change password</button></div>
       </article>
 
     @if (!auth.isPlatformAdmin() && auth.hasPermission('identity.manage') && company.profile(); as profile) {
@@ -130,9 +130,17 @@
         <div class="preference-row compact-row"><div><b>TLS encryption</b><span>Keep enabled for ports 587 or 465 unless your server explicitly requires plain SMTP.</span></div><mat-slide-toggle aria-label="Use TLS" [checked]="smtpUseTls()" (change)="smtpUseTls.set($event.checked)" /></div>
         <div class="email-actions">
           <div class="field test-recipient"><label>Test recipient</label><input type="email" [ngModel]="testRecipient()" (ngModelChange)="testRecipient.set($event)" /></div>
-          <button mat-stroked-button [disabled]="testingEmail()" (click)="sendTestEmail()">@if (testingEmail()) { <mat-spinner diameter="17" /> } @else { <mat-icon>send</mat-icon> } Send test</button>
+          <button mat-stroked-button [disabled]="testingEmail()" (click)="sendTestEmail()">@if (testingEmail()) { <mat-spinner diameter="17" /> } @else { <mat-icon>send</mat-icon> } Test SMTP directly</button>
+          <button mat-stroked-button [disabled]="testingEmailQueue() || !emailConfiguration()?.isEnabled" (click)="testEmailQueue()">@if (testingEmailQueue()) { <mat-spinner diameter="17" /> } @else { <mat-icon>outbox</mat-icon> } Test background delivery</button>
           <button mat-raised-button class="primary-button" [disabled]="savingEmail() || !smtpHost().trim() || !smtpFromEmail().trim()" (click)="saveEmailConfiguration()">@if (savingEmail()) { <mat-spinner diameter="17" /> } @else { <mat-icon>save</mat-icon> } Save email settings</button>
         </div>
+        @if (queuedEmailStatus(); as delivery) {
+          <div class="email-delivery-status" role="status"><div><strong>Background test: {{ delivery.status === 'accepted' ? 'accepted by SMTP' : delivery.status === 'failed' ? 'failed' : delivery.status === 'retrying' ? 'retrying' : 'queued' }}</strong>
+            <span>@if (delivery.status === 'accepted') { The server accepted this message. Check the recipient inbox. } @else if (delivery.status === 'retrying') { Attempt {{ delivery.attempts }} failed. Next attempt {{ delivery.nextAttemptAt | date:'shortTime' }}. } @else if (delivery.status === 'failed') { Delivery stopped after {{ delivery.attempts }} attempts. } @else { Waiting for the email worker. }</span>
+            @if (delivery.lastError && delivery.status !== 'accepted') { <small>{{ delivery.lastError }}</small> }</div>
+            <button mat-stroked-button (click)="refreshEmailQueueStatus()">Refresh</button>
+          </div>
+        }
       </article>
 
       <article class="app-card settings-card email-template-card">

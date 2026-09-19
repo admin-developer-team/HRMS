@@ -21,6 +21,14 @@ public sealed class EmailSettingsController(IEmailAdministrationService service)
         return NoContent();
     }
 
+    [HttpPost("test-queue")]
+    public Task<EmailDeliveryStatusDto> TestQueue(SendTestEmailRequest request, CancellationToken ct) =>
+        service.QueueTestAsync(request, ct);
+
+    [HttpGet("delivery/{id:guid}")]
+    public Task<EmailDeliveryStatusDto> Delivery(Guid id, CancellationToken ct) =>
+        service.GetDeliveryStatusAsync(id, ct);
+
     [HttpGet("templates")]
     public Task<IReadOnlyList<EmailTemplateDto>> Templates(CancellationToken ct) => service.ListTemplatesAsync(ct);
 

@@ -10,7 +10,8 @@ public sealed record CalendarLeave(DateOnly StartsOn, DateOnly EndsOn, string St
 public sealed record CalendarAttendance(DateOnly Date, string Status, decimal WorkHours);
 public sealed record CalendarMonth(int Year, int Month, string CountryCode, string? LocationName, IReadOnlyList<CalendarLocation> Locations, IReadOnlyList<string> WorkingDays,
     IReadOnlyList<CalendarHoliday> Holidays, IReadOnlyList<CalendarObservance> Observances,
-    IReadOnlyList<CalendarLeave> Leave, IReadOnlyList<CalendarAttendance> Attendance, bool SuggestionsAvailable);
+    IReadOnlyList<CalendarLeave> Leave, IReadOnlyList<CalendarAttendance> Attendance, bool SuggestionsAvailable,
+    IReadOnlyList<MeetingDto>? Meetings = null);
 public sealed record SelectHolidayRequest(bool Selected);
 
 public interface IPublicHolidaySource
@@ -22,7 +23,7 @@ public sealed class CalendarService(
     IRepository<Holiday> holidays, IRepository<HolidaySelection> selections, IRepository<Employee> employees,
     IRepository<Location> locations, IRepository<LeaveRequest> leaveRequests, IRepository<AttendanceRecord> attendance,
     IRepository<AttendancePolicy> policies, IRepository<Tenant> tenants, ICurrentTenant tenant, ICurrentUser user,
-    IUnitOfWork unitOfWork, IPublicHolidaySource publicHolidays) : ServiceBase(tenant)
+    IUnitOfWork unitOfWork, IPublicHolidaySource publicHolidays, MeetingService? meetingService = null) : ServiceBase(tenant)
 {
     public async Task<CalendarMonth> GetAsync(int year, int month, Guid? locationId, CancellationToken ct)
     {
@@ -47,10 +48,20 @@ public sealed class CalendarService(
             .GroupBy(x => x.WorkDate).Select(g => new CalendarAttendance(g.Key, g.Any(x => x.ClockedOutAt is null) ? "In progress" : "Present", g.Sum(x => x.WorkHours))).ToArray();
         var policy = await policies.FirstOrDefaultAsync(_ => true, ct);
         var (observances, available) = await publicHolidays.GetAsync(countryCode, year, ct);
+        IReadOnlyList<MeetingDto> meetingRows = [];
+        if (meetingService is not null)
+        {
+            var company = await tenants.GetByIdAsync(TenantId, ct);
+            var zone = AttendanceCalendar.Zone(company?.TimeZone);
+            // Include meetings that cross a month boundary in the viewer's local time zone.
+            var from = new DateTimeOffset(TimeZoneInfo.ConvertTimeToUtc(start.AddDays(-1).ToDateTime(TimeOnly.MinValue), zone));
+            var to = new DateTimeOffset(TimeZoneInfo.ConvertTimeToUtc(end.AddDays(2).ToDateTime(TimeOnly.MinValue), zone));
+            meetingRows = await meetingService.ListAsync(from, to, ct);
+        }
         return new CalendarMonth(year, month, countryCode, location?.Name,
             canManage ? locationRows.Where(x => x.IsActive).OrderBy(x => x.Name).Select(x => new CalendarLocation(x.Id, x.Name)).ToArray() : [],
             (policy?.WorkingDaysCsv ?? "Monday,Tuesday,Wednesday,Thursday,Friday").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
-            mapped, observances.Where(x => x.Date >= start && x.Date <= end).ToArray(), leave, attendanceRows, available);
+            mapped, observances.Where(x => x.Date >= start && x.Date <= end).ToArray(), leave, attendanceRows, available, meetingRows);
     }
 
     public async Task SelectAsync(Guid holidayId, bool selected, CancellationToken ct)
