@@ -15,6 +15,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { finalize, forkJoin, map, Observable, of, switchMap } from 'rxjs';
 import { ApiService } from '../../core/api.service';
 import { AuthService } from '../../core/auth.service';
+import { ToastService } from '../../core/toast.service';
 import {
   Employee,
   PagedResult,
@@ -57,6 +58,7 @@ export class WorkPage implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly toast = inject(ToastService);
   readonly auth = inject(AuthService);
 
   readonly tabs: { key: WorkTab; label: string; icon: string }[] = [
@@ -107,8 +109,6 @@ export class WorkPage implements OnInit {
   readonly commentDialogOpen = signal(false);
   readonly worklogDialogOpen = signal(false);
   readonly editing = signal<WorkItem | null>(null);
-  readonly error = signal('');
-  readonly success = signal('');
   readonly newMemberId = signal('');
   readonly detailAssigneeDraft = signal<string[]>([]);
   readonly formAssigneeSearch = signal('');
@@ -238,7 +238,6 @@ export class WorkPage implements OnInit {
 
   loadWorkspace(): void {
     this.loading.set(true);
-    this.error.set('');
     const requests: Record<string, ReturnType<ApiService['get']>> = {
       projects: this.api.get<WorkProject[]>('/work/projects'),
       overview: this.api.get<WorkOverview>('/work/overview'),
@@ -356,7 +355,7 @@ export class WorkPage implements OnInit {
     const item = event.item.data as WorkItem;
     if (event.previousContainer === event.container || !this.canMoveOnBoard()) return;
     if (!this.transitionOptions(item.status).includes(event.container.data)) {
-      this.error.set(`Move ${item.key} through its workflow. From ${this.statusLabel(item.status)}, choose ${this.transitionOptions(item.status).map(x => this.statusLabel(x)).join(' or ')}.`);
+      this.toast.error(`Move ${item.key} through its workflow. From ${this.statusLabel(item.status)}, choose ${this.transitionOptions(item.status).map(x => this.statusLabel(x)).join(' or ')}.`);
       return;
     }
     this.transition(item, event.container.data);
@@ -374,7 +373,7 @@ export class WorkPage implements OnInit {
     const item = this.detail()?.item;
     if (!item || !this.canPlan()) return;
     this.runAction('sprint', this.api.put<WorkItem>(`/work/items/${item.id}/sprint`, { sprintId: sprintId || null, version: item.version }), updated => {
-      this.applyItem(updated); this.loadSprints(); this.loadItems(); this.refreshDetail(item.id); this.success.set(`${item.key} sprint updated.`);
+      this.applyItem(updated); this.loadSprints(); this.loadItems(); this.refreshDetail(item.id); this.toast.success(`${item.key} sprint updated.`);
     }, 'Unable to plan work.');
   }
 
@@ -387,7 +386,7 @@ export class WorkPage implements OnInit {
 
   openCreate(parent?: WorkItem): void {
     if (!this.selectedProjectId()) {
-      this.error.set('Create a project before adding tickets.');
+      this.toast.error('Create a project before adding tickets.');
       return;
     }
     this.editing.set(null);
@@ -468,7 +467,7 @@ export class WorkPage implements OnInit {
     ).subscribe({
       next: (item) => {
         this.drawerOpen.set(false);
-        this.success.set(editing ? `${item.key} updated.` : `${item.key} created.`);
+        this.toast.success(editing ? `${item.key} updated.` : `${item.key} created.`);
         if (editing) {
           this.applyItem(item, raw.description || undefined);
           this.refreshDetail(item.id);
@@ -507,7 +506,7 @@ export class WorkPage implements OnInit {
       comment: null, version: item.version,
     }), (updated) => {
       this.applyItem(updated);
-      this.success.set(`${updated.key} moved to ${this.statusLabel(status)}.`);
+      this.toast.success(`${updated.key} moved to ${this.statusLabel(status)}.`);
       this.refreshDetail(updated.id);
       this.loadItems(); this.loadSprints();
     }, 'Unable to change status.');
@@ -694,7 +693,7 @@ export class WorkPage implements OnInit {
       .pipe(finalize(() => this.saving.set(false))).subscribe({
         next: (project) => {
           this.projectDrawerOpen.set(false);
-          this.success.set(`${project.name} created.`);
+          this.toast.success(`${project.name} created.`);
           this.selectedProjectId.set(project.id);
           this.loadWorkspace();
         },
@@ -731,7 +730,7 @@ export class WorkPage implements OnInit {
     this.saving.set(true);
     this.api.put<WorkProjectMember[]>(`/work/projects/${projectId}/members`, payload)
       .pipe(finalize(() => this.saving.set(false))).subscribe({
-        next: (members) => { this.members.set(members); this.memberDraft.set(members); this.success.set('Project access updated.'); },
+        next: (members) => { this.members.set(members); this.memberDraft.set(members); this.toast.success('Project access updated.'); },
         error: (error: HttpErrorResponse) => this.setError(error, 'Unable to update project access.'),
       });
   }
@@ -831,7 +830,7 @@ export class WorkPage implements OnInit {
   }
 
   private setError(error: HttpErrorResponse, fallback: string): void {
-    this.error.set(error.error?.detail ?? fallback);
+    this.toast.error(error.error?.detail ?? fallback);
     this.loading.set(false);
     this.itemsLoading.set(false);
     this.reportLoading.set(false);

@@ -9,6 +9,7 @@ import { finalize } from 'rxjs';
 import { ApiService } from '../../core/api.service';
 import { AuthService } from '../../core/auth.service';
 import { DocumentService } from '../../core/document.service';
+import { ToastService } from '../../core/toast.service';
 import { AttendanceRecord, PagedResult, SelfDashboard } from '../../core/models';
 
 @Component({
@@ -27,11 +28,11 @@ import { AttendanceRecord, PagedResult, SelfDashboard } from '../../core/models'
 export class SelfDashboardPage implements OnInit, OnDestroy {
   private readonly api = inject(ApiService);
   private readonly documents = inject(DocumentService);
+  private readonly toast = inject(ToastService);
   readonly auth = inject(AuthService);
   readonly loading = signal(true);
   readonly clocking = signal(false);
   readonly error = signal('');
-  readonly success = signal('');
   readonly locationStatus = signal('Location is requested only when you check in or out.');
   readonly lastLocationUrl = signal<string | null>(null);
   readonly dashboard = signal<SelfDashboard | null>(null);
@@ -76,7 +77,6 @@ export class SelfDashboardPage implements OnInit, OnDestroy {
   clock(action: 'clock-in' | 'clock-out'): void {
     if (this.clocking()) return;
     this.error.set('');
-    this.success.set('');
     this.lastLocationUrl.set(null);
     this.clocking.set(true);
     const attempt = ++this.locationAttempt;
@@ -89,12 +89,12 @@ export class SelfDashboardPage implements OnInit, OnDestroy {
       .pipe(finalize(() => this.clocking.set(false)))
       .subscribe({
         next: record => {
-          this.success.set(action === 'clock-in' ? 'You are checked in. Your time was recorded.' : 'You are checked out. Your time was recorded.');
+          this.toast.success(action === 'clock-in' ? 'You are checked in. Your time was recorded.' : 'You are checked out. Your time was recorded.');
           this.load();
           if (location) void location.then(position => this.attachLocation(record.id, action, position, attempt));
         },
         error: (error: HttpErrorResponse) =>
-          this.error.set(error.error?.detail ?? `Unable to ${action.replace('-', ' ')}.`),
+          this.toast.error(error.error?.detail ?? `Unable to ${action.replace('-', ' ')}.`),
       });
   }
 

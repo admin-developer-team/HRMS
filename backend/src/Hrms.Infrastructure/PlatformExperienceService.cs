@@ -86,7 +86,7 @@ public sealed class PlatformExperienceService(HrmsDbContext db, ICurrentTenant c
         finally { currentTenant.Set(PlatformId, "platform"); }
     }
 
-    public async Task ActivateAsync(ActivateAccountRequest request, CancellationToken ct)
+    public async Task<string> ActivateAsync(ActivateAccountRequest request, CancellationToken ct)
     {
         if (request.Password.Length is < 8 or > 256) throw new DomainException("Use a password of at least 8 characters.");
         if (string.IsNullOrWhiteSpace(request.Token)) throw new DomainException("The activation link is invalid or expired.");
@@ -116,6 +116,7 @@ public sealed class PlatformExperienceService(HrmsDbContext db, ICurrentTenant c
             subscription.StartsAt = now; subscription.EndsAt = tenant.TrialEndsAt; subscription.IsActive = true;
         }
         await db.SaveChangesAsync(ct);
+        return user.Email;
     }
 
     public async Task<string> CreateTicketAsync(SupportTicketRequest request, CancellationToken ct)

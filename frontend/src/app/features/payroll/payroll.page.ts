@@ -2,6 +2,7 @@ import { CurrencyPipe, DatePipe, UpperCasePipe } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../core/api.service';
+import { ToastService } from '../../core/toast.service';
 import { Employee, PagedResult } from '../../core/models';
 
 interface Policy {
@@ -41,8 +42,6 @@ interface Adjustment { id: string; employeeId: string; code: string; description
         <button [class.active]="tab()==='policy'" (click)="tab.set('policy')">Company policy</button>
         <button [class.active]="tab()==='profiles'" (click)="tab.set('profiles')">Employee profiles</button>
       </nav>
-      @if (error()) { <div class="notice error" role="alert">{{ error() }}</div> }
-      @if (message()) { <div class="notice success" role="status">{{ message() }}</div> }
 
       @if (tab()==='policy') {
         <section class="card">
@@ -123,7 +122,8 @@ interface Adjustment { id: string; employeeId: string; code: string; description
 })
 export class PayrollPage {
   private api = inject(ApiService);
-  tab = signal<'runs'|'policy'|'profiles'>('runs'); busy = signal(false); error = signal(''); message = signal('');
+  private toast = inject(ToastService);
+  tab = signal<'runs'|'policy'|'profiles'>('runs'); busy = signal(false);
   policy = signal<Policy|null>(null); profile = signal<Profile|null>(null);
   employees = signal<Employee[]>([]); selectedEmployee = signal<Employee|null>(null);
   runs = signal<Run[]>([]); selectedRun = signal<Run|null>(null);
@@ -134,24 +134,24 @@ export class PayrollPage {
   newRun = { name: '', month: new Date().toISOString().slice(0,7), paymentDate: new Date().toISOString().slice(0,10) };
   newAdjustment = { employeeId: '', code: '', description: '', isEarning: true, amount: 0 };
   constructor() { this.loadPolicy(); this.loadEmployees(); this.loadRuns(); }
-  private fail(e: unknown) { const error = e as {error?:{detail?:string;title?:string}}; this.error.set(error.error?.detail || error.error?.title || 'The action could not be completed. Refresh and try again.'); this.busy.set(false); }
-  private start() { this.busy.set(true); this.error.set(''); this.message.set(''); }
+  private fail(e: unknown) { const error = e as {error?:{detail?:string;title?:string}}; this.toast.error(error.error?.detail || error.error?.title || 'The action could not be completed. Refresh and try again.'); this.busy.set(false); }
+  private start() { this.busy.set(true); }
   loadPolicy() { this.api.get<Policy>('/payroll/policy').subscribe({next:p=>this.policy.set(p),error:e=>this.fail(e)}); }
-  savePolicy() { const p=this.policy(); if(!p)return; this.start(); this.api.put<Policy>('/payroll/policy',p).subscribe({next:x=>{this.policy.set(x);this.busy.set(false);this.message.set('Company policy saved. Recalculate any affected draft runs.');this.loadRuns();},error:e=>this.fail(e)}); }
+  savePolicy() { const p=this.policy(); if(!p)return; this.start(); this.api.put<Policy>('/payroll/policy',p).subscribe({next:x=>{this.policy.set(x);this.busy.set(false);this.toast.success('Company policy saved. Recalculate any affected draft runs.');this.loadRuns();},error:e=>this.fail(e)}); }
   loadEmployees() { this.api.employees({page:this.employeePage,pageSize:100,search:this.employeeSearch}).subscribe({next:r=>{this.employees.set(r.items);this.employeePages.set(r.totalPages);},error:e=>this.fail(e)}); }
   changeEmployeePage(delta:number) { this.employeePage=Math.max(1,this.employeePage+delta);this.loadEmployees(); }
   selectEmployee(e:Employee) { this.selectedEmployee.set(e);this.profile.set(null);this.api.get<Profile>(`/payroll/profiles/${e.id}`).subscribe({next:p=>this.profile.set(p),error:x=>this.fail(x)}); }
-  saveProfile() { const e=this.selectedEmployee(),p=this.profile();if(!e||!p)return;this.start();this.api.put<Profile>(`/payroll/profiles/${e.id}`,p).subscribe({next:x=>{this.profile.set(x);this.busy.set(false);this.message.set(`${e.fullName}'s payroll profile saved.`);this.loadRuns();},error:x=>this.fail(x)}); }
+  saveProfile() { const e=this.selectedEmployee(),p=this.profile();if(!e||!p)return;this.start();this.api.put<Profile>(`/payroll/profiles/${e.id}`,p).subscribe({next:x=>{this.profile.set(x);this.busy.set(false);this.toast.success(`${e.fullName}'s payroll profile saved.`);this.loadRuns();},error:x=>this.fail(x)}); }
   loadRuns() { this.api.get<PagedResult<Run>>('/payroll/runs',{page:1,pageSize:100}).subscribe({next:r=>{this.runs.set(r.items);const latest=r.items.find(x=>x.id===this.selectedRun()?.id);if(latest)this.selectRun(latest);},error:e=>this.fail(e)}); }
   selectRun(r:Run) { this.selectedRun.set(r);this.paymentReference=r.paymentReference??'';this.api.get<Item[]>(`/payroll/runs/${r.id}/items`).subscribe({next:x=>this.items.set(x),error:e=>this.fail(e)});this.api.get<Adjustment[]>(`/payroll/runs/${r.id}/adjustments`).subscribe({next:x=>this.adjustments.set(x),error:e=>this.fail(e)}); }
-  createRun() { const x=this.newRun;if(!x.month||!x.name.trim()||!x.paymentDate){this.error.set('Enter a run name, month and payment date.');return;}const [year,month]=x.month.split('-').map(Number);const end=new Date(Date.UTC(year,month,0)).getUTCDate();this.start();this.api.post<Run>('/payroll/runs',{name:x.name.trim(),periodStart:`${x.month}-01`,periodEnd:`${x.month}-${String(end).padStart(2,'0')}`,paymentDate:x.paymentDate,currency:'INR'}).subscribe({next:r=>{this.busy.set(false);this.message.set('Pay run created. Add adjustments, then calculate.');this.runs.update(rows=>[r,...rows]);this.selectRun(r);},error:e=>this.fail(e)}); }
-  private action(path:string,payload:unknown,success:string){this.start();this.api.post<Run>(path,payload).subscribe({next:r=>{this.busy.set(false);this.message.set(success);this.runs.update(rows=>rows.map(x=>x.id===r.id?r:x));this.selectRun(r);},error:e=>this.fail(e)});}
+  createRun() { const x=this.newRun;if(!x.month||!x.name.trim()||!x.paymentDate){this.toast.error('Enter a run name, month and payment date.');return;}const [year,month]=x.month.split('-').map(Number);const end=new Date(Date.UTC(year,month,0)).getUTCDate();this.start();this.api.post<Run>('/payroll/runs',{name:x.name.trim(),periodStart:`${x.month}-01`,periodEnd:`${x.month}-${String(end).padStart(2,'0')}`,paymentDate:x.paymentDate,currency:'INR'}).subscribe({next:r=>{this.busy.set(false);this.toast.success('Pay run created. Add adjustments, then calculate.');this.runs.update(rows=>[r,...rows]);this.selectRun(r);},error:e=>this.fail(e)}); }
+  private action(path:string,payload:unknown,success:string){this.start();this.api.post<Run>(path,payload).subscribe({next:r=>{this.busy.set(false);this.toast.success(success);this.runs.update(rows=>rows.map(x=>x.id===r.id?r:x));this.selectRun(r);},error:e=>this.fail(e)});}
   calculate(){const r=this.selectedRun();if(r)this.action(`/payroll/runs/${r.id}/calculate`,{},'Payroll calculated. Review each item and confirm statutory inputs.');}
   review(){const r=this.selectedRun();if(r)this.action(`/payroll/runs/${r.id}/review`,{version:r.version,confirmation:'REVIEWED'},'Statutory review recorded. The run is ready for approval.');}
-  approve(){const r=this.selectedRun();if(!r)return;this.start();this.api.put<Run>(`/payroll/runs/${r.id}/status?status=Approved&version=${r.version}`,{}).subscribe({next:x=>{this.busy.set(false);this.message.set('Payroll approved. Record the bank payment when disbursed.');this.runs.update(rows=>rows.map(y=>y.id===x.id?x:y));this.selectRun(x);},error:e=>this.fail(e)});}
-  markPaid(){const r=this.selectedRun();if(!r)return;if(this.paymentReference.trim().length<6||!this.paidOn){this.error.set('Enter the actual payment date and bank reference (at least 6 characters).');return;}this.action(`/payroll/runs/${r.id}/pay`,{version:r.version,paymentReference:this.paymentReference.trim(),paidOn:this.paidOn},'Payment recorded. Employee payslips are released.');}
-  addAdjustment(){const r=this.selectedRun();if(!r)return;const a=this.newAdjustment;if(!a.employeeId||!a.code.trim()||!a.description.trim()||a.amount<=0){this.error.set('Enter employee, code, description and amount.');return;}this.start();this.api.post<Adjustment>(`/payroll/runs/${r.id}/adjustments`,a).subscribe({next:()=>{this.busy.set(false);this.message.set('Adjustment saved. Recalculate this run.');this.newAdjustment={employeeId:'',code:'',description:'',isEarning:true,amount:0};this.loadRuns();},error:e=>this.fail(e)});}
-  deleteAdjustment(id:string){const r=this.selectedRun();if(!r)return;this.start();this.api.delete(`/payroll/runs/${r.id}/adjustments/${id}`).subscribe({next:()=>{this.busy.set(false);this.message.set('Adjustment removed. Recalculate this run.');this.loadRuns();},error:e=>this.fail(e)});}
+  approve(){const r=this.selectedRun();if(!r)return;this.start();this.api.put<Run>(`/payroll/runs/${r.id}/status?status=Approved&version=${r.version}`,{}).subscribe({next:x=>{this.busy.set(false);this.toast.success('Payroll approved. Record the bank payment when disbursed.');this.runs.update(rows=>rows.map(y=>y.id===x.id?x:y));this.selectRun(x);},error:e=>this.fail(e)});}
+  markPaid(){const r=this.selectedRun();if(!r)return;if(this.paymentReference.trim().length<6||!this.paidOn){this.toast.error('Enter the actual payment date and bank reference (at least 6 characters).');return;}this.action(`/payroll/runs/${r.id}/pay`,{version:r.version,paymentReference:this.paymentReference.trim(),paidOn:this.paidOn},'Payment recorded. Employee payslips are released.');}
+  addAdjustment(){const r=this.selectedRun();if(!r)return;const a=this.newAdjustment;if(!a.employeeId||!a.code.trim()||!a.description.trim()||a.amount<=0){this.toast.error('Enter employee, code, description and amount.');return;}this.start();this.api.post<Adjustment>(`/payroll/runs/${r.id}/adjustments`,a).subscribe({next:()=>{this.busy.set(false);this.toast.success('Adjustment saved. Recalculate this run.');this.newAdjustment={employeeId:'',code:'',description:'',isEarning:true,amount:0};this.loadRuns();},error:e=>this.fail(e)});}
+  deleteAdjustment(id:string){const r=this.selectedRun();if(!r)return;this.start();this.api.delete(`/payroll/runs/${r.id}/adjustments/${id}`).subscribe({next:()=>{this.busy.set(false);this.toast.success('Adjustment removed. Recalculate this run.');this.loadRuns();},error:e=>this.fail(e)});}
   employeeName(id:string){const e=this.employees().find(x=>x.id===id);return e?`${e.fullName} (${e.employeeNumber})`:id;}
   formatBreakdown(json:string|null){if(!json)return 'No breakdown available.';try{return JSON.stringify(JSON.parse(json),null,2)}catch{return json}}
 }

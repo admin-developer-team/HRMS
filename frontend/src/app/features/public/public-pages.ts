@@ -94,7 +94,7 @@ export class GetStartedPage {
 @Component({
   selector: 'app-activate', imports: [FormsModule, RouterLink], styleUrl: './public-pages.scss',
   template: `<div class="public-site form-site"><nav class="public-nav"><a class="logo" routerLink="/"><span class="logo-mark" aria-hidden="true"><i></i><i></i><i></i></span><strong>PeopleFlow<span>.</span></strong></a><a routerLink="/help">Need help?</a></nav>
-  <main class="single-form"><section class="form-card"><span class="card-kicker">SECURE ACCOUNT SETUP</span>@if (done()) { <span class="success-icon">✓</span><h1>Your account is ready.</h1><p>Sign in to use your 30-day trial with up to 10 employees. Billing authorization is optional during the trial.</p><a class="form-submit" routerLink="/login">Continue to sign in <span>↗</span></a> } @else { <h1>Make it yours.</h1><p>Set your password now. The remaining company details can wait.</p>
+  <main class="single-form"><section class="form-card"><span class="card-kicker">SECURE ACCOUNT SETUP</span>@if (done()) { <span class="success-icon">✓</span><h1>Your account is ready.</h1><p>Opening your company dashboard…</p><a class="form-submit" routerLink="/dashboard">Go to dashboard <span>↗</span></a> } @else { <h1>Make it yours.</h1><p>Set your password now. The remaining company details can wait.</p>
     <form (ngSubmit)="submit()"><label>Password<input name="password" [(ngModel)]="password" [type]="showPassword() ? 'text' : 'password'" required minlength="8" maxlength="256" autocomplete="new-password" placeholder="At least 8 characters" /></label>
       <div class="password-guidance"><span>{{ password.length >= 8 ? '✓' : '○' }} At least 8 characters</span><span>{{ password.length >= 12 ? '✓' : '○' }} Longer is stronger</span><button type="button" (click)="showPassword.set(!showPassword())">{{ showPassword() ? 'Hide password' : 'Show password' }}</button></div>
       <label>Confirm password<input name="confirm" [(ngModel)]="confirm" type="password" required maxlength="256" autocomplete="new-password" /></label>
@@ -104,7 +104,8 @@ export class GetStartedPage {
       @if (error()) { <p class="form-error">{{ error() }}</p> }<button class="form-submit" [disabled]="busy() || password.length < 8 || password !== confirm" type="submit">{{ busy() ? 'Activating…' : 'Activate my account' }} <span>↗</span></button></form> }</section></main></div>`,
 })
 export class ActivatePage {
-  private readonly api = inject(ApiService); private readonly route = inject(ActivatedRoute);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly auth = inject(AuthService);
   token = this.route.snapshot.queryParamMap.get('token') ?? '';
   password = ''; confirm = ''; legalName = ''; timeZone = ''; busy = signal(false); done = signal(false); error = signal('');
@@ -115,9 +116,12 @@ export class ActivatePage {
     if (this.password !== this.confirm) { this.error.set('Passwords do not match.'); return; }
     if (!this.token) { this.error.set('This activation link is missing its token.'); return; }
     this.busy.set(true); this.error.set('');
-    this.api.post('/public/activate', { token: this.token, password: this.password, legalName: this.legalName, timeZone: this.timeZone }).subscribe({
-      next: () => { this.busy.set(false); this.done.set(true); this.password = ''; this.confirm = ''; },
-      error: e => { this.busy.set(false); this.error.set(e.error?.detail || 'This link could not be used. Request another invitation.'); },
+    this.auth.activateAccount({ token: this.token, password: this.password, legalName: this.legalName, timeZone: this.timeZone }).subscribe({
+      next: session => {
+        this.busy.set(false); this.done.set(true); this.password = ''; this.confirm = ''; this.token = '';
+        void this.router.navigate([session.accessPaused ? '/access-paused' : session.billingOnly ? '/billing' : '/dashboard'], { replaceUrl: true });
+      },
+      error: e => { this.busy.set(false); this.error.set(e.error?.detail || 'Activation could not be completed. If your account is already active, sign in.'); },
     });
   }
 }

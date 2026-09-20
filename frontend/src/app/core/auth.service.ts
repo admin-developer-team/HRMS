@@ -82,6 +82,11 @@ export class AuthService {
     void this.router.navigate(['/login'], { queryParams: { workspaceMismatch: '1' } });
   }
 
+  activateAccount(payload: { token: string; password: string; legalName: string; timeZone: string }): Observable<UserSession> {
+    this.rememberSession = false;
+    return this.api.post<UserSession>('/public/activate', payload).pipe(tap((session) => this.saveSession(session)));
+  }
+
   beginPublicActivation(): void {
     localStorage.removeItem(SESSION_KEY);
     sessionStorage.removeItem(SESSION_KEY);
