@@ -750,6 +750,12 @@ export const MODULES: Record<string, ModuleDefinition> = {
               { key: 'subscriptionVersion', label: 'Subscription version', type: 'number', sourceKey: 'subscriptionVersion', hidden: true },
             ],
           },
+          {
+            label: 'Permanently delete company', icon: 'delete_forever', tone: 'danger', method: 'delete',
+            path: '/platform/tenants/{id}?confirmSlug={confirmSlug}',
+            fields: [{ key: 'confirmSlug', label: 'Type the workspace URL prefix to permanently delete this company', type: 'text', required: true,
+              help: 'This removes the company, users, employee records, billing history and documents. Cancel any active payment mandate first. This cannot be undone.' }],
+          },
         ],
       },
     ],

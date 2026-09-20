@@ -359,7 +359,7 @@ public sealed class TenantService(
 
 public sealed class AuthService(
     IRepository<Tenant> tenants, IRepository<UserAccount> users, IRepository<Role> roles, IRepository<UserRole> userRoles,
-    IRepository<RefreshToken> refreshTokens, IRepository<Employee> employees, IRepository<TenantSubscription> subscriptions, IRepository<BillingCheckout> billingCheckouts, IRepository<AuditLog> auditLogs, ICurrentTenant currentTenant, IPasswordHasher passwordHasher,
+    IRepository<RefreshToken> refreshTokens, IRepository<Employee> employees, IRepository<TenantSubscription> subscriptions, IRepository<AuditLog> auditLogs, ICurrentTenant currentTenant, IPasswordHasher passwordHasher,
     ITokenService tokenService, IUnitOfWork unitOfWork, IEmailSignInLinkStore emailLinks, Microsoft.Extensions.Configuration.IConfiguration configuration) : IAuthService
 {
     public async Task<string> ResolveEmailLinkTenantAsync(string token, CancellationToken ct)

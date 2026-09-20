@@ -57,7 +57,8 @@ public static class DependencyInjection
         services.AddSingleton<ITokenService, JwtTokenService>();
         services.AddScoped<SessionValidator>();
         services.AddScoped<IEmailSignInLinkStore, EmailSignInLinkStore>();
-        services.AddSingleton<IDocumentStorage, LocalDocumentStorage>();
+        services.AddSingleton<LocalDocumentStorage>();
+        services.AddSingleton<IDocumentStorage>(provider => provider.GetRequiredService<LocalDocumentStorage>());
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options =>
         {
             options.MapInboundClaims = false;
@@ -92,6 +93,7 @@ public static class DependencyInjection
             services.AddAuthorizationBuilder().AddPolicy(permission, policy => policy.RequireAssertion(ctx => ctx.User.HasClaim("permission", Permissions.All) || ctx.User.HasClaim("permission", permission)));
 
         services.AddScoped<ITenantService, TenantService>(); services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<TenantPurgeService>();
         services.AddScoped<IIdentityAdminService, IdentityAdminService>();
         services.AddScoped<IEmployeeService, EmployeeService>(); services.AddScoped<IOrganizationService, OrganizationService>();
         services.AddScoped<ILeaveService, LeaveService>(); services.AddScoped<IAttendanceService, AttendanceService>();
