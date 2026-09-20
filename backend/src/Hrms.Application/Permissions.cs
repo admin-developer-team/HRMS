@@ -42,6 +42,21 @@ public static class Permissions
         WorkTransition, WorkComment, WorkLog, WorkViewAllLogs, WorkManage
     ];
 
+    // Child permissions require the page-level permission that makes the feature reachable.
+    public static readonly IReadOnlyDictionary<string, string> RequiredParents = new Dictionary<string, string>
+    {
+        [EmployeesManage] = EmployeesRead,
+        [OrganizationManage] = EmployeesRead,
+        [TeamApprove] = TeamRead,
+        [WorkCreate] = WorkRead,
+        [WorkAssign] = WorkRead,
+        [WorkTransition] = WorkRead,
+        [WorkComment] = WorkRead,
+        [WorkLog] = WorkRead,
+        [WorkViewAllLogs] = WorkRead,
+        [WorkManage] = WorkRead
+    };
+
     public static readonly string[] HrAdministrator =
     [DashboardAdmin, EmployeesRead, EmployeesManage, OrganizationManage, LeaveManage, AttendanceManage,
      WorkforceManage, RecruitmentManage, PerformanceManage, AssetsManage, ExpensesManage, TrainingManage,

@@ -507,6 +507,10 @@ public sealed class IdentityAdminService(IRepository<UserAccount> users, IReposi
         var requested = r.Permissions.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
         ValidateDelegation(requested);
         if (requested.Any(x => x != Permissions.All && !Permissions.Catalog.Contains(x, StringComparer.OrdinalIgnoreCase))) throw new DomainException("One or more permissions are not supported.");
+        if (!requested.Contains(Permissions.All, StringComparer.OrdinalIgnoreCase))
+            foreach (var (child, parent) in Permissions.RequiredParents)
+                if (requested.Contains(child, StringComparer.OrdinalIgnoreCase) && !requested.Contains(parent, StringComparer.OrdinalIgnoreCase))
+                    throw new DomainException($"The {parent} permission is required before {child} can be enabled.");
         var role = new Role { TenantId = TenantId, Name = r.Name.Trim(), NormalizedName = normalized, PermissionsCsv = string.Join(',', requested) };
         await roles.AddAsync(role, ct); await unitOfWork.SaveChangesAsync(ct); return Map(role);
     }

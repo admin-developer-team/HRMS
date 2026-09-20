@@ -83,7 +83,7 @@ export class BillingPage {
     this.api.get<BillingStatus>('/billing/status').subscribe({
       next: value => {
         this.status.set(value);
-        if (this.auth.session()?.billingOnly && (value.pendingStatus === 'authenticated' || (value.active && value.planCode !== 'trial'))) {
+        if (this.auth.session()?.billingOnly && value.active && value.planCode !== 'trial') {
           this.auth.refreshSession().subscribe({ next: () => void this.router.navigate(['/dashboard']), error: () => undefined });
         }
       },

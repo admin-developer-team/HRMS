@@ -234,22 +234,31 @@ public sealed class BillingService(HrmsDbContext db, ICurrentTenant currentTenan
 
     private async Task ActivatePaidPeriodAsync(BillingCheckout checkout, DateTimeOffset periodEnd, CancellationToken ct)
     {
+        var now = DateTimeOffset.UtcNow;
+        // Only a newly confirmed billing period may advance dates set by a platform administrator.
+        // Refreshing the same charge must not undo a later manual change.
+        var newPaidPeriod = !checkout.CurrentPeriodEnd.HasValue || periodEnd > checkout.CurrentPeriodEnd.Value;
         var paid = await db.TenantSubscriptions.FirstOrDefaultAsync(x => x.BillingProvider == checkout.Provider && x.ProviderSubscriptionId == checkout.ProviderSubscriptionId, ct);
         if (paid is null)
         {
-            paid = new TenantSubscription { TenantId = checkout.TenantId, BillingProvider = checkout.Provider, ProviderSubscriptionId = checkout.ProviderSubscriptionId };
+            paid = new TenantSubscription { TenantId = checkout.TenantId, BillingProvider = checkout.Provider, ProviderSubscriptionId = checkout.ProviderSubscriptionId, StartsAt = now };
             db.TenantSubscriptions.Add(paid);
         }
-        if (paid.EndsAt.HasValue && periodEnd <= paid.EndsAt.Value) return;
         paid.PlanCode = checkout.PlanCode;
         paid.EmployeeLimit = checkout.EmployeeLimit;
-        paid.StartsAt = DateTimeOffset.UtcNow;
-        paid.EndsAt = periodEnd;
+        if (newPaidPeriod && paid.StartsAt > now) paid.StartsAt = now;
+        if (newPaidPeriod && (!paid.EndsAt.HasValue || periodEnd > paid.EndsAt.Value)) paid.EndsAt = periodEnd;
         paid.IsActive = true;
-        checkout.CurrentPeriodEnd = periodEnd;
+        if (newPaidPeriod) checkout.CurrentPeriodEnd = periodEnd;
         checkout.Status = "active";
         var tenant = await db.Tenants.SingleAsync(x => x.Id == checkout.TenantId, ct);
         if (tenant.Status == TenantStatus.Trial) { tenant.Status = TenantStatus.Active; tenant.TrialEndsAt = null; }
+        if (newPaidPeriod && tenant.AdminAccessEnabled == true)
+        {
+            if (tenant.AdminAccessStartsAt > now) tenant.AdminAccessStartsAt = now;
+            if (tenant.AdminAccessEndsAt.HasValue && tenant.AdminAccessEndsAt.Value < periodEnd)
+                tenant.AdminAccessEndsAt = periodEnd;
+        }
         foreach (var old in await db.TenantSubscriptions.Where(x => x.Id != paid.Id && x.IsActive).ToListAsync(ct)) old.IsActive = false;
     }
 }
