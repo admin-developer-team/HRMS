@@ -16,61 +16,6 @@ export interface TenantTheme {
   density: 'comfortable' | 'compact';
 }
 
-// export const THEME_PRESETS: TenantTheme[] = [
-//   {
-//     id: 'azure',
-//     name: 'Azure',
-//     description: 'Clear, focused and familiar',
-//     scheme: 'light',
-//     primary: '#0067b8',
-//     primaryRgb: '0 103 184',
-//     accent: '#2b88d8',
-//     surface: '#f5f7fb',
-//     sidebar: '#071426',
-//     radius: 8,
-//     density: 'comfortable',
-//   },
-//   {
-//     id: 'azure-dark',
-//     name: 'Azure Night',
-//     description: 'Low-glare operations view',
-//     scheme: 'dark',
-//     primary: '#60a5fa',
-//     primaryRgb: '96 165 250',
-//     accent: '#38bdf8',
-//     surface: '#08111f',
-//     sidebar: '#030712',
-//     radius: 8,
-//     density: 'comfortable',
-//   },
-//   {
-//     id: 'emerald',
-//     name: 'Evergreen',
-//     description: 'Calm green workspace',
-//     scheme: 'light',
-//     primary: '#047857',
-//     primaryRgb: '4 120 87',
-//     accent: '#10b981',
-//     surface: '#f4f8f6',
-//     sidebar: '#06251d',
-//     radius: 8,
-//     density: 'comfortable',
-//   },
-//   {
-//     id: 'graphite',
-//     name: 'Graphite',
-//     description: 'Dense neutral workspace',
-//     scheme: 'light',
-//     primary: '#334155',
-//     primaryRgb: '51 65 85',
-//     accent: '#64748b',
-//     surface: '#f3f4f6',
-//     sidebar: '#111827',
-//     radius: 8,
-//     density: 'compact',
-//   },
-// ];
-
 export const THEME_PRESETS: TenantTheme[] = [
   {
     id: 'azure',
