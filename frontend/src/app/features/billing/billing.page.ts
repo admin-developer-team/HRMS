@@ -1,5 +1,5 @@
 import { DecimalPipe, DatePipe } from '@angular/common';
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, OnDestroy, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { ApiService } from '../../core/api.service';
 import { AuthService } from '../../core/auth.service';
@@ -14,16 +14,16 @@ interface Checkout { subscriptionId: string; checkoutUrl: string; provider: stri
   imports: [DatePipe, DecimalPipe],
   template: `
     <main class="billing-page">
-      <header><span class="eyebrow">Company administration</span><h1>Subscription & billing</h1><p>Available plan prices are shown below. For a new subscription, the first plan payment is due after the trial. Razorpay may show a separate refundable mandate authorization now.</p></header>
+      <header><span class="eyebrow">Company administration</span><h1>Subscription & billing</h1><p>Your trial is free and does not require a payment method. You may authorize automatic billing early for convenience. The plan charge starts after your trial ends; the provider may show a separate small, refundable authorization charge now.</p></header>
       @if (!auth.user()?.roles?.includes('TENANT_ADMIN')) {
         <p class="notice">Only the company administrator can manage billing.</p>
       } @else {
         @if (status(); as current) {
           <section class="current"><h2>Current subscription</h2><p><strong>{{ current.planCode }}</strong> · {{ current.active ? 'Enabled' : 'Inactive' }}</p>
             @if (current.currentAmountMinor !== null) { <p>Existing {{ current.pendingProvider }} mandate: {{ current.currentCurrency }} {{ current.currentAmountMinor / 100 | number:'1.2-2' }} per billing cycle</p> }
-            @if (current.trialEndsAt) { <p>Your free trial ends {{ current.trialEndsAt | date:'medium' }}. The first ₹10 payment is scheduled then after you authorize automatic billing.</p> }
+            @if (current.trialEndsAt) { <p>Your free trial allows up to 10 employees and ends {{ current.trialEndsAt | date:'medium' }}. You can use the app without authorizing billing until then.</p> }
             @else if (current.endsAt) { <p>{{ current.adminManaged ? 'Platform-admin access through' : 'Paid access through' }} {{ current.endsAt | date:'mediumDate' }}</p> }
-            @if (current.pendingStatus === 'pending') { <p>Complete the {{ current.pendingProvider }} authorization to use the trial.</p> }
+            @if (current.pendingStatus === 'pending') { <p>You can finish the optional {{ current.pendingProvider }} authorization now or continue using your trial.</p> }
             @if (current.pendingStatus === 'authenticated') { <p>{{ trialExpired(current.trialEndsAt) ? 'Automatic billing is authorized. Waiting for the first confirmed ₹10 payment.' : 'Automatic billing is authorized. Your trial is ready.' }}</p> }
             @if (current.pendingStatus === 'payment_pending') { <p>A payment is processing. Access will update after a confirmed charge.</p> }
             @if (current.pendingCheckoutUrl) { <button type="button" (click)="resumeCheckout(current)">Continue authorization</button> }
@@ -50,7 +50,7 @@ interface Checkout { subscriptionId: string; checkoutUrl: string; provider: stri
     button{border:0;border-radius:9px;background:#2563eb;color:white;padding:12px 18px;cursor:pointer;font-weight:700}button:disabled{opacity:.5;cursor:not-allowed}.notice{color:#7c3aed}.error{color:#b91c1c}label{display:block;margin:12px 0 5px;font-weight:600}input{padding:11px;border:1px solid #cbd5e1;border-radius:8px;width:100%;box-sizing:border-box;margin-bottom:12px}
   `],
 })
-export class BillingPage {
+export class BillingPage implements OnDestroy {
   readonly auth = inject(AuthService);
   private readonly api = inject(ApiService);
   private readonly router = inject(Router);
@@ -60,6 +60,23 @@ export class BillingPage {
   readonly busy = signal(false);
   readonly error = signal('');
   readonly phone = signal('');
+  private accessRefreshTimer: ReturnType<typeof setInterval> | null = null;
+
+  ngOnDestroy(): void { this.stopAccessRefresh(); }
+
+  private stopAccessRefresh(): void {
+    if (this.accessRefreshTimer) clearInterval(this.accessRefreshTimer);
+    this.accessRefreshTimer = null;
+  }
+
+  private startAccessRefresh(): void {
+    if (this.accessRefreshTimer || !this.auth.session()?.billingOnly) return;
+    let attempts = 0;
+    this.accessRefreshTimer = setInterval(() => {
+      if (!this.auth.session()?.billingOnly || ++attempts > 15) { this.stopAccessRefresh(); return; }
+      this.loadStatus();
+    }, 2000);
+  }
 
   trialExpired(value: string | null): boolean { return !!value && new Date(value).getTime() <= Date.now(); }
 
@@ -70,7 +87,7 @@ export class BillingPage {
     if (current?.pendingStatus === 'authenticated' || current?.pendingStatus === 'active')
       return 'Automatic billing authorized';
     if (current?.pendingStatus === 'payment_pending') return 'Payment processing';
-    return 'Authorize automatic billing';
+    return this.status()?.trialEndsAt && !this.trialExpired(this.status()!.trialEndsAt) ? 'Set up optional autopay' : 'Authorize automatic billing';
   }
 
   constructor() {
@@ -83,8 +100,18 @@ export class BillingPage {
     this.api.get<BillingStatus>('/billing/status').subscribe({
       next: value => {
         this.status.set(value);
-        if (this.auth.session()?.billingOnly && value.active && value.planCode !== 'trial') {
-          this.auth.refreshSession().subscribe({ next: () => void this.router.navigate(['/dashboard']), error: () => undefined });
+        if (this.auth.session()?.billingOnly) {
+          if (value.pendingStatus === 'authenticated' || value.pendingStatus === 'payment_pending' || value.pendingStatus === 'active')
+            this.startAccessRefresh();
+          this.auth.refreshSession().subscribe({
+            next: session => {
+              if (!session.billingOnly && !session.accessPaused) {
+                this.stopAccessRefresh();
+                void this.router.navigate(['/dashboard']);
+              }
+            },
+            error: () => undefined,
+          });
         }
       },
       error: () => this.error.set('Could not load subscription status.'),
@@ -139,7 +166,7 @@ export class BillingPage {
             return;
           }
           this.loadStatus();
-          window.setTimeout(() => this.loadStatus(), 2000);
+          this.startAccessRefresh();
         },
         modal: { ondismiss: () => this.busy.set(false) },
       });

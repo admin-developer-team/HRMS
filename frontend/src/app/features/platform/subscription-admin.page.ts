@@ -23,7 +23,7 @@ interface TenantSubscription { id:string; name:string; slug:string; status:strin
 `]})
 export class SubscriptionAdminPage {
  private api=inject(ApiService); companies=signal<TenantSubscription[]>([]);selected=signal<TenantSubscription|null>(null);total=signal(0);pages=signal(1);busy=signal(false);error=signal('');message=signal('');search='';page=1;
- draft={name:'',status:'Trial',planCode:'trial',employeeLimit:50,trialEndsAt:'',subscriptionStartsAt:'',subscriptionEndsAt:'',defaultCurrency:'INR',timeZone:'Asia/Kolkata',subscriptionActive:false};
+ draft={name:'',status:'Trial',planCode:'trial',employeeLimit:10,trialEndsAt:'',subscriptionStartsAt:'',subscriptionEndsAt:'',defaultCurrency:'INR',timeZone:'Asia/Kolkata',subscriptionActive:false};
  constructor(){this.load()}
  load(){this.error.set('');this.api.get<PagedResult<TenantSubscription>>('/platform/tenants',{page:this.page,pageSize:20,search:this.search}).subscribe({next:r=>{this.companies.set(r.items);this.total.set(r.total);this.pages.set(r.totalPages);if(this.selected()){const latest=r.items.find(x=>x.id===this.selected()?.id);if(latest)this.select(latest)}},error:()=>this.error.set('Could not load companies.')})}
  select(t:TenantSubscription){this.selected.set(t);this.message.set('');this.draft={name:t.name,status:t.status,planCode:t.planCode,employeeLimit:t.employeeLimit,trialEndsAt:this.local(t.trialEndsAt),subscriptionStartsAt:this.local(t.subscriptionStartsAt),subscriptionEndsAt:this.local(t.subscriptionEndsAt),defaultCurrency:t.defaultCurrency,timeZone:t.timeZone,subscriptionActive:t.subscriptionActive}}

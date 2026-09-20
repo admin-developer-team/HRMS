@@ -103,9 +103,11 @@ public sealed class BillingService(HrmsDbContext db, ICurrentTenant currentTenan
         // An already-expired trial starts billing immediately after authorization.
         var paidThrough = await db.TenantSubscriptions.Where(x => x.IsActive && x.PlanCode != "trial" && x.EndsAt != null)
             .OrderByDescending(x => x.EndsAt).Select(x => x.EndsAt).FirstOrDefaultAsync(ct);
+        var trialEnd = tenant.AdminAccessEnabled == true && tenant.AdminAccessEndsAt.HasValue
+            ? tenant.AdminAccessEndsAt : tenant.TrialEndsAt;
         var firstChargeAt = paidThrough > DateTimeOffset.UtcNow.AddMinutes(5) ? paidThrough
-            : tenant.Status == TenantStatus.Trial && tenant.TrialEndsAt > DateTimeOffset.UtcNow.AddMinutes(5)
-                ? tenant.TrialEndsAt : null;
+            : tenant.Status == TenantStatus.Trial && trialEnd > DateTimeOffset.UtcNow.AddMinutes(5)
+                ? trialEnd : null;
         BillingCheckoutResult result;
         if (provider == "cashfree")
         {

@@ -726,7 +726,7 @@ export const MODULES: Record<string, ModuleDefinition> = {
             type: 'number',
             required: true,
             min: 1,
-            defaultValue: 50,
+            defaultValue: 10,
           },
         ],
         rowActions: [

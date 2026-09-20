@@ -16,7 +16,7 @@ public sealed record PagedResult<T>(IReadOnlyList<T> Items, int Page, int PageSi
 
 public sealed record CreateTenantRequest(
     string Name, string Slug, string AdminName, string AdminEmail, string AdminPassword,
-    string DefaultCurrency = "INR", string TimeZone = "Asia/Kolkata", int EmployeeLimit = 50);
+    string DefaultCurrency = "INR", string TimeZone = "Asia/Kolkata", int EmployeeLimit = 10);
 public sealed record TenantDto(Guid Id, string Name, string Slug, TenantStatus Status, string DefaultCurrency, string TimeZone,
     int EmployeeLimit, DateTimeOffset? TrialEndsAt, string PlanCode, DateTimeOffset SubscriptionStartsAt,
     DateTimeOffset? SubscriptionEndsAt, bool SubscriptionActive, long Version, long SubscriptionVersion, string? PreferredPlanCode = null);

@@ -26,12 +26,9 @@ public sealed class SessionValidator(HrmsDbContext db, Microsoft.AspNetCore.Http
         var paid = await db.TenantSubscriptions.IgnoreQueryFilters().AnyAsync(x => x.TenantId == tenantId && !x.IsDeleted && x.IsActive && x.PlanCode != "trial"
             && (x.BillingProvider == null || x.BillingProvider == razorpayProvider || x.BillingProvider == cashfreeProvider)
             && x.StartsAt <= now && (!x.EndsAt.HasValue || x.EndsAt > now), ct);
-        var authorized = await db.BillingCheckouts.IgnoreQueryFilters().AnyAsync(x => x.TenantId == tenantId && !x.IsDeleted
-            && (x.Provider == razorpayProvider || x.Provider == cashfreeProvider)
-            && (x.Status == "authenticated" || x.Status == "active" || x.Status == "payment_pending"), ct);
         var billingOnly = tenant.Slug != "platform" && (tenant.AdminAccessAt(now) is { } adminAccess
             ? !adminAccess
-            : !paid && (tenant.Status != TenantStatus.Trial || tenant.TrialEndsAt <= now || (tenant.RequiresBillingMandate && !authorized)));
+            : !paid && (tenant.Status != TenantStatus.Trial || tenant.TrialEndsAt <= now));
         if (!await db.RefreshTokens.IgnoreQueryFilters().AnyAsync(x => x.Id == sessionId && x.TenantId == tenantId && x.UserId == userId && !x.IsDeleted && x.RevokedAt == null && x.ExpiresAt > DateTimeOffset.UtcNow, ct)) return false;
         var employee = await db.Employees.IgnoreQueryFilters().AsNoTracking().SingleOrDefaultAsync(x => x.TenantId == tenantId && x.UserId == userId && !x.IsDeleted, ct);
         if (employee?.Status is EmploymentStatus.Inactive or EmploymentStatus.Suspended or EmploymentStatus.Terminated or EmploymentStatus.Resigned) return false;
