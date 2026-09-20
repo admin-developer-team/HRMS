@@ -12,7 +12,7 @@ public sealed class AuthController(IAuthService service, ICurrentTenant currentT
     public async Task<ActionResult<WorkspaceResponse>> Workspace(CancellationToken ct)
     {
         var company = currentTenant.TenantId.HasValue ? await tenants.GetByIdAsync(currentTenant.TenantId.Value, ct) : null;
-        return company is null ? NotFound() : new WorkspaceResponse(company.Slug, company.Name);
+        return company is null ? NotFound() : new WorkspaceResponse(company.Slug, company.Name, company.LogoUrl);
     }
     [HttpPost("login"), AllowAnonymous] public Task<TokenResponse> Login(LoginRequest request, CancellationToken ct) => service.LoginAsync(request, HttpContext.Connection.RemoteIpAddress?.ToString(), Request.Headers.UserAgent.ToString(), ct);
     [HttpPost("refresh"), AllowAnonymous] public Task<TokenResponse> Refresh(RefreshRequest request, CancellationToken ct) => service.RefreshAsync(request, ct);
@@ -43,7 +43,7 @@ public sealed class IdentityController(IIdentityAdminService service) : Controll
 }
 
 public sealed record RedeemEmailLinkRequest(string Token);
-public sealed record WorkspaceResponse(string Slug, string Name);
+public sealed record WorkspaceResponse(string Slug, string Name, string? LogoUrl = null);
 
 [ApiController, Route("api/v1/dashboard"), Authorize(Policy = Permissions.DashboardAdmin)]
 public sealed class DashboardController(IDashboardService service) : ControllerBase
