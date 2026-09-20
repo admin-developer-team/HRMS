@@ -6,7 +6,7 @@ import { AuthService } from '../../core/auth.service';
 import { ToastService } from '../../core/toast.service';
 
 interface BillingPlan { code: string; name: string; currency: string; amountMinor: number; employeeLimit: number; providerPlanId: string; provider: 'razorpay' | 'cashfree' }
-interface BillingStatus { planCode: string; active: boolean; endsAt: string | null; pendingPlanCode: string | null; pendingStatus: string | null; pendingCheckoutUrl: string | null; testMode: boolean; trialEndsAt: string | null; pendingProvider: string | null; pendingSubscriptionId: string | null; razorpayKeyId: string | null; adminManaged: boolean }
+interface BillingStatus { planCode: string; active: boolean; endsAt: string | null; pendingPlanCode: string | null; pendingStatus: string | null; pendingCheckoutUrl: string | null; testMode: boolean; trialEndsAt: string | null; pendingProvider: string | null; pendingSubscriptionId: string | null; razorpayKeyId: string | null; adminManaged: boolean; currentAmountMinor: number | null; currentCurrency: string | null }
 interface Checkout { subscriptionId: string; checkoutUrl: string; provider: string; testMode: boolean; publicKeyId: string | null }
 
 @Component({
@@ -14,12 +14,13 @@ interface Checkout { subscriptionId: string; checkoutUrl: string; provider: stri
   imports: [DatePipe, DecimalPipe],
   template: `
     <main class="billing-page">
-      <header><span class="eyebrow">Company administration</span><h1>Subscription & billing</h1><p>Authorize Starter at ₹10 per month through Razorpay or Cashfree. Your first plan payment is due after the 30-day trial. A small refundable mandate authorization may be charged now.</p></header>
+      <header><span class="eyebrow">Company administration</span><h1>Subscription & billing</h1><p>Available plan prices are shown below. For a new subscription, the first plan payment is due after the trial. Razorpay may show a separate refundable mandate authorization now.</p></header>
       @if (!auth.user()?.roles?.includes('TENANT_ADMIN')) {
         <p class="notice">Only the company administrator can manage billing.</p>
       } @else {
         @if (status(); as current) {
           <section class="current"><h2>Current subscription</h2><p><strong>{{ current.planCode }}</strong> · {{ current.active ? 'Enabled' : 'Inactive' }}</p>
+            @if (current.currentAmountMinor !== null) { <p>Existing {{ current.pendingProvider }} mandate: {{ current.currentCurrency }} {{ current.currentAmountMinor / 100 | number:'1.2-2' }} per billing cycle</p> }
             @if (current.trialEndsAt) { <p>Your free trial ends {{ current.trialEndsAt | date:'medium' }}. The first ₹10 payment is scheduled then after you authorize automatic billing.</p> }
             @else if (current.endsAt) { <p>{{ current.adminManaged ? 'Platform-admin access through' : 'Paid access through' }} {{ current.endsAt | date:'mediumDate' }}</p> }
             @if (current.pendingStatus === 'pending') { <p>Complete the {{ current.pendingProvider }} authorization to use the trial.</p> }

@@ -77,7 +77,8 @@ public sealed class BillingService(HrmsDbContext db, ICurrentTenant currentTenan
             checkout?.Status == "pending" ? checkout.ProviderSubscriptionId : null,
             checkout?.Status == "pending" && !checkout.Provider.StartsWith("cashfree_", StringComparison.Ordinal)
                 ? configuration[$"Billing:Razorpay:{(checkout.IsTest ? "Test" : "Live")}:KeyId"] : null,
-            tenant.AdminAccessEnabled.HasValue);
+            tenant.AdminAccessEnabled.HasValue,
+            checkout?.AmountMinor, checkout?.Currency);
     }
 
     public async Task<BillingCheckoutResult> StartAsync(string planCode, CancellationToken ct, string provider = "razorpay", string? customerPhone = null)

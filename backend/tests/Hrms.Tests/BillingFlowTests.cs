@@ -25,6 +25,9 @@ public sealed class BillingFlowTests
         db.Tenants.Add(tenant);
         db.TenantSubscriptions.Add(new TenantSubscription { TenantId = tenant.Id, PlanCode = "starter", StartsAt = DateTimeOffset.UtcNow.AddDays(-1),
             EndsAt = DateTimeOffset.UtcNow.AddMonths(1), IsActive = true, BillingProvider = "razorpay_live" });
+        db.BillingCheckouts.Add(new BillingCheckout { TenantId = tenant.Id, Provider = "razorpay_live",
+            ProviderSubscriptionId = "sub_12345678901234", ProviderPlanId = "plan_12345678901234",
+            CheckoutUrl = "https://rzp.io/i/example", Status = "active", AmountMinor = 99900, Currency = "INR" });
         await db.SaveChangesAsync();
         var service = new BillingService(db, tenantContext, new FakeGateway(), new ConfigurationBuilder().Build());
 
@@ -33,6 +36,7 @@ public sealed class BillingFlowTests
         Assert.True(status.Active);
         Assert.True(status.AdminManaged);
         Assert.Equal(overrideEnd, status.EndsAt);
+        Assert.Equal(99900, status.CurrentAmountMinor);
     }
 
     [Theory]
