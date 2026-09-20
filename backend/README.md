@@ -81,7 +81,7 @@ Content-Type: application/json
 }
 ```
 
-Use the returned bearer token to call `POST /api/v1/platform/tenants`. Tenant provisioning creates the company and administrator account. The platform administrator signs in at `hrms.avntechnologies.co.in`; company users sign in at `<slug>.hrms.avntechnologies.co.in` without entering a slug. Authenticated tokens contain `tenant_id`, which must match the URL's company. An optional `X-Tenant-ID` must also match it. Refresh calls require `X-Tenant-ID`. See [Oracle tenant domains](../docs/ORACLE-TENANT-DOMAINS.md) for DNS and HTTPS setup.
+Use the returned bearer token to call `POST /api/v1/platform/tenants`. Tenant provisioning creates the company and administrator account. The platform administrator signs in at `hrms.ssym.co.in`; company users sign in at `<slug>.hrms.ssym.co.in` without entering a slug. Authenticated tokens contain `tenant_id`, which must match the URL's company. An optional `X-Tenant-ID` must also match it. Refresh calls require `X-Tenant-ID`. See [Oracle tenant domains](../docs/ORACLE-TENANT-DOMAINS.md) for DNS and HTTPS setup.
 
 ## Employee accounts, roles and attendance
 

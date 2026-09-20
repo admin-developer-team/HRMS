@@ -33,6 +33,12 @@ export const routes: Routes = [
     title: 'Opening secure link · PeopleFlow HRMS',
   },
   {
+    path: 'access-paused',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/billing/access-paused.page').then(m => m.AccessPausedPage),
+    title: 'Workspace access paused · PeopleFlow',
+  },
+  {
     path: '',
     canActivate: [authGuard],
     loadComponent: () => import('./layout/shell.component').then((m) => m.ShellComponent),

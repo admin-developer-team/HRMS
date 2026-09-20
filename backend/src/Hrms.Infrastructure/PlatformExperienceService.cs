@@ -40,9 +40,9 @@ public sealed class PlatformExperienceService(HrmsDbContext db, ICurrentTenant c
         if (name.Length is < 2 or > 150 || adminName.Length is < 2 or > 120) throw new DomainException("Enter a valid company and administrator name.");
         if (await db.Tenants.AnyAsync(x => x.Slug == slug, ct)) throw new DomainException("This workspace address is already in use.");
         var plan = (request.PreferredPlanCode ?? "starter").Trim().ToLowerInvariant();
-        if (plan is not ("starter" or "professional" or "enterprise")) throw new DomainException("Choose a supported plan.");
+        if (plan != "starter") throw new DomainException("Starter is currently the available plan.");
         var tenant = new Tenant { Name = name, Slug = slug, Status = TenantStatus.Trial, TrialEndsAt = null,
-            PreferredPlanCode = plan, DefaultCurrency = "INR", TimeZone = "Asia/Kolkata" };
+            PreferredPlanCode = plan, RequiresBillingMandate = false, DefaultCurrency = "INR", TimeZone = "Asia/Kolkata" };
         db.Tenants.Add(tenant);
         currentTenant.Set(tenant.Id, slug);
         try
@@ -56,7 +56,7 @@ public sealed class PlatformExperienceService(HrmsDbContext db, ICurrentTenant c
                     PermissionsCsv = string.Join(',', definition.Permissions), IsSystem = true });
             db.Users.Add(admin);
             db.UserRoles.Add(new UserRole { TenantId = tenant.Id, UserId = admin.Id, RoleId = adminRole.Id });
-            db.TenantSubscriptions.Add(new TenantSubscription { TenantId = tenant.Id, PlanCode = "trial", EmployeeLimit = 50,
+            db.TenantSubscriptions.Add(new TenantSubscription { TenantId = tenant.Id, PlanCode = "trial", EmployeeLimit = 10,
                 StartsAt = DateTimeOffset.UtcNow, IsActive = false });
             db.LeaveTypes.Add(new LeaveType { TenantId = tenant.Id, Name = "Annual Leave", Code = "ANNUAL", AnnualAllowance = 20, IsPaid = true });
             db.LeaveTypes.Add(new LeaveType { TenantId = tenant.Id, Name = "Sick Leave", Code = "SICK", AnnualAllowance = 10, IsPaid = true });
@@ -86,7 +86,7 @@ public sealed class PlatformExperienceService(HrmsDbContext db, ICurrentTenant c
         finally { currentTenant.Set(PlatformId, "platform"); }
     }
 
-    public async Task ActivateAsync(ActivateAccountRequest request, CancellationToken ct)
+    public async Task<string> ActivateAsync(ActivateAccountRequest request, CancellationToken ct)
     {
         if (request.Password.Length is < 8 or > 256) throw new DomainException("Use a password of at least 8 characters.");
         if (string.IsNullOrWhiteSpace(request.Token)) throw new DomainException("The activation link is invalid or expired.");
@@ -116,6 +116,7 @@ public sealed class PlatformExperienceService(HrmsDbContext db, ICurrentTenant c
             subscription.StartsAt = now; subscription.EndsAt = tenant.TrialEndsAt; subscription.IsActive = true;
         }
         await db.SaveChangesAsync(ct);
+        return user.Email;
     }
 
     public async Task<string> CreateTicketAsync(SupportTicketRequest request, CancellationToken ct)

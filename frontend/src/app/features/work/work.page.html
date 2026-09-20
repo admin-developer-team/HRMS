@@ -19,16 +19,6 @@
     </div>
   </div>
 
-  @if (success()) {
-  <div class="success-banner" role="status"><mat-icon>check_circle</mat-icon>{{ success() }}
-    <button mat-icon-button (click)="success.set('')" aria-label="Dismiss message"><mat-icon>close</mat-icon></button>
-  </div>
-  }
-  @if (error()) {
-  <div class="error-banner" role="alert"><span>{{ error() }}</span>
-    <button mat-icon-button (click)="error.set('')" aria-label="Dismiss error"><mat-icon>close</mat-icon></button>
-  </div>
-  }
 
   <div class="work-metrics">
     <div class="work-metric"><span>Open work</span><strong>{{ overview().openItems }}</strong></div>

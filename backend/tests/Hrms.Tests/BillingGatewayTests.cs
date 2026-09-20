@@ -41,12 +41,23 @@ public sealed class BillingGatewayTests
     {
         var handler = new RecordingHandler();
         var gateway = new RazorpaySubscriptionGateway(new HttpClient(handler), Settings());
-        var result = await gateway.CreateSubscriptionAsync(new BillingPlan("starter", "Starter", "INR", 10000, 50, "plan_12345678901234"), Guid.NewGuid(), default);
+        var startsAt = DateTimeOffset.UtcNow.AddDays(30);
+        var result = await gateway.CreateSubscriptionAsync(new BillingPlan("starter", "Starter", "INR", 1000, 50, "plan_12345678901234"), Guid.NewGuid(), startsAt, default);
         Assert.Equal("sub_12345678901234", result.SubscriptionId);
         Assert.Equal("https://rzp.io/rzp/example", result.CheckoutUrl);
         Assert.Contains("plan_12345678901234", handler.Body);
+        Assert.Contains($"\"start_at\":{startsAt.ToUnixTimeSeconds()}", handler.Body);
         Assert.Equal("Basic", handler.AuthorizationScheme);
         Assert.DoesNotContain("test-secret", result.CheckoutUrl);
+    }
+
+    [Fact]
+    public async Task ExpiredTrialStartsSubscriptionImmediatelyWithoutNullStartTimestamp()
+    {
+        var handler = new RecordingHandler();
+        var gateway = new RazorpaySubscriptionGateway(new HttpClient(handler), Settings());
+        await gateway.CreateSubscriptionAsync(new BillingPlan("starter", "Starter", "INR", 1000, 50, "plan_12345678901234"), Guid.NewGuid(), null, default);
+        Assert.DoesNotContain("start_at", handler.Body);
     }
 
     private sealed class RecordingHandler : HttpMessageHandler
@@ -58,7 +69,7 @@ public sealed class BillingGatewayTests
             if (request.Method == HttpMethod.Get)
             {
                 Assert.Equal("https://api.razorpay.com/v1/plans/plan_12345678901234", request.RequestUri?.ToString());
-                return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("{\"id\":\"plan_12345678901234\",\"period\":\"monthly\",\"interval\":1,\"item\":{\"amount\":10000,\"currency\":\"INR\"}}") };
+                return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("{\"id\":\"plan_12345678901234\",\"period\":\"monthly\",\"interval\":1,\"item\":{\"amount\":1000,\"currency\":\"INR\"}}") };
             }
             Assert.Equal("https://api.razorpay.com/v1/subscriptions", request.RequestUri?.ToString());
             Body = await request.Content!.ReadAsStringAsync(cancellationToken);

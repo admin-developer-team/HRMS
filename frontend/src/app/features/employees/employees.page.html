@@ -15,12 +15,6 @@
       </button>
     </div>
   </div>
-  @if (success()) {
-    <div class="success-banner">
-      <mat-icon>check_circle</mat-icon>{{ success()
-      }}<button mat-icon-button (click)="success.set('')"><mat-icon>close</mat-icon></button>
-    </div>
-  }
   <section class="app-card table-card employee-table-card">
     <div class="table-toolbar">
       <div class="search-field">

@@ -1,5 +1,6 @@
 using Hrms.Application;
 using Hrms.Domain;
+using Hrms.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -22,11 +23,16 @@ public sealed class AuthController(IAuthService service, ICurrentTenant currentT
 }
 
 [ApiController, Route("api/v1/platform/tenants"), Authorize(Policy = "PlatformAdmin")]
-public sealed class TenantsController(ITenantService service) : ControllerBase
+public sealed class TenantsController(ITenantService service, TenantPurgeService purge) : ControllerBase
 {
     [HttpPost] public async Task<ActionResult<TenantDto>> Create(CreateTenantRequest request, CancellationToken ct) { var result = await service.CreateAsync(request, ct); return CreatedAtAction(nameof(Search), new { search = result.Slug }, result); }
     [HttpGet] public Task<PagedResult<TenantDto>> Search([FromQuery] int page = 1, [FromQuery] int pageSize = 25, [FromQuery] string? search = null, CancellationToken ct = default) => service.SearchAsync(new(page, pageSize, search), ct);
     [HttpPut("{id:guid}")] public Task<TenantDto> Update(Guid id, UpdateTenantRequest request, CancellationToken ct) => service.UpdateAsync(id, request, ct);
+    [HttpDelete("{id:guid}")] public async Task<IActionResult> Delete(Guid id, [FromQuery] string confirmSlug, CancellationToken ct)
+    {
+        await purge.DeleteAsync(id, confirmSlug, ct);
+        return NoContent();
+    }
 }
 
 [ApiController, Route("api/v1/identity"), Authorize(Policy = Permissions.IdentityManage)]

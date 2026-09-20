@@ -1,5 +1,6 @@
 export interface UserSession {
   billingOnly?: boolean;
+  accessPaused?: boolean;
   accessToken: string;
   refreshToken: string;
   expiresAt: string;
@@ -145,7 +146,7 @@ export interface FormFieldDefinition {
     | 'textarea'
     | 'checkbox';
   required?: boolean;
-  options?: { label: string; value: string | number | boolean }[];
+  options?: { label: string; value: string | number | boolean; group?: string; parent?: string }[];
   optionsEndpoint?: string;
   optionLabel?: string;
   optionValue?: string;

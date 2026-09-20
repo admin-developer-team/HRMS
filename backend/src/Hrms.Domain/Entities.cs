@@ -7,6 +7,7 @@ public sealed class Tenant : AuditableEntity
     public string Name { get; set; } = string.Empty;
     public string Slug { get; set; } = string.Empty;
     public string? PreferredPlanCode { get; set; }
+    public bool RequiresBillingMandate { get; set; }
     public string? LegalName { get; set; }
     public string? TaxIdentifier { get; set; }
     public string DefaultCurrency { get; set; } = "INR";
@@ -14,6 +15,14 @@ public sealed class Tenant : AuditableEntity
     public string Locale { get; set; } = "en-IN";
     public TenantStatus Status { get; set; } = TenantStatus.Trial;
     public DateTimeOffset? TrialEndsAt { get; set; }
+    // A platform administrator's access decision takes precedence over payment periods.
+    // Null means that the normal trial and provider billing rules apply.
+    public bool? AdminAccessEnabled { get; set; }
+    public DateTimeOffset? AdminAccessStartsAt { get; set; }
+    public DateTimeOffset? AdminAccessEndsAt { get; set; }
+    public bool? AdminAccessAt(DateTimeOffset now) => AdminAccessEnabled is null ? null
+        : AdminAccessEnabled.Value && (!AdminAccessStartsAt.HasValue || AdminAccessStartsAt <= now)
+            && (!AdminAccessEndsAt.HasValue || AdminAccessEndsAt > now);
     public string? LogoUrl { get; set; }
     public string? SettingsJson { get; set; }
 }

@@ -3,10 +3,11 @@ using Hrms.Application;
 using Hrms.Domain;
 using Hrms.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 
 namespace Hrms.Infrastructure.Identity;
 
-public sealed class SessionValidator(HrmsDbContext db, Microsoft.AspNetCore.Http.IHttpContextAccessor? accessor = null)
+public sealed class SessionValidator(HrmsDbContext db, Microsoft.AspNetCore.Http.IHttpContextAccessor? accessor = null, IConfiguration? configuration = null)
 {
     public async Task<bool> ValidateAsync(ClaimsPrincipal principal, CancellationToken ct)
     {
@@ -20,9 +21,14 @@ public sealed class SessionValidator(HrmsDbContext db, Microsoft.AspNetCore.Http
         var now = DateTimeOffset.UtcNow;
         var tenant = await db.Tenants.IgnoreQueryFilters().SingleOrDefaultAsync(x => x.Id == tenantId && !x.IsDeleted, ct);
         if (tenant is null || tenant.Status is not (TenantStatus.Active or TenantStatus.Trial)) return false;
-        var billingOnly = tenant.Slug != "platform" &&
-            ((tenant.Status == TenantStatus.Trial && tenant.TrialEndsAt <= now) ||
-             !await db.TenantSubscriptions.IgnoreQueryFilters().AnyAsync(x => x.TenantId == tenantId && !x.IsDeleted && x.IsActive && x.StartsAt <= now && (!x.EndsAt.HasValue || x.EndsAt > now), ct));
+        var razorpayProvider = string.Equals(configuration?["Billing:Razorpay:Mode"], "test", StringComparison.OrdinalIgnoreCase) ? "razorpay_test" : "razorpay_live";
+        var cashfreeProvider = string.Equals(configuration?["Billing:Cashfree:Mode"], "test", StringComparison.OrdinalIgnoreCase) ? "cashfree_test" : "cashfree_live";
+        var paid = await db.TenantSubscriptions.IgnoreQueryFilters().AnyAsync(x => x.TenantId == tenantId && !x.IsDeleted && x.IsActive && x.PlanCode != "trial"
+            && (x.BillingProvider == null || x.BillingProvider == razorpayProvider || x.BillingProvider == cashfreeProvider)
+            && x.StartsAt <= now && (!x.EndsAt.HasValue || x.EndsAt > now), ct);
+        var billingOnly = tenant.Slug != "platform" && (tenant.AdminAccessAt(now) is { } adminAccess
+            ? !adminAccess
+            : !paid && (tenant.Status != TenantStatus.Trial || tenant.TrialEndsAt <= now));
         if (!await db.RefreshTokens.IgnoreQueryFilters().AnyAsync(x => x.Id == sessionId && x.TenantId == tenantId && x.UserId == userId && !x.IsDeleted && x.RevokedAt == null && x.ExpiresAt > DateTimeOffset.UtcNow, ct)) return false;
         var employee = await db.Employees.IgnoreQueryFilters().AsNoTracking().SingleOrDefaultAsync(x => x.TenantId == tenantId && x.UserId == userId && !x.IsDeleted, ct);
         if (employee?.Status is EmploymentStatus.Inactive or EmploymentStatus.Suspended or EmploymentStatus.Terminated or EmploymentStatus.Resigned) return false;

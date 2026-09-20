@@ -272,8 +272,11 @@
                 <details class="multi-select-dropdown">
                   <summary>{{ multiselectLabel(field) }}</summary>
                   <div class="multi-select-options">
-                    @for (item of optionsFor(field); track item.value) {
-                      <label><input type="checkbox" [checked]="isOptionSelected(field.key, item.value)" (change)="toggleOption(field.key, item.value)" /><span>{{ item.label }}</span></label>
+                    @for (group of groupedOptions(field); track group.name) {
+                      @if (field.key === 'permissions') { <div class="multi-select-group">{{ group.name }}</div> }
+                      @for (item of group.options; track item.value) {
+                        <label [class.permission-child]="!!item.parent" [class.permission-disabled]="optionDisabled(field, item)"><input type="checkbox" [checked]="isOptionSelected(field.key, item.value)" [disabled]="optionDisabled(field, item)" (change)="toggleOption(field.key, item.value)" /><span>{{ item.label }}</span></label>
+                      }
                     }
                   </div>
                 </details>

@@ -56,6 +56,8 @@ export class EmailLinkPage {
   private redeem(token: string): void {
     this.auth.redeemEmailLink(token).subscribe({
       next: destination => {
+        if (this.auth.session()?.accessPaused) { void this.router.navigate(['/access-paused'], { replaceUrl: true }); return; }
+        if (this.auth.session()?.billingOnly) { void this.router.navigate(['/billing'], { replaceUrl: true }); return; }
         const safe = destination.startsWith('/') && !destination.startsWith('//') && !destination.includes('\\')
           ? destination : (this.auth.isEmployee() ? '/my' : '/dashboard');
         void this.router.navigateByUrl(safe, { replaceUrl: true });

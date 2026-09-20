@@ -30,7 +30,7 @@ import { MODULES } from './module.registry';
 import { DocumentComponent } from '../../shared/document/document.component';
 
 type DataRow = Record<string, unknown>;
-type SelectOption = { label: string; value: string | number | boolean };
+type SelectOption = { label: string; value: string | number | boolean; group?: string; parent?: string };
 
 @Component({
   selector: 'app-module-page',
@@ -399,9 +399,39 @@ export class ModulePage implements OnInit, OnDestroy {
     const control = this.form.get(key);
     const selected = Array.isArray(control?.value) ? [...control.value] : [];
     const index = selected.findIndex((item) => String(item) === String(value));
-    if (index >= 0) selected.splice(index, 1); else selected.push(value);
+    if (key === 'permissions') {
+      if (value === '*') {
+        control?.setValue(index >= 0 ? [] : ['*']);
+        control?.markAsTouched();
+        return;
+      }
+      const option = this.optionsFor({ key }).find((item) => item.value === value);
+      if (option?.parent && !selected.includes(option.parent)) return;
+      if (index >= 0) {
+        selected.splice(index, 1);
+        for (const child of this.optionsFor({ key }).filter((item) => item.parent === value)) {
+          const childIndex = selected.indexOf(child.value);
+          if (childIndex >= 0) selected.splice(childIndex, 1);
+        }
+      } else if (!selected.includes('*')) selected.push(value);
+    } else if (index >= 0) selected.splice(index, 1); else selected.push(value);
     control?.setValue(selected);
     control?.markAsTouched();
+  }
+
+  groupedOptions(field: FormFieldDefinition): { name: string; options: SelectOption[] }[] {
+    const groups = new Map<string, SelectOption[]>();
+    for (const option of this.optionsFor(field)) {
+      const name = option.group ?? 'Other';
+      if (!groups.has(name)) groups.set(name, []);
+      groups.get(name)!.push(option);
+    }
+    return [...groups].map(([name, options]) => ({ name, options }));
+  }
+
+  optionDisabled(field: FormFieldDefinition, option: SelectOption): boolean {
+    return field.key === 'permissions' && option.value !== '*' &&
+      (this.isOptionSelected(field.key, '*') || (!!option.parent && !this.isOptionSelected(field.key, option.parent)));
   }
 
   multiselectLabel(field: FormFieldDefinition): string {

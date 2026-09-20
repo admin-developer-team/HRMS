@@ -249,7 +249,7 @@ public sealed class TenantService(
         };
         var subscription = new TenantSubscription
         {
-            TenantId = tenant.Id, PlanCode = "trial", EmployeeLimit = Math.Max(1, request.EmployeeLimit),
+            TenantId = tenant.Id, PlanCode = "trial", EmployeeLimit = Math.Clamp(request.EmployeeLimit, 1, 10),
             StartsAt = DateTimeOffset.UtcNow, EndsAt = tenant.TrialEndsAt
         };
         await subscriptions.AddAsync(subscription, ct);
@@ -299,7 +299,7 @@ public sealed class TenantService(
         if (r.DefaultCurrency.Length != 3 || !r.DefaultCurrency.All(char.IsAsciiLetter)) throw new DomainException("Use a three-letter currency code.");
         try { _ = TimeZoneInfo.FindSystemTimeZoneById(r.TimeZone); } catch (TimeZoneNotFoundException) { throw new DomainException("Time zone is invalid."); } catch (InvalidTimeZoneException) { throw new DomainException("Time zone is invalid."); }
         if (!Enum.IsDefined(r.Status)) throw new DomainException("Company status is invalid.");
-        if (r.Status == TenantStatus.Trial && (!r.TrialEndsAt.HasValue || r.TrialEndsAt <= DateTimeOffset.UtcNow)) throw new DomainException("An active trial needs a future trial end date.");
+        if (r.Status == TenantStatus.Trial && !r.TrialEndsAt.HasValue) throw new DomainException("A trial needs an end date.");
         if (r.EmployeeLimit < 1) throw new DomainException("Employee limit must be at least 1.");
         if (r.SubscriptionEndsAt.HasValue && r.SubscriptionEndsAt < r.SubscriptionStartsAt) throw new DomainException("Subscription end date cannot be before its start date.");
 
@@ -312,10 +312,28 @@ public sealed class TenantService(
             var licensedEmployees = await employees.CountAsync(x => x.Status == EmploymentStatus.Active || x.Status == EmploymentStatus.Probation || x.Status == EmploymentStatus.NoticePeriod, ct);
             if (r.EmployeeLimit < licensedEmployees) throw new DomainException($"Employee limit cannot be lower than the {licensedEmployees} currently active employees.");
 
+            var followTrialEnd = tenant.Status == TenantStatus.Trial && subscription.PlanCode == "trial"
+                && subscription.EndsAt == tenant.TrialEndsAt && r.SubscriptionEndsAt == subscription.EndsAt;
+
+            var currentStartsAt = tenant.AdminAccessEnabled.HasValue ? tenant.AdminAccessStartsAt ?? subscription.StartsAt : subscription.StartsAt;
+            var currentEndsAt = tenant.AdminAccessEnabled.HasValue ? tenant.AdminAccessEndsAt : subscription.EndsAt;
+            var currentEnabled = tenant.AdminAccessEnabled ?? subscription.IsActive;
+            if (r.SubscriptionStartsAt.ToUniversalTime() != currentStartsAt
+                || r.SubscriptionEndsAt?.ToUniversalTime() != currentEndsAt
+                || r.SubscriptionActive != currentEnabled)
+            {
+                tenant.AdminAccessEnabled = r.SubscriptionActive;
+                tenant.AdminAccessStartsAt = r.SubscriptionStartsAt.ToUniversalTime();
+                tenant.AdminAccessEndsAt = r.SubscriptionEndsAt?.ToUniversalTime();
+            }
+
             tenant.Name = r.Name.Trim(); tenant.Status = r.Status; tenant.DefaultCurrency = r.DefaultCurrency.ToUpperInvariant();
             tenant.TimeZone = r.TimeZone.Trim(); tenant.TrialEndsAt = r.Status == TenantStatus.Trial ? r.TrialEndsAt?.ToUniversalTime() : null;
             subscription.PlanCode = r.PlanCode.Trim().ToLowerInvariant(); subscription.EmployeeLimit = r.EmployeeLimit;
-            subscription.StartsAt = r.SubscriptionStartsAt.ToUniversalTime(); subscription.EndsAt = r.SubscriptionEndsAt?.ToUniversalTime(); subscription.IsActive = r.SubscriptionActive;
+            subscription.StartsAt = r.SubscriptionStartsAt.ToUniversalTime();
+            subscription.EndsAt = followTrialEnd && r.Status == TenantStatus.Trial && r.PlanCode.Equals("trial", StringComparison.OrdinalIgnoreCase)
+                ? tenant.TrialEndsAt : r.SubscriptionEndsAt?.ToUniversalTime();
+            subscription.IsActive = r.SubscriptionActive;
             if (r.Status is TenantStatus.Suspended or TenantStatus.Cancelled)
             {
                 var userIds = (await users.ListAsync(cancellationToken: ct)).Select(x => x.Id).ToHashSet();
@@ -329,8 +347,11 @@ public sealed class TenantService(
 
     private static TenantDto Map(Tenant tenant, TenantSubscription? subscription) => new(
         tenant.Id, tenant.Name, tenant.Slug, tenant.Status, tenant.DefaultCurrency, tenant.TimeZone,
-        subscription?.EmployeeLimit ?? 0, tenant.TrialEndsAt, subscription?.PlanCode ?? "unassigned",
-        subscription?.StartsAt ?? tenant.CreatedAt, subscription?.EndsAt, subscription?.IsActive ?? false,
+        subscription?.PlanCode == "trial" ? Math.Min(subscription.EmployeeLimit, 10) : subscription?.EmployeeLimit ?? 0,
+        tenant.TrialEndsAt, subscription?.PlanCode ?? "unassigned",
+        tenant.AdminAccessEnabled.HasValue ? tenant.AdminAccessStartsAt ?? subscription?.StartsAt ?? tenant.CreatedAt : subscription?.StartsAt ?? tenant.CreatedAt,
+        tenant.AdminAccessEnabled.HasValue ? tenant.AdminAccessEndsAt : subscription?.EndsAt,
+        tenant.AdminAccessEnabled ?? subscription?.IsActive ?? false,
         tenant.Version, subscription?.Version ?? 0, tenant.PreferredPlanCode);
     private static void Required(string value, string name) { if (string.IsNullOrWhiteSpace(value)) throw new DomainException($"{name} is required."); }
     private static void CheckVersion(AuditableEntity entity, long version) { if (entity.Version != version) throw new DomainException("The record was changed by another user. Reload it and retry."); }
@@ -339,7 +360,7 @@ public sealed class TenantService(
 public sealed class AuthService(
     IRepository<Tenant> tenants, IRepository<UserAccount> users, IRepository<Role> roles, IRepository<UserRole> userRoles,
     IRepository<RefreshToken> refreshTokens, IRepository<Employee> employees, IRepository<TenantSubscription> subscriptions, IRepository<AuditLog> auditLogs, ICurrentTenant currentTenant, IPasswordHasher passwordHasher,
-    ITokenService tokenService, IUnitOfWork unitOfWork, IEmailSignInLinkStore emailLinks) : IAuthService
+    ITokenService tokenService, IUnitOfWork unitOfWork, IEmailSignInLinkStore emailLinks, Microsoft.Extensions.Configuration.IConfiguration configuration) : IAuthService
 {
     public async Task<string> ResolveEmailLinkTenantAsync(string token, CancellationToken ct)
     {
@@ -356,9 +377,11 @@ public sealed class AuthService(
         var link = await emailLinks.ConsumeAsync(token, expectedTenantId, ct) ?? throw new DomainException("This email link is invalid, expired, or belongs to another company workspace.");
         var now = DateTimeOffset.UtcNow;
         var company = await tenants.GetByIdAsync(link.TenantId, ct) ?? throw new DomainException("Company is unavailable.");
-        if (company.Status is not (TenantStatus.Active or TenantStatus.Trial) || (company.Status == TenantStatus.Trial && company.TrialEndsAt <= now))
+        if (company.Status is not (TenantStatus.Active or TenantStatus.Trial) ||
+            (company.AdminAccessEnabled is null && company.Status == TenantStatus.Trial && company.TrialEndsAt <= now))
             throw new DomainException("Company access is unavailable.");
-        if (company.Slug != "platform" && !await subscriptions.AnyAsync(x => x.IsActive && x.StartsAt <= now && (!x.EndsAt.HasValue || x.EndsAt > now), ct))
+        if (company.Slug != "platform" && (company.AdminAccessAt(now) is false ||
+            (company.AdminAccessEnabled is null && !await subscriptions.AnyAsync(x => x.IsActive && x.StartsAt <= now && (!x.EndsAt.HasValue || x.EndsAt > now), ct))))
             throw new DomainException("This company subscription is inactive or expired.");
         var user = await users.GetByIdAsync(link.UserId, ct);
         if (user is null || !user.IsActive || user.LockedUntil > now || !string.Equals(user.Email, link.RecipientEmail, StringComparison.OrdinalIgnoreCase))
@@ -376,9 +399,7 @@ public sealed class AuthService(
         var tenant = await tenants.FirstOrDefaultAsync(x => x.Slug == slug && (x.Status == TenantStatus.Active || x.Status == TenantStatus.Trial), ct)
             ?? throw new DomainException("Invalid tenant or credentials.");
         currentTenant.Set(tenant.Id, tenant.Slug);
-        var billingOnly = tenant.Slug != "platform" &&
-            ((tenant.Status == TenantStatus.Trial && tenant.TrialEndsAt <= now) ||
-             !await subscriptions.AnyAsync(x => x.IsActive && x.StartsAt <= now && (!x.EndsAt.HasValue || x.EndsAt > now), ct));
+        var billingOnly = await IsBillingRestrictedAsync(tenant, now, ct);
         var email = request.Email.Trim().ToLowerInvariant();
         var user = await users.FirstOrDefaultAsync(x => x.Email == email, ct)
             ?? throw new DomainException("Invalid tenant or credentials.");
@@ -390,8 +411,7 @@ public sealed class AuthService(
             await unitOfWork.SaveChangesAsync(ct);
             throw new DomainException("Invalid tenant or credentials.");
         }
-        if (billingOnly && !await IsTenantAdministratorAsync(user.Id, ct))
-            throw new DomainException("This company subscription is inactive or expired. Contact the company administrator.");
+        var accessPaused = billingOnly && !await IsTenantAdministratorAsync(user.Id, ct);
         user.FailedLoginCount = 0;
         user.LockedUntil = null;
         user.LastLoginAt = DateTimeOffset.UtcNow;
@@ -408,7 +428,7 @@ public sealed class AuthService(
             Version = 1
         }, ct);
         var session = await IssueAsync(user, ct);
-        return session with { BillingOnly = billingOnly };
+        return session with { BillingOnly = billingOnly && !accessPaused, AccessPaused = accessPaused };
     }
 
     public async Task<TokenResponse> RefreshAsync(RefreshRequest request, CancellationToken ct)
@@ -419,18 +439,29 @@ public sealed class AuthService(
             ?? throw new DomainException("Company is unavailable.");
         if (tenant.Status is not (TenantStatus.Active or TenantStatus.Trial))
             throw new DomainException("Company access is suspended, cancelled, or expired.");
-        var billingOnly = tenant.Slug != "platform" &&
-            ((tenant.Status == TenantStatus.Trial && tenant.TrialEndsAt <= now) ||
-             !await subscriptions.AnyAsync(x => x.IsActive && x.StartsAt <= now && (!x.EndsAt.HasValue || x.EndsAt > now), ct));
+        var billingOnly = await IsBillingRestrictedAsync(tenant, now, ct);
         var hash = tokenService.HashRefreshToken(request.RefreshToken);
         var stored = await refreshTokens.FirstOrDefaultAsync(x => x.TokenHash == hash, ct);
         if (stored is null || !stored.IsActive) throw new DomainException("Refresh token is invalid or expired.");
         var user = await users.GetByIdAsync(stored.UserId, ct) ?? throw new DomainException("User no longer exists.");
         if (!user.IsActive || user.LockedUntil > DateTimeOffset.UtcNow) throw new DomainException("Account is inactive or locked.");
-        if (billingOnly && !await IsTenantAdministratorAsync(user.Id, ct))
-            throw new DomainException("This company subscription is inactive or expired. Contact the company administrator.");
+        var accessPaused = billingOnly && !await IsTenantAdministratorAsync(user.Id, ct);
         var session = await IssueAsync(user, ct, stored);
-        return session with { BillingOnly = billingOnly };
+        return session with { BillingOnly = billingOnly && !accessPaused, AccessPaused = accessPaused };
+    }
+
+    private async Task<bool> IsBillingRestrictedAsync(Tenant tenant, DateTimeOffset now, CancellationToken ct)
+    {
+        if (tenant.Slug == "platform") return false;
+        if (tenant.AdminAccessAt(now) is { } adminAccess) return !adminAccess;
+        var razorpayProvider = string.Equals(configuration["Billing:Razorpay:Mode"], "test", StringComparison.OrdinalIgnoreCase) ? "razorpay_test" : "razorpay_live";
+        var cashfreeProvider = string.Equals(configuration["Billing:Cashfree:Mode"], "test", StringComparison.OrdinalIgnoreCase) ? "cashfree_test" : "cashfree_live";
+        var paid = await subscriptions.AnyAsync(x => x.IsActive && x.PlanCode != "trial"
+            && (x.BillingProvider == null || x.BillingProvider == razorpayProvider || x.BillingProvider == cashfreeProvider)
+            && x.StartsAt <= now && (!x.EndsAt.HasValue || x.EndsAt > now), ct);
+        if (paid) return false;
+        if (tenant.Status != TenantStatus.Trial || tenant.TrialEndsAt <= now) return true;
+        return false;
     }
 
     private async Task<bool> IsTenantAdministratorAsync(Guid userId, CancellationToken ct)
@@ -482,6 +513,10 @@ public sealed class IdentityAdminService(IRepository<UserAccount> users, IReposi
         var requested = r.Permissions.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
         ValidateDelegation(requested);
         if (requested.Any(x => x != Permissions.All && !Permissions.Catalog.Contains(x, StringComparer.OrdinalIgnoreCase))) throw new DomainException("One or more permissions are not supported.");
+        if (!requested.Contains(Permissions.All, StringComparer.OrdinalIgnoreCase))
+            foreach (var (child, parent) in Permissions.RequiredParents)
+                if (requested.Contains(child, StringComparer.OrdinalIgnoreCase) && !requested.Contains(parent, StringComparer.OrdinalIgnoreCase))
+                    throw new DomainException($"The {parent} permission is required before {child} can be enabled.");
         var role = new Role { TenantId = TenantId, Name = r.Name.Trim(), NormalizedName = normalized, PermissionsCsv = string.Join(',', requested) };
         await roles.AddAsync(role, ct); await unitOfWork.SaveChangesAsync(ct); return Map(role);
     }
@@ -599,8 +634,9 @@ public sealed class EmployeeService(IRepository<Employee> employees, IRepository
         if (await employees.AnyAsync(x => x.EmployeeNumber.ToLower() == employeeNumber || x.WorkEmail == email, ct))
             throw new DomainException("Employee number or work email already exists.");
         var sub = await subscriptions.FirstOrDefaultAsync(x => x.IsActive, ct);
-        if (sub is not null && await employees.CountAsync(x => x.Status == EmploymentStatus.Active || x.Status == EmploymentStatus.Probation || x.Status == EmploymentStatus.NoticePeriod, ct) >= sub.EmployeeLimit)
-            throw new DomainException("The subscription employee limit has been reached.");
+        var employeeLimit = sub?.PlanCode == "trial" ? Math.Min(sub.EmployeeLimit, 10) : sub?.EmployeeLimit;
+        if (employeeLimit.HasValue && await employees.CountAsync(x => x.Status == EmploymentStatus.Active || x.Status == EmploymentStatus.Probation || x.Status == EmploymentStatus.NoticePeriod, ct) >= employeeLimit.Value)
+            throw new DomainException(sub?.PlanCode == "trial" ? "The free trial allows up to 10 employees." : "The subscription employee limit has been reached.");
         var e = new Employee
         {
             TenantId = TenantId, EmployeeNumber = r.EmployeeNumber.Trim(), FirstName = r.FirstName.Trim(), LastName = r.LastName.Trim(),

@@ -11,6 +11,7 @@ import { finalize, forkJoin, map, of, switchMap } from 'rxjs';
 import { ApiService } from '../../core/api.service';
 import { AuthService } from '../../core/auth.service';
 import { DocumentService } from '../../core/document.service';
+import { ToastService } from '../../core/toast.service';
 import { Employee, PagedResult } from '../../core/models';
 
 interface Lookup {
@@ -44,6 +45,7 @@ export class EmployeesPage implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly documents = inject(DocumentService);
+  private readonly toast = inject(ToastService);
   readonly auth = inject(AuthService);
   readonly data = signal<PagedResult<Employee>>({
     items: [],
@@ -63,7 +65,6 @@ export class EmployeesPage implements OnInit {
   readonly accountEmployee = signal<Employee | null>(null);
   readonly passwordEmployee = signal<Employee | null>(null);
   readonly error = signal('');
-  readonly success = signal('');
   readonly search = signal('');
   readonly status = signal('');
   readonly departments = signal<Lookup[]>([]);
@@ -209,7 +210,7 @@ export class EmployeesPage implements OnInit {
       .subscribe({
         next: () => {
           this.accountDrawerOpen.set(false);
-          this.success.set(`Login account created for ${this.accountEmployee()!.fullName}; the sign-in email was queued.`);
+          this.toast.success(`Login account created for ${this.accountEmployee()!.fullName}; the sign-in email was queued.`);
           this.load(this.data().page);
         },
         error: (error: HttpErrorResponse) =>
@@ -231,7 +232,7 @@ export class EmployeesPage implements OnInit {
       .subscribe({
         next: () => {
           this.passwordDrawerOpen.set(false);
-          this.success.set(`Password reset for ${employee.fullName}.`);
+          this.toast.success(`Password reset for ${employee.fullName}.`);
           this.passwordForm.reset({ password: '' });
         },
         error: (error: HttpErrorResponse) =>
@@ -296,7 +297,7 @@ export class EmployeesPage implements OnInit {
       next: () => {
         this.drawerOpen.set(false);
         this.clearProfilePhoto();
-        this.success.set(
+        this.toast.success(
           editing ? 'Employee updated successfully.' : 'Employee created successfully.',
         );
         this.load(this.data().page);
@@ -337,7 +338,7 @@ export class EmployeesPage implements OnInit {
       salaryCurrency: employee.salaryCurrency,
       version: employee.version,
     }).pipe(finalize(() => this.saving.set(false))).subscribe({
-      next: () => { this.success.set(`${employee.fullName} ${status === 'Active' ? 'reactivated' : 'deactivated'}.`); this.load(this.data().page); },
+      next: () => { this.toast.success(`${employee.fullName} ${status === 'Active' ? 'reactivated' : 'deactivated'}.`); this.load(this.data().page); },
       error: (error: HttpErrorResponse) => this.error.set(error.error?.detail ?? `Unable to ${verb} employee.`),
     });
   }
@@ -369,7 +370,7 @@ export class EmployeesPage implements OnInit {
       return;
     this.api.delete(`/employees/${employee.id}`).subscribe({
       next: () => {
-        this.success.set('Employee deleted successfully.');
+        this.toast.success('Employee deleted successfully.');
         this.load(this.data().page);
       },
       error: (error: HttpErrorResponse) =>

@@ -1,4 +1,5 @@
 using Hrms.Infrastructure;
+using Hrms.Application;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -8,6 +9,7 @@ namespace Hrms.Api.Controllers;
 [ApiController, Route("api/v1/public")]
 public sealed class PublicPlatformController(
     PlatformExperienceService service,
+    IAuthService auth,
     IConfiguration configuration,
     IHostEnvironment environment) : ControllerBase
 {
@@ -21,7 +23,13 @@ public sealed class PublicPlatformController(
 
     [HttpPost("activate"), AllowAnonymous, EnableRateLimiting("public-forms")]
     public async Task<IActionResult> Activate(ActivateAccountRequest request, CancellationToken ct)
-    { await service.ActivateAsync(request, ct); return Ok(new { message = "Account activated. You can now sign in." }); }
+    {
+        var email = await service.ActivateAsync(request, ct);
+        var session = await auth.LoginAsync(new LoginRequest(null, email, request.Password),
+            HttpContext.Connection.RemoteIpAddress?.ToString(), Request.Headers.UserAgent.ToString(), ct);
+        Response.Headers.CacheControl = "no-store";
+        return Ok(session);
+    }
 
     [HttpPost("support-tickets"), AllowAnonymous, EnableRateLimiting("public-forms")]
     public async Task<IActionResult> Support(SupportTicketRequest request, CancellationToken ct)

@@ -1,4 +1,5 @@
 using System.Net;
+using System.Diagnostics;
 using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Security.Authentication;
@@ -69,7 +70,7 @@ public sealed class EmailOutboxWorker(IServiceScopeFactory scopeFactory, ILogger
     private DateTimeOffset _nextLinkCleanupAt = DateTimeOffset.MinValue;
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(5));
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(2));
         do
         {
             try { await ProcessBatchAsync(stoppingToken); }
@@ -95,7 +96,9 @@ public sealed class EmailOutboxWorker(IServiceScopeFactory scopeFactory, ILogger
         }
         var ids = await db.EmailOutboxItems.IgnoreQueryFilters()
             .Where(x => !x.IsDeleted && x.SentAt == null && x.AttemptCount < 8 && x.NextAttemptAt <= now)
-            .OrderBy(x => x.NextAttemptAt).Select(x => x.Id).Take(20).ToListAsync(ct);
+            .OrderBy(x => x.TemplateKey == EmailTemplateKeys.AccountActivation || x.TemplateKey == EmailTemplateKeys.AccountCreated
+                || x.TemplateKey == EmailTemplateKeys.PasswordReset ? 0 : 1)
+            .ThenBy(x => x.NextAttemptAt).Select(x => x.Id).Take(5).ToListAsync(ct);
 
         foreach (var id in ids)
         {
@@ -154,7 +157,10 @@ public sealed class EmailOutboxWorker(IServiceScopeFactory scopeFactory, ILogger
                     }
                 }
                 var rendered = Render(item, template, model);
+                var sendStarted = Stopwatch.GetTimestamp();
                 await transport.SendAsync(EmailAdministrationService.ToDeliverySettings(configuration, protector), rendered, ct);
+                logger.LogInformation("Email {EmailId} accepted by SMTP; queued for {QueueSeconds:F1}s, transport took {TransportMilliseconds:F0}ms.",
+                    item.Id, (DateTimeOffset.UtcNow - item.CreatedAt).TotalSeconds, Stopwatch.GetElapsedTime(sendStarted).TotalMilliseconds);
                 item.SentAt = DateTimeOffset.UtcNow; item.LastError = null;
                 if (item.TemplateKey is EmailTemplateKeys.AccountCreated or EmailTemplateKeys.AccountActivation or EmailTemplateKeys.PasswordReset) item.ModelJson = "{}";
             }

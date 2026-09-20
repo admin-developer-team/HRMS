@@ -30,6 +30,13 @@ public sealed class LocalDocumentStorage(IConfiguration configuration) : IDocume
         return Task.CompletedTask;
     }
 
+    public void DeleteTenantDirectory(Guid tenantId)
+    {
+        var directory = Resolve($"{tenantId:N}/documents");
+        var tenantDirectory = Path.GetDirectoryName(directory)!;
+        if (Directory.Exists(tenantDirectory)) Directory.Delete(tenantDirectory, recursive: true);
+    }
+
     private string Resolve(string key)
     {
         var path = Path.GetFullPath(Path.Combine(root, key.Replace('/', Path.DirectorySeparatorChar)));
