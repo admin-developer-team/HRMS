@@ -68,14 +68,16 @@ public sealed class BillingService(HrmsDbContext db, ICurrentTenant currentTenan
         var active = await db.TenantSubscriptions.AnyAsync(x => x.IsActive
             && (x.BillingProvider == null || x.BillingProvider == gateway.ProviderKey || x.BillingProvider == cashfreeProvider)
             && x.StartsAt <= now && (!x.EndsAt.HasValue || x.EndsAt > now), ct);
-        return new BillingStatus(subscription?.PlanCode ?? "unassigned", active,
-            subscription?.EndsAt, checkout?.Status is "pending" or "authenticated" or "payment_pending" ? checkout.PlanCode : null,
+        return new BillingStatus(subscription?.PlanCode ?? "unassigned", tenant.AdminAccessAt(now) ?? active,
+            tenant.AdminAccessEnabled.HasValue ? tenant.AdminAccessEndsAt : subscription?.EndsAt,
+            checkout?.Status is "pending" or "authenticated" or "payment_pending" ? checkout.PlanCode : null,
             checkout?.Status,
             checkout?.Status == "pending" ? checkout.CheckoutUrl : null, checkout?.IsTest ?? false, tenant.TrialEndsAt,
             checkout?.Provider.StartsWith("cashfree_", StringComparison.Ordinal) == true ? "cashfree" : checkout is null ? null : "razorpay",
             checkout?.Status == "pending" ? checkout.ProviderSubscriptionId : null,
             checkout?.Status == "pending" && !checkout.Provider.StartsWith("cashfree_", StringComparison.Ordinal)
-                ? configuration[$"Billing:Razorpay:{(checkout.IsTest ? "Test" : "Live")}:KeyId"] : null);
+                ? configuration[$"Billing:Razorpay:{(checkout.IsTest ? "Test" : "Live")}:KeyId"] : null,
+            tenant.AdminAccessEnabled.HasValue);
     }
 
     public async Task<BillingCheckoutResult> StartAsync(string planCode, CancellationToken ct, string provider = "razorpay", string? customerPhone = null)

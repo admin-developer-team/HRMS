@@ -6,7 +6,7 @@ import { AuthService } from '../../core/auth.service';
 import { ToastService } from '../../core/toast.service';
 
 interface BillingPlan { code: string; name: string; currency: string; amountMinor: number; employeeLimit: number; providerPlanId: string; provider: 'razorpay' | 'cashfree' }
-interface BillingStatus { planCode: string; active: boolean; endsAt: string | null; pendingPlanCode: string | null; pendingStatus: string | null; pendingCheckoutUrl: string | null; testMode: boolean; trialEndsAt: string | null; pendingProvider: string | null; pendingSubscriptionId: string | null; razorpayKeyId: string | null }
+interface BillingStatus { planCode: string; active: boolean; endsAt: string | null; pendingPlanCode: string | null; pendingStatus: string | null; pendingCheckoutUrl: string | null; testMode: boolean; trialEndsAt: string | null; pendingProvider: string | null; pendingSubscriptionId: string | null; razorpayKeyId: string | null; adminManaged: boolean }
 interface Checkout { subscriptionId: string; checkoutUrl: string; provider: string; testMode: boolean; publicKeyId: string | null }
 
 @Component({
@@ -21,7 +21,7 @@ interface Checkout { subscriptionId: string; checkoutUrl: string; provider: stri
         @if (status(); as current) {
           <section class="current"><h2>Current subscription</h2><p><strong>{{ current.planCode }}</strong> · {{ current.active ? 'Enabled' : 'Inactive' }}</p>
             @if (current.trialEndsAt) { <p>Your free trial ends {{ current.trialEndsAt | date:'medium' }}. The first ₹10 payment is scheduled then after you authorize automatic billing.</p> }
-            @else if (current.endsAt) { <p>Paid access through {{ current.endsAt | date:'mediumDate' }}</p> }
+            @else if (current.endsAt) { <p>{{ current.adminManaged ? 'Platform-admin access through' : 'Paid access through' }} {{ current.endsAt | date:'mediumDate' }}</p> }
             @if (current.pendingStatus === 'pending') { <p>Complete the {{ current.pendingProvider }} authorization to use the trial.</p> }
             @if (current.pendingStatus === 'authenticated') { <p>{{ trialExpired(current.trialEndsAt) ? 'Automatic billing is authorized. Waiting for the first confirmed ₹10 payment.' : 'Automatic billing is authorized. Your trial is ready.' }}</p> }
             @if (current.pendingStatus === 'payment_pending') { <p>A payment is processing. Access will update after a confirmed charge.</p> }

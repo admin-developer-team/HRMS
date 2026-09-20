@@ -435,6 +435,17 @@ public sealed class EnterpriseWorkflowTests
         var validator = new SessionValidator(h.Db);
         Assert.True(await validator.ValidateAsync(principal, Ct));
         Assert.False(principal.HasClaim("permission", "*")); Assert.True(principal.HasClaim("permission", Permissions.SelfService));
+        var tenant = await h.Db.Tenants.SingleAsync();
+        tenant.AdminAccessEnabled = false; await h.Db.SaveChangesAsync();
+        Assert.False(await validator.ValidateAsync(principal, Ct));
+        tenant.AdminAccessEnabled = true;
+        tenant.AdminAccessStartsAt = DateTimeOffset.UtcNow.AddDays(-1);
+        tenant.AdminAccessEndsAt = DateTimeOffset.UtcNow.AddDays(-1);
+        await h.Db.SaveChangesAsync();
+        Assert.False(await validator.ValidateAsync(principal, Ct));
+        tenant.AdminAccessEndsAt = DateTimeOffset.UtcNow.AddDays(1); await h.Db.SaveChangesAsync();
+        Assert.True(await validator.ValidateAsync(principal, Ct));
+        tenant.AdminAccessEnabled = null; await h.Db.SaveChangesAsync();
         subscription.IsActive = false; await h.Db.SaveChangesAsync();
         Assert.False(await validator.ValidateAsync(principal, Ct));
         subscription.IsActive = true;

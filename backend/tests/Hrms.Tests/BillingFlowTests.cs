@@ -11,6 +11,30 @@ namespace Hrms.Tests;
 
 public sealed class BillingFlowTests
 {
+    [Fact]
+    public async Task Billing_status_shows_platform_access_override_instead_of_provider_period()
+    {
+        var tenantContext = new CurrentTenant();
+        var overrideEnd = DateTimeOffset.UtcNow.AddHours(2);
+        var tenant = new Tenant { Name = "Example", Slug = "example", Status = TenantStatus.Active,
+            AdminAccessEnabled = true, AdminAccessStartsAt = DateTimeOffset.UtcNow.AddDays(-1), AdminAccessEndsAt = overrideEnd };
+        tenantContext.Set(tenant.Id, tenant.Slug);
+        await using var db = new HrmsDbContext(new DbContextOptionsBuilder<HrmsDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, tenantContext,
+            new TestCurrentUser { IsPlatformAdmin = true }, new TestNotificationPublisher());
+        db.Tenants.Add(tenant);
+        db.TenantSubscriptions.Add(new TenantSubscription { TenantId = tenant.Id, PlanCode = "starter", StartsAt = DateTimeOffset.UtcNow.AddDays(-1),
+            EndsAt = DateTimeOffset.UtcNow.AddMonths(1), IsActive = true, BillingProvider = "razorpay_live" });
+        await db.SaveChangesAsync();
+        var service = new BillingService(db, tenantContext, new FakeGateway(), new ConfigurationBuilder().Build());
+
+        var status = await service.StatusAsync(default);
+
+        Assert.True(status.Active);
+        Assert.True(status.AdminManaged);
+        Assert.Equal(overrideEnd, status.EndsAt);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

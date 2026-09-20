@@ -2936,6 +2936,15 @@ namespace Hrms.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("uuid");
 
+                    b.Property<bool?>("AdminAccessEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset?>("AdminAccessEndsAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("AdminAccessStartsAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("DefaultCurrency")
                         .IsRequired()
                         .HasColumnType("text");

@@ -64,6 +64,36 @@ public sealed class AdminLifecycleTests
         Assert.True(updated.SubscriptionActive);
     }
 
+    [Fact]
+    public async Task Platform_access_dates_and_switch_override_a_paid_provider_period()
+    {
+        using var h = new Harness();
+        var now = DateTimeOffset.UtcNow;
+        var customer = new Tenant { Name = "Paid Company", Slug = "paid-company", Status = TenantStatus.Active, DefaultCurrency = "INR", TimeZone = "UTC" };
+        var paid = new TenantSubscription { TenantId = customer.Id, PlanCode = "starter", EmployeeLimit = 50,
+            StartsAt = now.AddDays(-1), EndsAt = now.AddMonths(1), IsActive = true, BillingProvider = "razorpay_test" };
+        h.Db.Tenants.Add(customer); h.Db.TenantSubscriptions.Add(paid); await h.Db.SaveChangesAsync();
+        var service = new TenantService(h.R<Tenant>(), h.R<TenantSubscription>(), h.R<UserAccount>(), h.R<Role>(), h.R<UserRole>(), h.R<LeaveType>(), h.R<Employee>(), h.R<RefreshToken>(), new Pbkdf2PasswordHasher(), h.Db, h.Tenant);
+
+        var shortened = await service.UpdateAsync(customer.Id, new("Paid Company", TenantStatus.Active, "INR", "UTC", null,
+            "starter", 50, paid.StartsAt, now.AddMinutes(-1), true, customer.Version, paid.Version), default);
+        Assert.Equal(now.AddMinutes(-1), shortened.SubscriptionEndsAt);
+        Assert.False(customer.AdminAccessAt(now));
+
+        paid.EndsAt = now.AddMonths(2); // A subsequent payment update must not restore admin access.
+        await h.Db.SaveChangesAsync();
+        Assert.False(customer.AdminAccessAt(now));
+
+        var extended = await service.UpdateAsync(customer.Id, new("Paid Company", TenantStatus.Active, "INR", "UTC", null,
+            "starter", 50, paid.StartsAt, now.AddMonths(3), true, customer.Version, paid.Version), default);
+        Assert.True(customer.AdminAccessAt(now));
+        Assert.Equal(now.AddMonths(3), extended.SubscriptionEndsAt);
+
+        await service.UpdateAsync(customer.Id, new("Paid Company", TenantStatus.Active, "INR", "UTC", null,
+            "starter", 50, paid.StartsAt, now.AddMonths(3), false, customer.Version, paid.Version), default);
+        Assert.False(customer.AdminAccessAt(now));
+    }
+
     private sealed class Actor : ICurrentUser
     {
         public Guid? UserId { get; set; } = Guid.NewGuid();
