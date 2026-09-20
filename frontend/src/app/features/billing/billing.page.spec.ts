@@ -13,6 +13,7 @@ describe('billing checkout', () => {
       checkoutUrl: 'https://rzp.io/rzp/test-checkout',
       provider: 'razorpay',
       testMode: true,
+      publicKeyId: 'rzp_test_public',
     }));
     const api = {
       get: vi.fn((path: string) => of(path === '/billing/plans'
@@ -33,7 +34,7 @@ describe('billing checkout', () => {
     });
     const fixture = TestBed.createComponent(BillingPage);
     const page = fixture.componentInstance;
-    const openCheckout = vi.spyOn(page, 'openCheckout').mockResolvedValue();
+    const openRazorpay = vi.spyOn(page, 'openRazorpay').mockResolvedValue();
     fixture.detectChanges();
 
     const button = Array.from(fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>)
@@ -44,7 +45,33 @@ describe('billing checkout', () => {
 
     expect(post).toHaveBeenCalledWith('/billing/checkout',
       { planCode: 'starter', provider: 'razorpay', customerPhone: null });
-    expect(openCheckout).toHaveBeenCalledWith('https://rzp.io/rzp/test-checkout', true);
+    expect(openRazorpay).toHaveBeenCalledWith('sub_test', 'rzp_test_public');
+  });
+
+  it('opens Razorpay Standard Checkout on the company page', async () => {
+    let options: any;
+    const open = vi.fn();
+    (window as any).Razorpay = class {
+      constructor(value: any) { options = value; }
+      open = open;
+    };
+    const api = { get: vi.fn().mockReturnValue(of([])) };
+    TestBed.configureTestingModule({
+      imports: [BillingPage],
+      providers: [
+        { provide: ApiService, useValue: api },
+        { provide: AuthService, useValue: { user: () => ({ roles: ['TENANT_ADMIN'] }), session: () => null } },
+        { provide: Router, useValue: { navigate: vi.fn() } },
+      ],
+    });
+    const page = TestBed.createComponent(BillingPage).componentInstance;
+    await page.openRazorpay('sub_test', 'rzp_test_public');
+
+    expect(open).toHaveBeenCalledOnce();
+    expect(options.key).toBe('rzp_test_public');
+    expect(options.subscription_id).toBe('sub_test');
+    expect(options.handler).toEqual(expect.any(Function));
+    delete (window as any).Razorpay;
   });
 });
 

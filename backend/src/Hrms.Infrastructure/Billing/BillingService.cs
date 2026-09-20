@@ -72,7 +72,10 @@ public sealed class BillingService(HrmsDbContext db, ICurrentTenant currentTenan
             subscription?.EndsAt, checkout?.Status is "pending" or "authenticated" or "payment_pending" ? checkout.PlanCode : null,
             checkout?.Status,
             checkout?.Status == "pending" ? checkout.CheckoutUrl : null, checkout?.IsTest ?? false, tenant.TrialEndsAt,
-            checkout?.Provider.StartsWith("cashfree_", StringComparison.Ordinal) == true ? "cashfree" : checkout is null ? null : "razorpay");
+            checkout?.Provider.StartsWith("cashfree_", StringComparison.Ordinal) == true ? "cashfree" : checkout is null ? null : "razorpay",
+            checkout?.Status == "pending" ? checkout.ProviderSubscriptionId : null,
+            checkout?.Status == "pending" && !checkout.Provider.StartsWith("cashfree_", StringComparison.Ordinal)
+                ? configuration[$"Billing:Razorpay:{(checkout.IsTest ? "Test" : "Live")}:KeyId"] : null);
     }
 
     public async Task<BillingCheckoutResult> StartAsync(string planCode, CancellationToken ct, string provider = "razorpay", string? customerPhone = null)
@@ -89,7 +92,8 @@ public sealed class BillingService(HrmsDbContext db, ICurrentTenant currentTenan
         if (plan.EmployeeLimit < licensed) throw new DomainException("This plan has fewer seats than the current licensed workforce.");
         var existing = await db.BillingCheckouts.Where(x => x.Status == "pending" || x.Status == "authenticated" || x.Status == "active" || x.Status == "payment_pending").OrderByDescending(x => x.CreatedAt).FirstOrDefaultAsync(ct);
         if (existing?.Status == "pending" && existing.Provider == (provider == "cashfree" ? cashfree?.ProviderKey : gateway.ProviderKey))
-            return new BillingCheckoutResult(existing.ProviderSubscriptionId, existing.CheckoutUrl, provider, existing.IsTest);
+            return new BillingCheckoutResult(existing.ProviderSubscriptionId, existing.CheckoutUrl, provider, existing.IsTest,
+                provider == "razorpay" ? configuration[$"Billing:Razorpay:{(existing.IsTest ? "Test" : "Live")}:KeyId"] : null);
         if (existing is not null)
             throw new DomainException("A recurring subscription already exists for this company. Contact the platform administrator before changing payment providers.");
         // Authorize the mandate now; Razorpay collects the first plan payment after the trial.

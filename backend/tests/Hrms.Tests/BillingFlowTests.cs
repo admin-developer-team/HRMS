@@ -46,7 +46,10 @@ public sealed class BillingFlowTests
         Assert.Equal("sub_12345678901234", checkout.SubscriptionId);
         Assert.Equal(expired ? null : tenant.TrialEndsAt, gateway.FirstChargeAt);
         Assert.Equal("pending", (await db.BillingCheckouts.SingleAsync()).Status);
-        Assert.Equal(checkout, await service.StartAsync("starter", default));
+        var resumed = await service.StartAsync("starter", default);
+        Assert.Equal(checkout.SubscriptionId, resumed.SubscriptionId);
+        Assert.Equal(checkout.CheckoutUrl, resumed.CheckoutUrl);
+        Assert.Equal("rzp_live_example", resumed.PublicKeyId);
     }
 
     private sealed class FakeGateway : ISubscriptionPaymentGateway

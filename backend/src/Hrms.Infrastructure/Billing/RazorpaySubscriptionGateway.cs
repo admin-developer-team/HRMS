@@ -67,7 +67,7 @@ public sealed class RazorpaySubscriptionGateway(HttpClient client, IConfiguratio
         if (string.IsNullOrWhiteSpace(subscriptionId) || !Uri.TryCreate(url, UriKind.Absolute, out var uri)
             || uri.Scheme != Uri.UriSchemeHttps || !(uri.Host == "rzp.io" || uri.Host.EndsWith(".razorpay.com", StringComparison.OrdinalIgnoreCase)))
             throw new InvalidOperationException("Razorpay returned an invalid subscription checkout URL.");
-        return new BillingCheckoutResult(subscriptionId, url!, "razorpay", IsTest);
+        return new BillingCheckoutResult(subscriptionId, url!, "razorpay", IsTest, id);
     }
 
     public async Task<ProviderSubscriptionStatus> GetSubscriptionAsync(string subscriptionId, CancellationToken ct)

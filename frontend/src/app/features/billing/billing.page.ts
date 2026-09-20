@@ -6,8 +6,8 @@ import { AuthService } from '../../core/auth.service';
 import { ToastService } from '../../core/toast.service';
 
 interface BillingPlan { code: string; name: string; currency: string; amountMinor: number; employeeLimit: number; providerPlanId: string; provider: 'razorpay' | 'cashfree' }
-interface BillingStatus { planCode: string; active: boolean; endsAt: string | null; pendingPlanCode: string | null; pendingStatus: string | null; pendingCheckoutUrl: string | null; testMode: boolean; trialEndsAt: string | null; pendingProvider: string | null }
-interface Checkout { subscriptionId: string; checkoutUrl: string; provider: string; testMode: boolean }
+interface BillingStatus { planCode: string; active: boolean; endsAt: string | null; pendingPlanCode: string | null; pendingStatus: string | null; pendingCheckoutUrl: string | null; testMode: boolean; trialEndsAt: string | null; pendingProvider: string | null; pendingSubscriptionId: string | null; razorpayKeyId: string | null }
+interface Checkout { subscriptionId: string; checkoutUrl: string; provider: string; testMode: boolean; publicKeyId: string | null }
 
 @Component({
   selector: 'app-billing-page',
@@ -25,7 +25,7 @@ interface Checkout { subscriptionId: string; checkoutUrl: string; provider: stri
             @if (current.pendingStatus === 'pending') { <p>Complete the {{ current.pendingProvider }} authorization to use the trial.</p> }
             @if (current.pendingStatus === 'authenticated') { <p>{{ trialExpired(current.trialEndsAt) ? 'Automatic billing is authorized. Waiting for the first confirmed ₹10 payment.' : 'Automatic billing is authorized. Your trial is ready.' }}</p> }
             @if (current.pendingStatus === 'payment_pending') { <p>A payment is processing. Access will update after a confirmed charge.</p> }
-            @if (current.pendingCheckoutUrl) { <button type="button" (click)="openCheckout(current.pendingCheckoutUrl, current.testMode)">Continue authorization</button> }
+            @if (current.pendingCheckoutUrl) { <button type="button" (click)="resumeCheckout(current)">Continue authorization</button> }
             @if (current.testMode) { <p class="notice">Payment provider test mode: no real money is charged.</p> }
             <button type="button" (click)="loadStatus()">Refresh payment status</button>
           </section>
@@ -93,16 +93,61 @@ export class BillingPage {
   checkout(plan: BillingPlan): void {
     if (this.busy()) return;
     if (this.status()?.pendingStatus === 'pending' && this.status()?.pendingProvider === plan.provider && this.status()?.pendingCheckoutUrl) {
-      void this.openCheckout(this.status()!.pendingCheckoutUrl!, this.status()!.testMode);
+      void this.resumeCheckout(this.status()!);
       return;
     }
     if (plan.provider === 'cashfree' && !/^[6-9][0-9]{9}$/.test(this.phone())) { this.error.set('Enter a valid 10-digit Indian mobile number for Cashfree.'); return; }
     this.busy.set(true);
     this.error.set('');
     this.api.post<Checkout>('/billing/checkout', { planCode: plan.code, provider: plan.provider, customerPhone: plan.provider === 'cashfree' ? this.phone() : null }).subscribe({
-      next: result => { void this.openCheckout(result.checkoutUrl, result.testMode); },
+      next: result => {
+        if (result.provider === 'razorpay') void this.openRazorpay(result.subscriptionId, result.publicKeyId);
+        else void this.openCheckout(result.checkoutUrl, result.testMode);
+      },
       error: err => { this.busy.set(false); this.error.set(err.error?.detail ?? 'Could not create the subscription.'); this.toast.error(this.error()); },
     });
+  }
+
+  resumeCheckout(current: BillingStatus): void {
+    if (current.pendingProvider === 'razorpay' && current.pendingSubscriptionId && current.razorpayKeyId)
+      void this.openRazorpay(current.pendingSubscriptionId, current.razorpayKeyId);
+    else if (current.pendingCheckoutUrl) void this.openCheckout(current.pendingCheckoutUrl, current.testMode);
+  }
+
+  async openRazorpay(subscriptionId: string, keyId: string | null): Promise<void> {
+    try {
+      if (!keyId?.startsWith('rzp_') || !subscriptionId.startsWith('sub_')) throw new Error('Razorpay checkout details are missing.');
+      if (!(window as any).Razorpay) {
+        await new Promise<void>((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+          script.onload = () => resolve();
+          script.onerror = () => reject(new Error('Razorpay checkout could not load.'));
+          document.head.appendChild(script);
+        });
+      }
+      const checkout = new (window as any).Razorpay({
+        key: keyId,
+        subscription_id: subscriptionId,
+        name: 'PeopleFlow HRMS',
+        description: 'Starter automatic billing authorization',
+        handler: (response: { razorpay_subscription_id?: string }) => {
+          this.busy.set(false);
+          if (response.razorpay_subscription_id !== subscriptionId) {
+            this.error.set('Razorpay returned a different subscription. Refresh payment status.');
+            return;
+          }
+          this.loadStatus();
+          window.setTimeout(() => this.loadStatus(), 2000);
+        },
+        modal: { ondismiss: () => this.busy.set(false) },
+      });
+      checkout.open();
+    } catch (error) {
+      this.busy.set(false);
+      this.error.set(error instanceof Error ? error.message : 'Could not open Razorpay checkout.');
+      this.toast.error(this.error());
+    }
   }
 
   async openCheckout(url: string, testMode: boolean): Promise<void> {
