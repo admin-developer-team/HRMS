@@ -2,97 +2,106 @@
   <div class="page-header">
     <div>
       <div class="eyebrow">Settings</div>
-      <h1 class="page-title">Settings</h1>
-      <p class="page-description">
-        Manage your profile, security, company identity, and application appearance.
-      </p>
     </div>
   </div>
 
   <section class="theme-layout">
     <article class="app-card settings-card profile-settings-card">
-        <div class="settings-head">
-          <div><h2>Personal profile</h2><p>Update your photo and personal contact information.</p></div>
+      <div class="settings-head">
+        <div>
+          <h2>Personal profile</h2>
+          <p>Update your photo and personal contact information.</p>
         </div>
-        <div class="profile-settings-layout">
-          <app-document
-            [ownerType]="profileOwnerType()"
-            [ownerId]="profileOwnerId()"
-            category="profile"
-            label="Profile photo"
-            [replaceMode]="true"
-            [maxFiles]="1"
-            [showUploadButton]="false"
-            [compact]="true"
-            [allowedExtensions]="['jpg', 'jpeg', 'png', 'webp', 'avif']"
-            (documentsChanged)="profilePhotoChanged()"
-          />
-          <div class="personal-fields">
-            @if (profile(); as employee) {
-              @if (managedEmployee()) {
-                <div class="field"><label>First name</label><input [ngModel]="firstName()" (ngModelChange)="firstName.set($event)" /></div>
-                <div class="field"><label>Last name</label><input [ngModel]="lastName()" (ngModelChange)="lastName.set($event)" /></div>
-                <div class="field"><label>Work email</label><input type="email" [ngModel]="workEmail()" (ngModelChange)="workEmail.set($event)" /></div>
-                <div class="field"><label>Employee ID</label><input [ngModel]="employeeNumber()" (ngModelChange)="employeeNumber.set($event)" /></div>
-                <div class="field"><label>Hire date</label><input type="date" [ngModel]="hireDate()" (ngModelChange)="hireDate.set($event)" /></div>
-              } @else {
-                <div class="field"><label>Full name</label><input [value]="employee.fullName" readonly /></div>
-                <div class="field"><label>Work email</label><input [value]="employee.workEmail" readonly /></div>
-                <div class="field"><label>Employee ID</label><input [value]="employee.employeeNumber" readonly /></div>
-              }
-              <div class="field"><label>Phone</label><input [ngModel]="phone()" (ngModelChange)="phone.set($event)" maxlength="40" /></div>
-              <div class="setting-actions profile-actions">
-                <button mat-raised-button class="primary-button" [disabled]="savingProfile()" (click)="saveProfile()">
-                  @if (savingProfile()) { <mat-spinner diameter="17" /> } @else { <mat-icon>save</mat-icon> } Save profile
-                </button>
-              </div>
-            } @else { 
-              <div class="field"><label>Display name</label><input [value]="auth.user()?.displayName" readonly /></div>
-              <div class="field"><label>Account email</label><input [value]="auth.user()?.email" readonly /></div>
-              <p class="account-profile-note">Name and email are controlled by account administrators.</p>
-            }
+      </div>
+      <div class="profile-settings-layout">
+        <app-document [ownerType]="profileOwnerType()" [ownerId]="profileOwnerId()" category="profile"
+          label="Profile photo" [replaceMode]="true" [maxFiles]="1" [showUploadButton]="false" [compact]="true"
+          [allowedExtensions]="['jpg', 'jpeg', 'png', 'webp', 'avif']" (documentsChanged)="profilePhotoChanged()" />
+        <div class="personal-fields">
+          @if (profile(); as employee) {
+          @if (managedEmployee()) {
+          <div class="field"><label>First name</label><input [ngModel]="firstName()"
+              (ngModelChange)="firstName.set($event)" /></div>
+          <div class="field"><label>Last name</label><input [ngModel]="lastName()"
+              (ngModelChange)="lastName.set($event)" /></div>
+          <div class="field"><label>Work email</label><input type="email" [ngModel]="workEmail()"
+              (ngModelChange)="workEmail.set($event)" /></div>
+          <div class="field"><label>Employee ID</label><input [ngModel]="employeeNumber()"
+              (ngModelChange)="employeeNumber.set($event)" /></div>
+          <div class="field"><label>Hire date</label><input type="date" [ngModel]="hireDate()"
+              (ngModelChange)="hireDate.set($event)" /></div>
+          } @else {
+          <div class="field"><label>Full name</label><input [value]="employee.fullName" readonly /></div>
+          <div class="field"><label>Work email</label><input [value]="employee.workEmail" readonly /></div>
+          <div class="field"><label>Employee ID</label><input [value]="employee.employeeNumber" readonly /></div>
+          }
+          <div class="field"><label>Phone</label><input [ngModel]="phone()" (ngModelChange)="phone.set($event)"
+              maxlength="40" /></div>
+          <div class="setting-actions profile-actions">
+            <button mat-raised-button class="primary-button" [disabled]="savingProfile()" (click)="saveProfile()">
+              @if (savingProfile()) { <mat-spinner diameter="17" /> } @else { <mat-icon>save</mat-icon> } Save profile
+            </button>
           </div>
+          } @else {
+          <div class="field"><label>Display name</label><input [value]="auth.user()?.displayName" readonly /></div>
+          <div class="field"><label>Account email</label><input [value]="auth.user()?.email" readonly /></div>
+          <p class="account-profile-note">Name and email are controlled by account administrators.</p>
+          }
         </div>
-      </article>
+      </div>
+    </article>
 
-      <article class="app-card settings-card security-card">
-        <div class="settings-head"><div><h2>Account security</h2><p>Change your password. All active refresh sessions will be revoked.</p></div></div>
-        <div class="password-grid">
-          <div class="field"><label>Current password</label><input type="password" autocomplete="current-password" [ngModel]="currentPassword()" (ngModelChange)="currentPassword.set($event)" /></div>
-          <div class="field"><label>New password</label><input type="password" autocomplete="new-password" minlength="8" maxlength="256" [ngModel]="newPassword()" (ngModelChange)="newPassword.set($event)" /><small>At least 8 characters. Longer passphrases are stronger.</small></div>
-          <div class="field"><label>Confirm new password</label><input type="password" autocomplete="new-password" [ngModel]="confirmPassword()" (ngModelChange)="confirmPassword.set($event)" /></div>
+    <article class="app-card settings-card security-card">
+      <div class="settings-head">
+        <div>
+          <h2>Account security</h2>
+          <p>Change your password. All active refresh sessions will be revoked.</p>
         </div>
-        <div class="setting-actions"><button mat-raised-button class="primary-button" [disabled]="savingPassword() || !currentPassword() || newPassword().length < 8 || newPassword() !== confirmPassword()" (click)="changePassword()">@if (savingPassword()) { <mat-spinner diameter="17" /> } @else { <mat-icon>password</mat-icon> } Change password</button></div>
-      </article>
+      </div>
+      <div class="password-grid">
+        <div class="field"><label>Current password</label><input type="password" autocomplete="current-password"
+            [ngModel]="currentPassword()" (ngModelChange)="currentPassword.set($event)" /></div>
+        <div class="field"><label>New password</label><input type="password" autocomplete="new-password" minlength="8"
+            maxlength="256" [ngModel]="newPassword()" (ngModelChange)="newPassword.set($event)" /><small>At least 8
+            characters. Longer passphrases are stronger.</small></div>
+        <div class="field"><label>Confirm new password</label><input type="password" autocomplete="new-password"
+            [ngModel]="confirmPassword()" (ngModelChange)="confirmPassword.set($event)" /></div>
+      </div>
+      <div class="setting-actions"><button mat-raised-button class="primary-button"
+          [disabled]="savingPassword() || !currentPassword() || newPassword().length < 8 || newPassword() !== confirmPassword()"
+          (click)="changePassword()">@if (savingPassword()) { <mat-spinner diameter="17" /> } @else {
+          <mat-icon>password</mat-icon> } Change password</button></div>
+    </article>
 
     @if (!auth.isPlatformAdmin() && auth.hasPermission('identity.manage') && company.profile(); as profile) {
-      <article class="app-card settings-card identity-card">
-        <div class="settings-head">
-          <div><h2>Company identity</h2><p>Your company name and logo appear in the application navigation.</p></div>
+    <article class="app-card settings-card identity-card">
+      <div class="settings-head">
+        <div>
+          <h2>Company identity</h2>
+          <p>Your company name and logo appear in the application navigation.</p>
         </div>
-        <div class="identity-layout">
-          <div class="company-fields">
-            <div class="field"><label for="companyName">Company name</label><input id="companyName" [ngModel]="companyName()" (ngModelChange)="companyName.set($event)" /></div>
-            <div class="field"><label for="legalName">Legal name</label><input id="legalName" [ngModel]="legalName()" (ngModelChange)="legalName.set($event)" /></div>
-            <div class="field"><label for="currency">Currency</label><input id="currency" maxlength="3" [ngModel]="currency()" (ngModelChange)="currency.set($event)" /></div>
-            <div class="field"><label for="timeZone">Time zone</label><input id="timeZone" [ngModel]="timeZone()" (ngModelChange)="timeZone.set($event)" /></div>
-            <div class="field"><label for="locale">Locale</label><input id="locale" [ngModel]="locale()" (ngModelChange)="locale.set($event)" /></div>
-            <div class="setting-actions identity-actions">
-              <button mat-raised-button class="primary-button" [disabled]="savingCompany() || !companyName().trim()" (click)="saveCompany()">
-                @if (savingCompany()) { <mat-spinner diameter="17" /> } @else { <mat-icon>save</mat-icon> } Save company
-              </button>
-            </div>
+      </div>
+      <div class="identity-layout">
+        <div class="company-fields">
+          <div class="field"><label for="companyName">Company name</label><input id="companyName"
+              [ngModel]="companyName()" (ngModelChange)="companyName.set($event)" /></div>
+          <div class="field"><label for="legalName">Legal name</label><input id="legalName" [ngModel]="legalName()"
+              (ngModelChange)="legalName.set($event)" /></div>
+          <div class="field"><label for="currency">Currency</label><input id="currency" maxlength="3"
+              [ngModel]="currency()" (ngModelChange)="currency.set($event)" /></div>
+          <div class="field"><label for="timeZone">Time zone</label><input id="timeZone" [ngModel]="timeZone()"
+              (ngModelChange)="timeZone.set($event)" /></div>
+          <div class="field"><label for="locale">Locale</label><input id="locale" [ngModel]="locale()"
+              (ngModelChange)="locale.set($event)" /></div>
+          <div class="setting-actions identity-actions">
+            <button mat-raised-button class="primary-button" [disabled]="savingCompany() || !companyName().trim()"
+              (click)="saveCompany()">
+              @if (savingCompany()) { <mat-spinner diameter="17" /> } @else { <mat-icon>save</mat-icon> } Save company
+            </button>
           </div>
-          <app-document
-          ownerType="Tenant"
-          [ownerId]="profile.id"
-          category="logo"
-          label="Company logo"
-          [replaceMode]="true"
-          [maxFiles]="1"
-          [showUploadButton]="false"
-          [compact]="true"
-          [allowedExtensions]="[
+        </div>
+        <app-document ownerType="Tenant" [ownerId]="profile.id" category="logo" label="Company logo"
+          [replaceMode]="true" [maxFiles]="1" [showUploadButton]="false" [compact]="true" [allowedExtensions]="[
             'jpg',
             'jpeg',
             'jpd',
@@ -102,58 +111,111 @@
             'avif',
             'heic',
             'heif'
-          ]"
-          (documentsChanged)="refreshCompanyBranding()"
-        />
-        </div>
-      </article>
+          ]" (documentsChanged)="refreshCompanyBranding()" />
+      </div>
+    </article>
 
     }
 
     @if (auth.isPlatformAdmin()) {
-      <article class="app-card settings-card email-card">
-        <div class="settings-head"><div><h2>Platform email notifications</h2><p>One superadmin-managed SMTP connection sends email for every company. Passwords are encrypted and never returned to the browser.</p></div></div>
-        <div class="preference-row">
-          <div><b>Enable email delivery</b><span>New HRMS events will be queued and delivered in the background.</span></div>
-          <mat-slide-toggle aria-label="Enable email delivery" [checked]="smtpEnabled()" (change)="smtpEnabled.set($event.checked)" />
+    <article class="app-card settings-card email-card">
+      <div class="settings-head">
+        <div>
+          <h2>Platform email notifications</h2>
+          <p>One superadmin-managed SMTP connection sends email for every company. Passwords are encrypted and never
+            returned to the browser.</p>
         </div>
-        <div class="email-grid">
-          <div class="field wide"><label>SMTP host</label><input placeholder="smtp.example.com" [ngModel]="smtpHost()" (ngModelChange)="smtpHost.set($event)" /></div>
-          <div class="field"><label>Port</label><input type="number" min="1" max="65535" [ngModel]="smtpPort()" (ngModelChange)="smtpPort.set(+$event)" /></div>
-          <div class="field"><label>Username</label><input autocomplete="username" [ngModel]="smtpUsername()" (ngModelChange)="smtpUsername.set($event)" /></div>
-          <div class="field"><label>Password / SMTP key</label><input type="password" autocomplete="new-password" [placeholder]="emailConfiguration()?.hasPassword ? 'Saved — enter only to replace' : 'Required by your provider'" [ngModel]="smtpPassword()" (ngModelChange)="smtpPassword.set($event)" /></div>
-          <div class="field"><label>From email</label><input type="email" [ngModel]="smtpFromEmail()" (ngModelChange)="smtpFromEmail.set($event)" /></div>
-          <div class="field"><label>From name</label><input [ngModel]="smtpFromName()" (ngModelChange)="smtpFromName.set($event)" /></div>
-          <div class="field"><label>Reply-to email (optional)</label><input type="email" [ngModel]="smtpReplyTo()" (ngModelChange)="smtpReplyTo.set($event)" /></div>
-          <div class="field wide"><label>Public application base URL</label><input placeholder="https://hr.example.com" [ngModel]="applicationBaseUrl()" (ngModelChange)="applicationBaseUrl.set($event)" /><small>Automatically uses this deployed application's origin. Company workspace and destination are added to every link.</small></div>
+      </div>
+      <div class="preference-row">
+        <div><b>Enable email delivery</b><span>New HRMS events will be queued and delivered in the background.</span>
         </div>
-        <div class="preference-row compact-row"><div><b>TLS encryption</b><span>Keep enabled for ports 587 or 465 unless your server explicitly requires plain SMTP.</span></div><mat-slide-toggle aria-label="Use TLS" [checked]="smtpUseTls()" (change)="smtpUseTls.set($event.checked)" /></div>
-        <div class="email-actions">
-          <div class="field test-recipient"><label>Test recipient</label><input type="email" [ngModel]="testRecipient()" (ngModelChange)="testRecipient.set($event)" /></div>
-          <button mat-stroked-button [disabled]="testingEmail()" (click)="sendTestEmail()">@if (testingEmail()) { <mat-spinner diameter="17" /> } @else { <mat-icon>send</mat-icon> } Test SMTP directly</button>
-          <button mat-stroked-button [disabled]="testingEmailQueue() || !emailConfiguration()?.isEnabled" (click)="testEmailQueue()">@if (testingEmailQueue()) { <mat-spinner diameter="17" /> } @else { <mat-icon>outbox</mat-icon> } Test background delivery</button>
-          <button mat-raised-button class="primary-button" [disabled]="savingEmail() || !smtpHost().trim() || !smtpFromEmail().trim()" (click)="saveEmailConfiguration()">@if (savingEmail()) { <mat-spinner diameter="17" /> } @else { <mat-icon>save</mat-icon> } Save email settings</button>
+        <mat-slide-toggle aria-label="Enable email delivery" [checked]="smtpEnabled()"
+          (change)="smtpEnabled.set($event.checked)" />
+      </div>
+      <div class="email-grid">
+        <div class="field wide"><label>SMTP host</label><input placeholder="smtp.example.com" [ngModel]="smtpHost()"
+            (ngModelChange)="smtpHost.set($event)" /></div>
+        <div class="field"><label>Port</label><input type="number" min="1" max="65535" [ngModel]="smtpPort()"
+            (ngModelChange)="smtpPort.set(+$event)" /></div>
+        <div class="field"><label>Username</label><input autocomplete="username" [ngModel]="smtpUsername()"
+            (ngModelChange)="smtpUsername.set($event)" /></div>
+        <div class="field"><label>Password / SMTP key</label><input type="password" autocomplete="new-password"
+            [placeholder]="emailConfiguration()?.hasPassword ? 'Saved — enter only to replace' : 'Required by your provider'"
+            [ngModel]="smtpPassword()" (ngModelChange)="smtpPassword.set($event)" /></div>
+        <div class="field"><label>From email</label><input type="email" [ngModel]="smtpFromEmail()"
+            (ngModelChange)="smtpFromEmail.set($event)" /></div>
+        <div class="field"><label>From name</label><input [ngModel]="smtpFromName()"
+            (ngModelChange)="smtpFromName.set($event)" /></div>
+        <div class="field"><label>Reply-to email (optional)</label><input type="email" [ngModel]="smtpReplyTo()"
+            (ngModelChange)="smtpReplyTo.set($event)" /></div>
+        <div class="field wide"><label>Public application base URL</label><input placeholder="https://hr.example.com"
+            [ngModel]="applicationBaseUrl()" (ngModelChange)="applicationBaseUrl.set($event)" /><small>Automatically
+            uses this deployed application's origin. Company workspace and destination are added to every link.</small>
         </div>
-        @if (queuedEmailStatus(); as delivery) {
-          <div class="email-delivery-status" role="status"><div><strong>Background test: {{ delivery.status === 'accepted' ? 'accepted by SMTP' : delivery.status === 'failed' ? 'failed' : delivery.status === 'retrying' ? 'retrying' : 'queued' }}</strong>
-            <span>@if (delivery.status === 'accepted') { The server accepted this message. Check the recipient inbox. } @else if (delivery.status === 'retrying') { Attempt {{ delivery.attempts }} failed. Next attempt {{ delivery.nextAttemptAt | date:'shortTime' }}. } @else if (delivery.status === 'failed') { Delivery stopped after {{ delivery.attempts }} attempts. } @else { Waiting for the email worker. }</span>
-            @if (delivery.lastError && delivery.status !== 'accepted') { <small>{{ delivery.lastError }}</small> }</div>
-            <button mat-stroked-button (click)="refreshEmailQueueStatus()">Refresh</button>
-          </div>
-        }
-      </article>
+      </div>
+      <div class="preference-row compact-row">
+        <div><b>TLS encryption</b><span>Keep enabled for ports 587 or 465 unless your server explicitly requires plain
+            SMTP.</span></div><mat-slide-toggle aria-label="Use TLS" [checked]="smtpUseTls()"
+          (change)="smtpUseTls.set($event.checked)" />
+      </div>
+      <div class="email-actions">
+        <div class="field test-recipient"><label>Test recipient</label><input type="email" [ngModel]="testRecipient()"
+            (ngModelChange)="testRecipient.set($event)" /></div>
+        <button mat-stroked-button [disabled]="testingEmail()" (click)="sendTestEmail()">@if (testingEmail()) {
+          <mat-spinner diameter="17" /> } @else { <mat-icon>send</mat-icon> } Test SMTP directly</button>
+        <button mat-stroked-button [disabled]="testingEmailQueue() || !emailConfiguration()?.isEnabled"
+          (click)="testEmailQueue()">@if (testingEmailQueue()) { <mat-spinner diameter="17" /> } @else {
+          <mat-icon>outbox</mat-icon> } Test background delivery</button>
+        <button mat-raised-button class="primary-button"
+          [disabled]="savingEmail() || !smtpHost().trim() || !smtpFromEmail().trim()"
+          (click)="saveEmailConfiguration()">@if (savingEmail()) { <mat-spinner diameter="17" /> } @else {
+          <mat-icon>save</mat-icon> } Save email settings</button>
+      </div>
+      @if (queuedEmailStatus(); as delivery) {
+      <div class="email-delivery-status" role="status">
+        <div><strong>Background test: {{ delivery.status === 'accepted' ? 'accepted by SMTP' : delivery.status ===
+            'failed' ? 'failed' : delivery.status === 'retrying' ? 'retrying' : 'queued' }}</strong>
+          <span>@if (delivery.status === 'accepted') { The server accepted this message. Check the recipient inbox. }
+            @else if (delivery.status === 'retrying') { Attempt {{ delivery.attempts }} failed. Next attempt {{
+            delivery.nextAttemptAt | date:'shortTime' }}. } @else if (delivery.status === 'failed') { Delivery stopped
+            after {{ delivery.attempts }} attempts. } @else { Waiting for the email worker. }</span>
+          @if (delivery.lastError && delivery.status !== 'accepted') { <small>{{ delivery.lastError }}</small> }
+        </div>
+        <button mat-stroked-button (click)="refreshEmailQueueStatus()">Refresh</button>
+      </div>
+      }
+    </article>
 
-      <article class="app-card settings-card email-template-card">
-        <div class="settings-head"><div><h2>Platform email templates</h2><p>These shared templates apply to every company while company name and links are filled per message. Available variables: {{ '{{title}}' }}, {{ '{{message}}' }}, {{ '{{recipientName}}' }}, {{ '{{companyName}}' }}, {{ '{{tenantSlug}}' }}, {{ '{{actionUrl}}' }}, and {{ '{{email}}' }}.</p></div></div>
-        <div class="field"><label>Template</label><select [ngModel]="selectedEmailTemplateId()" (ngModelChange)="selectEmailTemplate($event)">@for (template of emailTemplates(); track template.id) { <option [value]="template.id">{{ template.name }} ({{ template.key }})</option> }</select></div>
-        @if (selectedEmailTemplate(); as template) {
-          <div class="preference-row compact-row"><div><b>Enabled</b><span>Disabled event templates fall back to the general notification template.</span></div><mat-slide-toggle aria-label="Enable template" [checked]="templateEnabled()" (change)="templateEnabled.set($event.checked)" /></div>
-          <div class="field"><label>Subject</label><input [ngModel]="templateSubject()" (ngModelChange)="templateSubject.set($event)" /></div>
-          <div class="field"><label>HTML body</label><textarea rows="12" [ngModel]="templateHtml()" (ngModelChange)="templateHtml.set($event)"></textarea></div>
-          <div class="field"><label>Plain-text body</label><textarea rows="7" [ngModel]="templateText()" (ngModelChange)="templateText.set($event)"></textarea></div>
-          <div class="setting-actions"><button mat-raised-button class="primary-button" [disabled]="savingTemplate() || !templateSubject().trim() || !templateHtml().trim()" (click)="saveEmailTemplate()">@if (savingTemplate()) { <mat-spinner diameter="17" /> } @else { <mat-icon>save</mat-icon> } Save template</button></div>
-        }
-      </article>
+    <article class="app-card settings-card email-template-card">
+      <div class="settings-head">
+        <div>
+          <h2>Platform email templates</h2>
+          <p>These shared templates apply to every company while company name and links are filled per message.
+            Available variables: {{ '{{title}}' }}, {{ '{{message}}' }}, {{ '{{recipientName}}' }}, {{ '{{companyName}}'
+            }}, {{ '{{tenantSlug}}' }}, {{ '{{actionUrl}}' }}, and {{ '{{email}}' }}.</p>
+        </div>
+      </div>
+      <div class="field"><label>Template</label><select [ngModel]="selectedEmailTemplateId()"
+          (ngModelChange)="selectEmailTemplate($event)">@for (template of emailTemplates(); track template.id) { <option
+            [value]="template.id">{{ template.name }} ({{ template.key }})</option> }</select></div>
+      @if (selectedEmailTemplate(); as template) {
+      <div class="preference-row compact-row">
+        <div><b>Enabled</b><span>Disabled event templates fall back to the general notification template.</span></div>
+        <mat-slide-toggle aria-label="Enable template" [checked]="templateEnabled()"
+          (change)="templateEnabled.set($event.checked)" />
+      </div>
+      <div class="field"><label>Subject</label><input [ngModel]="templateSubject()"
+          (ngModelChange)="templateSubject.set($event)" /></div>
+      <div class="field"><label>HTML body</label><textarea rows="12" [ngModel]="templateHtml()"
+          (ngModelChange)="templateHtml.set($event)"></textarea></div>
+      <div class="field"><label>Plain-text body</label><textarea rows="7" [ngModel]="templateText()"
+          (ngModelChange)="templateText.set($event)"></textarea></div>
+      <div class="setting-actions"><button mat-raised-button class="primary-button"
+          [disabled]="savingTemplate() || !templateSubject().trim() || !templateHtml().trim()"
+          (click)="saveEmailTemplate()">@if (savingTemplate()) { <mat-spinner diameter="17" /> } @else {
+          <mat-icon>save</mat-icon> } Save template</button></div>
+      }
+    </article>
     }
 
     <article class="app-card settings-card appearance-card">
@@ -165,107 +227,22 @@
       </div>
       <div class="preset-grid">
         @for (theme of themes.presets; track theme.id) {
-          <button
-            class="preset-card"
-            [class.selected]="themes.current().id === theme.id"
-            (click)="select(theme)"
-            [attr.aria-pressed]="themes.current().id === theme.id"
-          >
-            <span class="preset-swatches" aria-hidden="true">
-              <i [style.background]="theme.sidebar"></i>
-              <i [style.background]="theme.primary"></i>
-              <i [style.background]="theme.surface"></i>
-            </span>
-            <span class="preset-copy">
-              <strong>{{ theme.name }}</strong>
-              <small>{{ theme.description }}</small>
-            </span>
-            @if (themes.current().id === theme.id) {
-              <mat-icon>check_circle</mat-icon>
-            }
-          </button>
-        }
-      </div>
-    </article>
-
-    <article class="app-card settings-card">
-      <div class="settings-head">
-        <div>
-          <h2>Custom preferences</h2>
-          <p>Adjust color, contrast, density, and corner style.</p>
-        </div>
-      </div>
-
-      <div class="setting-grid">
-        <div class="field">
-          <label for="primaryColor">Primary color</label>
-          <div class="color-control">
-            <input
-              id="primaryColor"
-              type="color"
-              [ngModel]="customPrimary()"
-              (ngModelChange)="customPrimary.set($event)"
-            />
-            <input
-              aria-label="Primary color value"
-              [ngModel]="customPrimary()"
-              (ngModelChange)="customPrimary.set($event)"
-            />
-          </div>
-        </div>
-        <div class="field">
-          <label for="accentColor">Accent color</label>
-          <div class="color-control">
-            <input
-              id="accentColor"
-              type="color"
-              [ngModel]="customAccent()"
-              (ngModelChange)="customAccent.set($event)"
-            />
-            <input
-              aria-label="Accent color value"
-              [ngModel]="customAccent()"
-              (ngModelChange)="customAccent.set($event)"
-            />
-          </div>
-        </div>
-      </div>
-
-      <div class="preference-row">
-        <div><b>Dark mode</b><span>Use darker surfaces and higher-contrast text.</span></div>
-        <mat-slide-toggle
-          aria-label="Dark mode"
-          [checked]="dark()"
-          (change)="dark.set($event.checked)"
-        ></mat-slide-toggle>
-      </div>
-      <div class="preference-row">
-        <div><b>Compact density</b><span>Reduce row height in data-heavy tables.</span></div>
-        <mat-slide-toggle
-          aria-label="Compact density"
-          [checked]="compact()"
-          (change)="compact.set($event.checked)"
-        ></mat-slide-toggle>
-      </div>
-      <div class="radius-row">
-        <div>
-          <b>Corner radius</b><span>{{ customRadius() }}px</span>
-        </div>
-        <input
-          aria-label="Corner radius"
-          type="range"
-          min="4"
-          max="8"
-          [ngModel]="customRadius()"
-          (ngModelChange)="customRadius.set(+$event)"
-        />
-      </div>
-
-      <div class="setting-actions">
-        <button mat-stroked-button (click)="select(themes.presets[0])">Reset</button>
-        <button mat-raised-button class="primary-button" (click)="applyCustom()">
-          <mat-icon>check</mat-icon>Apply preferences
+        <button class="preset-card" [class.selected]="themes.current().id === theme.id" (click)="select(theme)"
+          [attr.aria-pressed]="themes.current().id === theme.id">
+          <span class="preset-swatches" aria-hidden="true">
+            <i [style.background]="theme.sidebar"></i>
+            <i [style.background]="theme.primary"></i>
+            <i [style.background]="theme.surface"></i>
+          </span>
+          <span class="preset-copy">
+            <strong>{{ theme.name }}</strong>
+            <small>{{ theme.description }}</small>
+          </span>
+          @if (themes.current().id === theme.id) {
+          <mat-icon>check_circle</mat-icon>
+          }
         </button>
+        }
       </div>
     </article>
   </section>

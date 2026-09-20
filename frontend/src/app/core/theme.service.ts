@@ -16,6 +16,61 @@ export interface TenantTheme {
   density: 'comfortable' | 'compact';
 }
 
+// export const THEME_PRESETS: TenantTheme[] = [
+//   {
+//     id: 'azure',
+//     name: 'Azure',
+//     description: 'Clear, focused and familiar',
+//     scheme: 'light',
+//     primary: '#0067b8',
+//     primaryRgb: '0 103 184',
+//     accent: '#2b88d8',
+//     surface: '#f5f7fb',
+//     sidebar: '#071426',
+//     radius: 8,
+//     density: 'comfortable',
+//   },
+//   {
+//     id: 'azure-dark',
+//     name: 'Azure Night',
+//     description: 'Low-glare operations view',
+//     scheme: 'dark',
+//     primary: '#60a5fa',
+//     primaryRgb: '96 165 250',
+//     accent: '#38bdf8',
+//     surface: '#08111f',
+//     sidebar: '#030712',
+//     radius: 8,
+//     density: 'comfortable',
+//   },
+//   {
+//     id: 'emerald',
+//     name: 'Evergreen',
+//     description: 'Calm green workspace',
+//     scheme: 'light',
+//     primary: '#047857',
+//     primaryRgb: '4 120 87',
+//     accent: '#10b981',
+//     surface: '#f4f8f6',
+//     sidebar: '#06251d',
+//     radius: 8,
+//     density: 'comfortable',
+//   },
+//   {
+//     id: 'graphite',
+//     name: 'Graphite',
+//     description: 'Dense neutral workspace',
+//     scheme: 'light',
+//     primary: '#334155',
+//     primaryRgb: '51 65 85',
+//     accent: '#64748b',
+//     surface: '#f3f4f6',
+//     sidebar: '#111827',
+//     radius: 8,
+//     density: 'compact',
+//   },
+// ];
+
 export const THEME_PRESETS: TenantTheme[] = [
   {
     id: 'azure',
@@ -69,6 +124,58 @@ export const THEME_PRESETS: TenantTheme[] = [
     radius: 8,
     density: 'compact',
   },
+  {
+    id: 'indigo',
+    name: 'Indigo',
+    description: 'Modern professional workspace',
+    scheme: 'light',
+    primary: '#4f46e5',
+    primaryRgb: '79 70 229',
+    accent: '#6366f1',
+    surface: '#f7f7fc',
+    sidebar: '#17153b',
+    radius: 8,
+    density: 'comfortable',
+  },
+  {
+    id: 'teal',
+    name: 'Teal',
+    description: 'Balanced and calm workspace',
+    scheme: 'light',
+    primary: '#0f766e',
+    primaryRgb: '15 118 110',
+    accent: '#14b8a6',
+    surface: '#f3f9f8',
+    sidebar: '#082f2d',
+    radius: 8,
+    density: 'comfortable',
+  },
+  {
+    id: 'obsidian-gold',
+    name: 'Obsidian Gold',
+    description: 'Deep black workspace with warm gold accents',
+    scheme: 'dark',
+    primary: '#f5b942',
+    primaryRgb: '245 185 66',
+    accent: '#facc15',
+    surface: '#0b0b0c',
+    sidebar: '#050505',
+    radius: 8,
+    density: 'comfortable',
+  },
+  {
+    id: 'slate-dark',
+    name: 'Slate Night',
+    description: 'Neutral dark workspace',
+    scheme: 'dark',
+    primary: '#93c5fd',
+    primaryRgb: '147 197 253',
+    accent: '#7dd3fc',
+    surface: '#0f172a',
+    sidebar: '#020617',
+    radius: 8,
+    density: 'comfortable',
+  },
 ];
 
 @Injectable({ providedIn: 'root' })
@@ -104,10 +211,6 @@ export class ThemeService {
     localStorage.setItem(`peopleflow.theme.${tenantId}`, JSON.stringify(theme));
     this.selected.set(theme);
     this.apply(theme);
-  }
-
-  customize(changes: Partial<TenantTheme>): void {
-    this.select({ ...this.current(), id: 'custom', name: 'Custom tenant theme', ...changes });
   }
 
   private apply(theme: TenantTheme): void {

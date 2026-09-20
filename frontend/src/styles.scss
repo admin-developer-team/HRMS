@@ -8,18 +8,40 @@
   --brand: #075ea8;
   --brand-rgb: 7 94 168;
   --accent: #1f7bb8;
+
   --app-bg: #f4f6f8;
   --sidebar-bg: #102438;
+
   --card: #ffffff;
   --card-muted: #f7f8fa;
+
   --ink: #182230;
   --ink-muted: #667085;
+  --ink-subtle: #475467;
+
   --border: #dfe3e8;
   --border-strong: #c9d0d8;
+
+  --success: #067647;
+  --success-bg: #ecfdf3;
+  --success-border: #a7e6c3;
+
+  --warning: #9a4f08;
+  --warning-bg: #fff8e8;
+
+  --danger: #b42318;
+  --danger-bg: #fff1f0;
+
+  --info: #275d8c;
+  --info-bg: #f4f8fc;
+  --info-border: #d8e5f3;
+
   --radius: 8px;
   --shadow: 0 1px 2px rgb(16 24 40 / 0.04);
+
   font-family: 'Segoe UI', system-ui, sans-serif;
   color-scheme: light;
+
   --mat-sys-body-large-font: 'Segoe UI', system-ui, sans-serif;
   --mat-sys-body-medium-font: 'Segoe UI', system-ui, sans-serif;
   --mat-sys-label-large-font: 'Segoe UI', system-ui, sans-serif;
@@ -27,13 +49,44 @@
 }
 
 :root[data-scheme='dark'] {
+  color-scheme: dark;
+
+  --app-bg: #0b1420;
+  --sidebar-bg: #08111d;
+
   --card: #132131;
   --card-muted: #0f1b29;
+
   --ink: #edf2f7;
   --ink-muted: #a5b1c0;
+  --ink-subtle: #c6d0dc;
+
   --border: #2a3b4e;
   --border-strong: #3b5066;
+
+  --success: #6ce9a6;
+  --success-bg: rgb(18 183 106 / 0.14);
+  --success-border: rgb(18 183 106 / 0.28);
+
+  --warning: #fec84b;
+  --warning-bg: rgb(247 144 9 / 0.14);
+
+  --danger: #fda29b;
+  --danger-bg: rgb(240 68 56 / 0.14);
+
+  --info: #91caff;
+  --info-bg: rgb(37 99 235 / 0.12);
+  --info-border: rgb(96 165 250 / 0.26);
+
   --shadow: 0 1px 2px rgb(0 0 0 / 0.22);
+
+  --mat-sys-surface: var(--card);
+  --mat-sys-surface-container: var(--card);
+  --mat-sys-surface-container-high: var(--card-muted);
+  --mat-sys-on-surface: var(--ink);
+  --mat-sys-on-surface-variant: var(--ink-muted);
+  --mat-sys-outline: var(--border);
+  --mat-sys-outline-variant: var(--border-strong);
 }
 
 * {
@@ -66,20 +119,55 @@ select {
 }
 
 // Material controls must use the same locally available font as the application.
-.mat-mdc-button-base, .mat-mdc-menu-item, .mat-mdc-paginator,
-.mat-mdc-select, .mat-mdc-form-field, .mat-mdc-checkbox, .mat-mdc-option {
+.mat-mdc-button-base,
+.mat-mdc-menu-item,
+.mat-mdc-paginator,
+.mat-mdc-select,
+.mat-mdc-form-field,
+.mat-mdc-checkbox,
+.mat-mdc-option {
   font-family: 'Segoe UI', system-ui, sans-serif !important;
   letter-spacing: normal !important;
 }
-.mat-mdc-button-base .mdc-button__label, .mat-mdc-menu-item-text { font-family: inherit !important; }
-.mat-mdc-button-base { font-weight: 600; }
-@media (pointer: coarse) {
-  .mat-mdc-button-base, .mat-mdc-icon-button, input, select { min-height: 44px; }
-  .mat-mdc-icon-button { min-width: 44px; }
-  input, textarea, select { font-size: 16px; }
+
+.mat-mdc-button-base .mdc-button__label,
+.mat-mdc-menu-item-text {
+  font-family: inherit !important;
 }
+
+.mat-mdc-button-base {
+  font-weight: 600;
+}
+
+@media (pointer: coarse) {
+
+  .mat-mdc-button-base,
+  .mat-mdc-icon-button,
+  input,
+  select {
+    min-height: 44px;
+  }
+
+  .mat-mdc-icon-button {
+    min-width: 44px;
+  }
+
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: .01ms !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 button,
@@ -216,11 +304,11 @@ textarea:focus-visible {
   box-shadow: var(--shadow);
 }
 
-.app-frame > .mat-drawer-content {
+.app-frame>.mat-drawer-content {
   transition: margin-left 0.16s ease;
 }
 
-.app-frame.sidebar-collapsed > .mat-drawer-content {
+.app-frame.sidebar-collapsed>.mat-drawer-content {
   margin-left: 72px !important;
 }
 
@@ -233,8 +321,15 @@ textarea:focus-visible {
 }
 
 @keyframes page-enter {
-  from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .page-header {
@@ -311,33 +406,18 @@ textarea:focus-visible {
 }
 
 .status-pill.success {
-  color: #067647;
-  background: #ecfdf3;
+  color: var(--success);
+  background: var(--success-bg);
 }
 
 .status-pill.warning {
-  color: #9a4f08;
-  background: #fff8e8;
+  color: var(--warning);
+  background: var(--warning-bg);
 }
 
 .status-pill.danger {
-  color: #b42318;
-  background: #fff1f0;
-}
-
-:root[data-scheme='dark'] .status-pill.success {
-  color: #6ce9a6;
-  background: rgb(18 183 106 / 0.14);
-}
-
-:root[data-scheme='dark'] .status-pill.warning {
-  color: #fec84b;
-  background: rgb(247 144 9 / 0.14);
-}
-
-:root[data-scheme='dark'] .status-pill.danger {
-  color: #fda29b;
-  background: rgb(240 68 56 / 0.14);
+  color: var(--danger);
+  background: var(--danger-bg);
 }
 
 .metric-grid {
@@ -360,6 +440,7 @@ textarea:focus-visible {
 
 .metric-value {
   margin-top: 10px;
+  color: var(--ink);
   font-size: 1.75rem;
   line-height: 1.2;
   font-weight: 700;
@@ -487,12 +568,10 @@ textarea:focus-visible {
 
 .skeleton {
   border-radius: 6px;
-  background: linear-gradient(
-    90deg,
-    var(--card-muted),
-    rgb(var(--brand-rgb) / 0.08),
-    var(--card-muted)
-  );
+  background: linear-gradient(90deg,
+      var(--card-muted),
+      rgb(var(--brand-rgb) / 0.08),
+      var(--card-muted));
   background-size: 200% 100%;
   animation: shimmer 1.3s infinite;
 }
@@ -526,13 +605,23 @@ textarea:focus-visible {
 }
 
 @keyframes overlay-enter {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes drawer-enter {
-  from { opacity: 0.75; }
-  to { opacity: 1; }
+  from {
+    opacity: 0.75;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 .drawer-head {
@@ -578,14 +667,20 @@ textarea:focus-visible {
   gap: 7px;
 }
 
-.field label {
-  color: #475467;
-  font-size: 0.875rem;
-  font-weight: 600;
+.field small {
+  color: var(--ink-muted);
 }
 
-:root[data-scheme='dark'] .field label {
+.field input::placeholder,
+.field textarea::placeholder {
   color: var(--ink-muted);
+  opacity: 0.75;
+}
+
+.field label {
+  color: var(--ink-subtle);
+  font-size: 0.875rem;
+  font-weight: 600;
 }
 
 .field input,
@@ -680,6 +775,7 @@ textarea:focus-visible {
 
   .metric-value {
     font-size: 1.5rem;
+    color: var(--ink);
   }
 
   .table-card {
@@ -726,7 +822,573 @@ textarea:focus-visible {
   }
 }
 
+/* Material overlay menus must inherit active application theme */
+
+.notification-menu,
+.quick-actions-menu,
+.user-menu {
+  --mat-menu-container-color: var(--card);
+  --mat-menu-item-label-text-color: var(--ink);
+  --mat-menu-item-icon-color: var(--brand);
+
+  background: var(--card) !important;
+  color: var(--ink) !important;
+}
+
+.notification-menu .mat-mdc-menu-content,
+.quick-actions-menu .mat-mdc-menu-content,
+.user-menu .mat-mdc-menu-content {
+  padding: 0 !important;
+  background: var(--card) !important;
+  color: var(--ink) !important;
+}
+
+.quick-actions-menu .quick-menu-item {
+  color: var(--brand) !important;
+}
+
+.quick-actions-menu .quick-menu-item .mat-icon,
+.quick-actions-menu .menu-action-copy strong {
+  color: var(--brand) !important;
+}
+
+.user-menu .account-menu-item:not(.signout),
+.user-menu .account-menu-item:not(.signout) span,
+.user-menu .account-menu-item:not(.signout) .mat-icon {
+  color: var(--brand) !important;
+}
+
+.user-menu .account-menu-item.signout,
+.user-menu .account-menu-item.signout span,
+.user-menu .account-menu-item.signout .mat-icon {
+  color: var(--danger) !important;
+}
+
+.notification-menu .notification-head strong {
+  color: var(--brand);
+}
+
+.notification-menu .notification-title-row strong {
+  color: var(--ink);
+}
+
+.notification-menu .notification-message,
+.notification-menu .notification-copy small {
+  color: var(--ink-muted);
+}
+
+.notification-menu .notification-unread-dot {
+  background: var(--brand);
+}
+
+/* =========================================================
+   SHELL MATERIAL OVERLAY MENUS
+
+   mat-menu is rendered inside Angular CDK overlay, outside
+   ShellComponent. Keep menu theme/alignment rules global.
+   ========================================================= */
+
+/* ---------- Shared menu surface ---------- */
+
+.notification-menu,
+.quick-actions-menu,
+.user-menu {
+  --mat-menu-container-color: var(--card);
+  --mat-menu-item-label-text-color: var(--ink);
+  --mat-menu-item-icon-color: var(--brand);
+
+  background: var(--card) !important;
+  color: var(--ink) !important;
+}
+
+.notification-menu .mat-mdc-menu-content,
+.quick-actions-menu .mat-mdc-menu-content,
+.user-menu .mat-mdc-menu-content {
+  padding: 0 !important;
+  background: var(--card) !important;
+  color: var(--ink) !important;
+}
+
+/* =========================================================
+   QUICK ACTIONS
+   ========================================================= */
+
+.quick-actions-menu {
+  min-width: min(300px, calc(100vw - 20px)) !important;
+  max-width: 300px !important;
+}
+
+.quick-actions-menu .shell-menu-head {
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--card);
+}
+
+.quick-actions-menu .shell-menu-head strong {
+  color: var(--brand);
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.quick-actions-menu .quick-menu-list {
+  padding: 6px;
+  background: var(--card);
+}
+
+.quick-actions-menu .quick-menu-item {
+  width: 100%;
+  min-height: 48px !important;
+  padding: 0 10px !important;
+  border-radius: 7px;
+  color: var(--brand) !important;
+}
+
+.quick-actions-menu .quick-menu-item:hover {
+  background: color-mix(in srgb,
+      var(--brand) 8%,
+      var(--card)) !important;
+}
+
+/*
+  Angular Material wraps projected menu contents in:
+  .mat-mdc-menu-item-text
+*/
+.quick-actions-menu .quick-menu-item .mat-mdc-menu-item-text {
+  width: 100%;
+  display: block !important;
+}
+
+.quick-actions-menu .quick-item-content {
+  width: 100%;
+  min-height: 48px;
+
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  color: var(--brand);
+}
+
+.quick-actions-menu .quick-item-content .mat-icon {
+  width: 22px !important;
+  height: 22px !important;
+
+  margin: 0 !important;
+  padding: 0 !important;
+
+  color: var(--brand) !important;
+
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+
+  flex: 0 0 22px;
+
+  font-size: 20px !important;
+  line-height: 22px !important;
+}
+
+.quick-actions-menu .quick-item-content>span {
+  min-width: 0;
+
+  color: var(--brand) !important;
+
+  font-size: 0.8125rem;
+  line-height: 1.3;
+  font-weight: 650;
+
+  display: block;
+}
+
+/* =========================================================
+   USER MENU
+   ========================================================= */
+
+.user-menu {
+  min-width: min(300px, calc(100vw - 20px)) !important;
+  max-width: 300px !important;
+}
+
+.user-menu .user-menu-profile {
+  padding: 15px 16px;
+
+  background: var(--card);
+  color: var(--ink);
+
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.user-menu .user-menu-avatar {
+  width: 42px;
+  height: 42px;
+
+  border-radius: 8px;
+
+  background: rgb(var(--brand-rgb) / 0.12);
+  color: var(--brand);
+
+  display: grid;
+  place-items: center;
+
+  flex: 0 0 42px;
+
+  overflow: hidden;
+
+  font-size: 0.8125rem;
+  font-weight: 750;
+}
+
+.user-menu .user-menu-avatar img {
+  width: 100%;
+  height: 100%;
+
+  border-radius: inherit;
+
+  object-fit: cover;
+}
+
+.user-menu .user-menu-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.user-menu .user-menu-copy strong,
+.user-menu .user-menu-copy small {
+  display: block;
+
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-menu .user-menu-copy strong {
+  color: var(--ink);
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.user-menu .user-menu-copy small {
+  margin-top: 2px;
+
+  color: var(--ink-muted);
+
+  font-size: 0.75rem;
+}
+
+.user-menu .user-menu-divider {
+  height: 1px;
+  background: var(--border);
+}
+
+.user-menu .account-menu-item {
+  width: 100%;
+  min-height: 46px !important;
+
+  padding: 0 14px !important;
+
+  color: var(--brand) !important;
+}
+
+.user-menu .account-menu-item .mat-mdc-menu-item-text {
+  width: 100%;
+  display: block !important;
+}
+
+.user-menu .account-item-content {
+  width: 100%;
+  min-height: 46px;
+
+  display: flex;
+  align-items: center;
+  gap: 11px;
+
+  color: var(--brand);
+}
+
+.user-menu .account-item-content .mat-icon {
+  width: 20px !important;
+  height: 20px !important;
+
+  margin: 0 !important;
+
+  color: var(--brand) !important;
+
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+
+  flex: 0 0 20px;
+
+  font-size: 20px !important;
+  line-height: 20px !important;
+}
+
+.user-menu .account-item-content>span {
+  color: var(--brand) !important;
+
+  font-size: 0.8125rem;
+  line-height: 1.3;
+  font-weight: 600;
+}
+
+.user-menu .account-menu-item:hover {
+  background: color-mix(in srgb,
+      var(--brand) 8%,
+      var(--card)) !important;
+}
+
+/* Sign out remains semantic danger color */
+
+.user-menu .account-menu-item.signout,
+.user-menu .account-menu-item.signout .account-item-content,
+.user-menu .account-menu-item.signout .account-item-content>span,
+.user-menu .account-menu-item.signout .mat-icon {
+  color: var(--danger) !important;
+}
+
+.user-menu .account-menu-item.signout:hover {
+  background: color-mix(in srgb,
+      var(--danger) 8%,
+      var(--card)) !important;
+}
+
+/* =========================================================
+   NOTIFICATIONS
+   ========================================================= */
+
+.notification-menu {
+  min-width: min(400px, calc(100vw - 20px)) !important;
+  max-width: 400px !important;
+}
+
+.notification-menu .notification-head {
+  min-height: 62px;
+  padding: 10px 14px 10px 16px;
+
+  border-bottom: 1px solid var(--border);
+
+  background: var(--card);
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.notification-menu .notification-head>div {
+  min-width: 0;
+}
+
+.notification-menu .notification-head strong,
+.notification-menu .notification-head small {
+  display: block;
+}
+
+.notification-menu .notification-head strong {
+  color: var(--brand);
+
+  font-size: 0.9375rem;
+  font-weight: 700;
+}
+
+.notification-menu .notification-head small {
+  margin-top: 2px;
+
+  color: var(--ink-muted);
+
+  font-size: 0.72rem;
+}
+
+.notification-menu .notification-head button {
+  padding: 6px 8px;
+
+  border: 0;
+  border-radius: 6px;
+
+  background: transparent;
+  color: var(--brand);
+
+  font-size: 0.75rem;
+  font-weight: 650;
+
+  cursor: pointer;
+}
+
+.notification-menu .notification-head button:hover {
+  background: rgb(var(--brand-rgb) / 0.08);
+}
+
+.notification-menu .notification-list {
+  max-height: min(460px,
+      calc(100dvh - 160px));
+
+  overflow-y: auto;
+
+  background: var(--card);
+}
+
+.notification-menu .notification-item {
+  width: 100%;
+  height: auto !important;
+  min-height: 76px;
+
+  padding: 11px 16px !important;
+
+  border-bottom: 1px solid var(--border);
+
+  background: var(--card);
+  color: var(--ink) !important;
+}
+
+.notification-menu .notification-item:last-child {
+  border-bottom: 0;
+}
+
+.notification-menu .notification-item.unread {
+  background: color-mix(in srgb,
+      var(--brand) 6%,
+      var(--card)) !important;
+}
+
+.notification-menu .notification-item:hover {
+  background: color-mix(in srgb,
+      var(--brand) 9%,
+      var(--card)) !important;
+}
+
+.notification-menu .notification-item .mat-mdc-menu-item-text {
+  width: 100%;
+  display: block !important;
+}
+
+.notification-menu .notification-copy {
+  width: 100%;
+  min-width: 0;
+
+  display: block;
+
+  white-space: normal;
+}
+
+.notification-menu .notification-title-row {
+  width: 100%;
+
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.notification-menu .notification-title-row strong {
+  min-width: 0;
+
+  color: var(--brand) !important;
+
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  font-weight: 700;
+}
+
+.notification-menu .notification-message {
+  margin-top: 3px;
+
+  color: var(--ink-muted) !important;
+
+  display: block;
+
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.notification-menu .notification-copy small {
+  margin-top: 5px;
+
+  color: var(--ink-muted) !important;
+
+  display: block;
+
+  font-size: 0.6875rem;
+}
+
+.notification-menu .notification-unread-dot {
+  width: 7px;
+  height: 7px;
+
+  margin-left: auto;
+
+  border-radius: 50%;
+
+  background: var(--brand);
+
+  flex: 0 0 7px;
+}
+
+.notification-menu .notification-empty {
+  min-height: 150px;
+  padding: 24px;
+
+  background: var(--card);
+  color: var(--ink-muted);
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  text-align: center;
+}
+
+.notification-menu .notification-empty mat-icon {
+  width: 30px;
+  height: 30px;
+
+  margin-bottom: 8px;
+
+  color: var(--brand);
+
+  font-size: 30px;
+}
+
+.notification-menu .notification-empty strong {
+  color: var(--brand);
+  font-size: 0.875rem;
+}
+
+.notification-menu .notification-empty span {
+  margin-top: 3px;
+  color: var(--ink-muted);
+  font-size: 0.75rem;
+}
+
+/* =========================================================
+   MOBILE OVERLAY WIDTHS
+   ========================================================= */
+
+@media (max-width: 760px) {
+  .notification-menu {
+    min-width: calc(100vw - 16px) !important;
+    max-width: calc(100vw - 16px) !important;
+  }
+
+  .quick-actions-menu {
+    min-width: min(300px,
+        calc(100vw - 16px)) !important;
+
+    max-width: calc(100vw - 16px) !important;
+  }
+
+  .user-menu {
+    min-width: min(300px,
+        calc(100vw - 16px)) !important;
+
+    max-width: calc(100vw - 16px) !important;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+
   *,
   *::before,
   *::after {
@@ -735,4 +1397,531 @@ textarea:focus-visible {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* =========================================================
+   SHELL OVERLAY MENUS - THEME AWARE
+   ========================================================= */
+
+.notification-menu,
+.quick-actions-menu,
+.user-menu {
+  --mat-menu-container-color: var(--card);
+  --mat-menu-item-label-text-color: var(--ink);
+  --mat-menu-item-icon-color: var(--brand);
+
+  background: var(--card) !important;
+  color: var(--ink) !important;
+}
+
+.notification-menu .mat-mdc-menu-content,
+.quick-actions-menu .mat-mdc-menu-content,
+.user-menu .mat-mdc-menu-content {
+  padding: 0 !important;
+  background: var(--card) !important;
+  color: var(--ink) !important;
+}
+
+.notification-menu .notification-head {
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+}
+
+.notification-menu .notification-head strong {
+  color: var(--brand);
+}
+
+.notification-menu .notification-head small {
+  color: var(--ink-muted);
+}
+
+.notification-menu .notification-head button {
+  color: var(--brand);
+}
+
+.notification-menu .notification-item {
+  background: var(--card);
+  color: var(--ink) !important;
+  border-bottom: 1px solid var(--border);
+}
+
+.notification-menu .notification-item.unread {
+  background: color-mix(in srgb,
+      var(--brand) 6%,
+      var(--card)) !important;
+}
+
+.notification-menu .notification-item:hover {
+  background: color-mix(in srgb,
+      var(--brand) 9%,
+      var(--card)) !important;
+}
+
+.notification-menu .notification-title-row strong {
+  color: var(--brand) !important;
+}
+
+.notification-menu .notification-message,
+.notification-menu .notification-copy small {
+  color: var(--ink-muted) !important;
+}
+
+.notification-menu .notification-unread-dot {
+  background: var(--brand);
+}
+
+.quick-actions-menu .shell-menu-head {
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+}
+
+.quick-actions-menu .shell-menu-head strong {
+  color: var(--brand);
+}
+
+.quick-actions-menu .quick-menu-list {
+  background: var(--card);
+}
+
+.quick-actions-menu .quick-menu-item {
+  color: var(--brand) !important;
+}
+
+.quick-actions-menu .quick-menu-item:hover {
+  background: color-mix(in srgb,
+      var(--brand) 8%,
+      var(--card)) !important;
+}
+
+.quick-actions-menu .quick-item-content {
+  color: var(--brand);
+}
+
+.quick-actions-menu .quick-item-content .mat-icon {
+  color: var(--brand) !important;
+}
+
+.quick-actions-menu .quick-item-content>span {
+  color: var(--brand) !important;
+}
+
+.user-menu .user-menu-profile {
+  background: var(--card);
+}
+
+.user-menu .user-menu-copy strong {
+  color: var(--ink);
+}
+
+.user-menu .user-menu-copy small {
+  color: var(--ink-muted);
+}
+
+.user-menu .user-menu-divider {
+  background: var(--border);
+}
+
+.user-menu .account-menu-item:not(.signout) {
+  color: var(--brand) !important;
+}
+
+.user-menu .account-menu-item:not(.signout) .mat-icon,
+.user-menu .account-menu-item:not(.signout) span {
+  color: var(--brand) !important;
+}
+
+.user-menu .account-menu-item:hover {
+  background: color-mix(in srgb,
+      var(--brand) 8%,
+      var(--card)) !important;
+}
+
+.user-menu .account-menu-item.signout,
+.user-menu .account-menu-item.signout span,
+.user-menu .account-menu-item.signout .mat-icon {
+  color: var(--danger) !important;
+}
+
+/* =========================================================
+   TOP NAVBAR - CURRENT THEME COLORS
+   ========================================================= */
+
+/* Hamburger + notification + quick-actions icons */
+.topbar>.mat-mdc-icon-button,
+.topbar-actions>.mat-mdc-icon-button {
+  color: var(--brand) !important;
+
+  --mdc-icon-button-icon-color: var(--brand);
+  --mat-icon-button-state-layer-color: var(--brand);
+  --mat-icon-button-ripple-color: rgb(var(--brand-rgb) / 0.12);
+}
+
+/* Force Material icon itself to inherit active theme */
+.topbar>.mat-mdc-icon-button .mat-icon,
+.topbar-actions>.mat-mdc-icon-button .mat-icon {
+  color: var(--brand) !important;
+}
+
+/* Hover */
+.topbar>.mat-mdc-icon-button:hover,
+.topbar-actions>.mat-mdc-icon-button:hover {
+  background: rgb(var(--brand-rgb) / 0.08) !important;
+}
+
+/* Search icon should remain secondary, not brand */
+.global-search>mat-icon {
+  color: var(--ink-muted) !important;
+}
+
+/* Mobile search icon follows current theme */
+.mobile-search-trigger,
+.mobile-search-trigger .mat-icon {
+  color: var(--brand) !important;
+}
+
+/* User avatar follows current theme */
+.user-trigger .avatar {
+  background: rgb(var(--brand-rgb) / 0.12) !important;
+  color: var(--brand) !important;
+}
+
+/* Notification badge stays semantic danger */
+.notification-trigger .notification-badge {
+  background: var(--danger) !important;
+  color: #ffffff !important;
+}
+
+/* =========================================================
+   SHELL MATERIAL OVERLAY MENUS - THEME AWARE
+   ========================================================= */
+
+.notification-menu,
+.quick-actions-menu,
+.user-menu {
+  --mat-menu-container-color: var(--card);
+  --mat-menu-item-label-text-color: var(--ink);
+  --mat-menu-item-icon-color: var(--brand);
+
+  background: var(--card) !important;
+  color: var(--ink) !important;
+}
+
+.notification-menu .mat-mdc-menu-content,
+.quick-actions-menu .mat-mdc-menu-content,
+.user-menu .mat-mdc-menu-content {
+  padding: 0 !important;
+  background: var(--card) !important;
+  color: var(--ink) !important;
+}
+
+/* ---------- Quick Actions ---------- */
+
+.quick-actions-menu .shell-menu-head {
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--card);
+}
+
+.quick-actions-menu .shell-menu-head strong {
+  color: var(--brand) !important;
+}
+
+.quick-actions-menu .quick-menu-list {
+  padding: 6px;
+  background: var(--card);
+}
+
+.quick-actions-menu .quick-menu-item {
+  min-height: 48px !important;
+  padding: 0 10px !important;
+  border-radius: 7px;
+
+  color: var(--brand) !important;
+}
+
+.quick-actions-menu .quick-menu-item:hover {
+  background:
+    color-mix(
+      in srgb,
+      var(--brand) 8%,
+      var(--card)
+    ) !important;
+}
+
+.quick-actions-menu
+.quick-menu-item
+.mat-mdc-menu-item-text {
+  width: 100%;
+  display: block !important;
+}
+
+.quick-actions-menu .quick-item-content {
+  width: 100%;
+  min-height: 48px;
+
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px;
+
+  color: var(--brand) !important;
+}
+
+.quick-actions-menu
+.quick-item-content
+.mat-icon {
+  width: 21px !important;
+  height: 21px !important;
+
+  margin: 0 !important;
+  padding: 0 !important;
+
+  color: var(--brand) !important;
+
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+
+  flex: 0 0 21px;
+
+  font-size: 20px !important;
+  line-height: 21px !important;
+}
+
+.quick-actions-menu
+.quick-item-content > span {
+  color: var(--brand) !important;
+
+  display: block;
+
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  font-weight: 650;
+}
+
+/* ---------- User Menu ---------- */
+
+.user-menu .user-menu-profile {
+  padding: 15px 16px;
+
+  border-bottom: 1px solid var(--border);
+
+  background: var(--card);
+
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.user-menu .user-menu-avatar {
+  width: 42px;
+  height: 42px;
+
+  border-radius: 8px;
+
+  background: rgb(var(--brand-rgb) / 0.12);
+  color: var(--brand);
+
+  display: grid;
+  place-items: center;
+
+  flex: 0 0 42px;
+
+  overflow: hidden;
+
+  font-size: 0.8125rem;
+  font-weight: 750;
+}
+
+.user-menu .user-menu-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.user-menu .user-menu-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.user-menu .user-menu-copy strong {
+  color: var(--ink) !important;
+
+  display: block;
+
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.user-menu .user-menu-copy small {
+  margin-top: 2px;
+
+  color: var(--ink-muted) !important;
+
+  display: block;
+
+  font-size: 0.75rem;
+}
+
+.user-menu .account-menu-item {
+  min-height: 46px !important;
+  padding: 0 14px !important;
+
+  color: var(--brand) !important;
+}
+
+.user-menu
+.account-menu-item
+.mat-mdc-menu-item-text {
+  width: 100%;
+  display: block !important;
+}
+
+.user-menu .account-item-content {
+  width: 100%;
+  min-height: 46px;
+
+  display: flex !important;
+  align-items: center !important;
+  gap: 11px;
+
+  color: var(--brand) !important;
+}
+
+.user-menu
+.account-item-content
+.mat-icon {
+  width: 20px !important;
+  height: 20px !important;
+
+  margin: 0 !important;
+
+  color: var(--brand) !important;
+
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+
+  flex: 0 0 20px;
+
+  font-size: 20px !important;
+  line-height: 20px !important;
+}
+
+.user-menu
+.account-item-content > span {
+  color: var(--brand) !important;
+
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+/* Sign out should remain red/danger */
+.user-menu .account-menu-item.signout,
+.user-menu .account-menu-item.signout .account-item-content,
+.user-menu .account-menu-item.signout .account-item-content > span,
+.user-menu .account-menu-item.signout .mat-icon {
+  color: var(--danger) !important;
+}
+
+.user-menu .account-menu-item:not(.signout):hover {
+  background:
+    color-mix(
+      in srgb,
+      var(--brand) 8%,
+      var(--card)
+    ) !important;
+}
+
+.user-menu .account-menu-item.signout:hover {
+  background:
+    color-mix(
+      in srgb,
+      var(--danger) 8%,
+      var(--card)
+    ) !important;
+}
+
+/* ---------- Notifications ---------- */
+
+.notification-menu .notification-head {
+  min-height: 62px;
+  padding: 10px 14px 10px 16px;
+
+  border-bottom: 1px solid var(--border);
+
+  background: var(--card);
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.notification-menu .notification-head strong {
+  color: var(--brand) !important;
+}
+
+.notification-menu .notification-head small {
+  color: var(--ink-muted) !important;
+}
+
+.notification-menu .notification-head button {
+  color: var(--brand) !important;
+}
+
+.notification-menu .notification-list {
+  background: var(--card);
+}
+
+.notification-menu .notification-item {
+  width: 100%;
+  height: auto !important;
+  min-height: 76px;
+
+  padding: 11px 16px !important;
+
+  border-bottom: 1px solid var(--border);
+
+  background: var(--card);
+  color: var(--ink) !important;
+}
+
+.notification-menu .notification-item.unread {
+  background:
+    color-mix(
+      in srgb,
+      var(--brand) 6%,
+      var(--card)
+    ) !important;
+}
+
+.notification-menu .notification-item:hover {
+  background:
+    color-mix(
+      in srgb,
+      var(--brand) 9%,
+      var(--card)
+    ) !important;
+}
+
+.notification-menu
+.notification-title-row
+strong {
+  color: var(--brand) !important;
+}
+
+.notification-menu
+.notification-message {
+  color: var(--ink-muted) !important;
+}
+
+.notification-menu
+.notification-copy
+small {
+  color: var(--ink-muted) !important;
+}
+
+.notification-menu
+.notification-unread-dot {
+  background: var(--brand) !important;
 }

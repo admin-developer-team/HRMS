@@ -9,7 +9,7 @@ import { Dashboard } from '../../core/models';
 
 @Component({
   selector: 'app-dashboard-page',
-  imports: [CurrencyPipe, DatePipe, DecimalPipe, MatButtonModule, MatIconModule, RouterLink],
+  imports: [CurrencyPipe, DecimalPipe, MatButtonModule, MatIconModule, RouterLink],
   templateUrl: './dashboard.page.html',
   styleUrl: './dashboard.page.scss',
 })

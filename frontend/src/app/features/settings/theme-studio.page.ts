@@ -73,18 +73,15 @@ export class ThemeStudioPage {
   readonly currency = signal('INR');
   readonly timeZone = signal('Asia/Kolkata');
   readonly locale = signal('en-IN');
-  readonly customPrimary = signal(this.themes.current().primary);
-  readonly customAccent = signal(this.themes.current().accent);
-  readonly customRadius = signal(this.themes.current().radius);
-  readonly compact = signal(this.themes.current().density === 'compact');
-  readonly dark = signal(this.themes.current().scheme === 'dark');
 
   constructor() {
     this.destroyRef.onDestroy(() => { if (this.queuePollTimer) clearTimeout(this.queuePollTimer); });
-    this.company.load().subscribe({ next: (profile) => {
-      this.companyName.set(profile.name); this.legalName.set(profile.legalName ?? '');
-      this.currency.set(profile.defaultCurrency); this.timeZone.set(profile.timeZone); this.locale.set(profile.locale);
-    }, error: () => this.toast.error('Could not load company settings.') });
+    this.company.load().subscribe({
+      next: (profile) => {
+        this.companyName.set(profile.name); this.legalName.set(profile.legalName ?? '');
+        this.currency.set(profile.defaultCurrency); this.timeZone.set(profile.timeZone); this.locale.set(profile.locale);
+      }, error: () => this.toast.error('Could not load company settings.')
+    });
     if (this.auth.user()?.employeeId) {
       this.loadProfile();
       if (this.auth.hasPermission('employees.manage')) this.loadManagedEmployee();
@@ -135,33 +132,17 @@ export class ThemeStudioPage {
 
   select(theme: TenantTheme): void {
     this.themes.select(theme);
-    this.customPrimary.set(theme.primary);
-    this.customAccent.set(theme.accent);
-    this.customRadius.set(theme.radius);
-    this.compact.set(theme.density === 'compact');
-    this.dark.set(theme.scheme === 'dark');
-    this.toast.success('Appearance updated.');
-  }
-  applyCustom(): void {
-    this.themes.customize({
-      primary: this.customPrimary(),
-      primaryRgb: this.hexToRgb(this.customPrimary()),
-      accent: this.customAccent(),
-      radius: this.customRadius(),
-      density: this.compact() ? 'compact' : 'comfortable',
-      scheme: this.dark() ? 'dark' : 'light',
-      surface: this.dark() ? '#08111f' : '#f5f7fb',
-      sidebar: this.dark() ? '#030712' : '#071426',
-    });
-    this.toast.success('Appearance updated.');
+    this.toast.success(`${theme.name} theme applied.`);
   }
 
   saveCompany(): void {
     const profile = this.company.profile();
     if (!profile || !this.companyName().trim()) return;
     this.savingCompany.set(true);
-    this.company.update({ name: this.companyName().trim(), legalName: this.legalName().trim() || undefined,
-      defaultCurrency: this.currency().trim(), timeZone: this.timeZone().trim(), locale: this.locale().trim(), version: profile.version })
+    this.company.update({
+      name: this.companyName().trim(), legalName: this.legalName().trim() || undefined,
+      defaultCurrency: this.currency().trim(), timeZone: this.timeZone().trim(), locale: this.locale().trim(), version: profile.version
+    })
       .pipe(finalize(() => this.savingCompany.set(false))).subscribe({
         next: () => this.toast.success('Company identity updated.'),
         error: () => this.toast.error('Could not update company identity.'),
@@ -293,20 +274,6 @@ export class ThemeStudioPage {
     this.managedEmployee.set(employee); this.firstName.set(employee.firstName); this.lastName.set(employee.lastName);
     this.workEmail.set(employee.workEmail); this.employeeNumber.set(employee.employeeNumber); this.hireDate.set(employee.hireDate);
     this.phone.set(employee.phone ?? '');
-  }
-
-  private hexToRgb(hex: string): string {
-    const clean = hex.replace('#', '');
-    const value = parseInt(
-      clean.length === 3
-        ? clean
-            .split('')
-            .map((x) => x + x)
-            .join('')
-        : clean,
-      16,
-    );
-    return `${(value >> 16) & 255} ${(value >> 8) & 255} ${value & 255}`;
   }
 }
 
