@@ -299,7 +299,7 @@ public sealed class TenantService(
         if (r.DefaultCurrency.Length != 3 || !r.DefaultCurrency.All(char.IsAsciiLetter)) throw new DomainException("Use a three-letter currency code.");
         try { _ = TimeZoneInfo.FindSystemTimeZoneById(r.TimeZone); } catch (TimeZoneNotFoundException) { throw new DomainException("Time zone is invalid."); } catch (InvalidTimeZoneException) { throw new DomainException("Time zone is invalid."); }
         if (!Enum.IsDefined(r.Status)) throw new DomainException("Company status is invalid.");
-        if (r.Status == TenantStatus.Trial && (!r.TrialEndsAt.HasValue || r.TrialEndsAt <= DateTimeOffset.UtcNow)) throw new DomainException("An active trial needs a future trial end date.");
+        if (r.Status == TenantStatus.Trial && !r.TrialEndsAt.HasValue) throw new DomainException("A trial needs an end date.");
         if (r.EmployeeLimit < 1) throw new DomainException("Employee limit must be at least 1.");
         if (r.SubscriptionEndsAt.HasValue && r.SubscriptionEndsAt < r.SubscriptionStartsAt) throw new DomainException("Subscription end date cannot be before its start date.");
 
@@ -338,8 +338,8 @@ public sealed class TenantService(
 
 public sealed class AuthService(
     IRepository<Tenant> tenants, IRepository<UserAccount> users, IRepository<Role> roles, IRepository<UserRole> userRoles,
-    IRepository<RefreshToken> refreshTokens, IRepository<Employee> employees, IRepository<TenantSubscription> subscriptions, IRepository<AuditLog> auditLogs, ICurrentTenant currentTenant, IPasswordHasher passwordHasher,
-    ITokenService tokenService, IUnitOfWork unitOfWork, IEmailSignInLinkStore emailLinks) : IAuthService
+    IRepository<RefreshToken> refreshTokens, IRepository<Employee> employees, IRepository<TenantSubscription> subscriptions, IRepository<BillingCheckout> billingCheckouts, IRepository<AuditLog> auditLogs, ICurrentTenant currentTenant, IPasswordHasher passwordHasher,
+    ITokenService tokenService, IUnitOfWork unitOfWork, IEmailSignInLinkStore emailLinks, Microsoft.Extensions.Configuration.IConfiguration configuration) : IAuthService
 {
     public async Task<string> ResolveEmailLinkTenantAsync(string token, CancellationToken ct)
     {
@@ -376,9 +376,7 @@ public sealed class AuthService(
         var tenant = await tenants.FirstOrDefaultAsync(x => x.Slug == slug && (x.Status == TenantStatus.Active || x.Status == TenantStatus.Trial), ct)
             ?? throw new DomainException("Invalid tenant or credentials.");
         currentTenant.Set(tenant.Id, tenant.Slug);
-        var billingOnly = tenant.Slug != "platform" &&
-            ((tenant.Status == TenantStatus.Trial && tenant.TrialEndsAt <= now) ||
-             !await subscriptions.AnyAsync(x => x.IsActive && x.StartsAt <= now && (!x.EndsAt.HasValue || x.EndsAt > now), ct));
+        var billingOnly = await IsBillingRestrictedAsync(tenant, now, ct);
         var email = request.Email.Trim().ToLowerInvariant();
         var user = await users.FirstOrDefaultAsync(x => x.Email == email, ct)
             ?? throw new DomainException("Invalid tenant or credentials.");
@@ -390,8 +388,7 @@ public sealed class AuthService(
             await unitOfWork.SaveChangesAsync(ct);
             throw new DomainException("Invalid tenant or credentials.");
         }
-        if (billingOnly && !await IsTenantAdministratorAsync(user.Id, ct))
-            throw new DomainException("This company subscription is inactive or expired. Contact the company administrator.");
+        var accessPaused = billingOnly && !await IsTenantAdministratorAsync(user.Id, ct);
         user.FailedLoginCount = 0;
         user.LockedUntil = null;
         user.LastLoginAt = DateTimeOffset.UtcNow;
@@ -408,7 +405,7 @@ public sealed class AuthService(
             Version = 1
         }, ct);
         var session = await IssueAsync(user, ct);
-        return session with { BillingOnly = billingOnly };
+        return session with { BillingOnly = billingOnly && !accessPaused, AccessPaused = accessPaused };
     }
 
     public async Task<TokenResponse> RefreshAsync(RefreshRequest request, CancellationToken ct)
@@ -419,18 +416,29 @@ public sealed class AuthService(
             ?? throw new DomainException("Company is unavailable.");
         if (tenant.Status is not (TenantStatus.Active or TenantStatus.Trial))
             throw new DomainException("Company access is suspended, cancelled, or expired.");
-        var billingOnly = tenant.Slug != "platform" &&
-            ((tenant.Status == TenantStatus.Trial && tenant.TrialEndsAt <= now) ||
-             !await subscriptions.AnyAsync(x => x.IsActive && x.StartsAt <= now && (!x.EndsAt.HasValue || x.EndsAt > now), ct));
+        var billingOnly = await IsBillingRestrictedAsync(tenant, now, ct);
         var hash = tokenService.HashRefreshToken(request.RefreshToken);
         var stored = await refreshTokens.FirstOrDefaultAsync(x => x.TokenHash == hash, ct);
         if (stored is null || !stored.IsActive) throw new DomainException("Refresh token is invalid or expired.");
         var user = await users.GetByIdAsync(stored.UserId, ct) ?? throw new DomainException("User no longer exists.");
         if (!user.IsActive || user.LockedUntil > DateTimeOffset.UtcNow) throw new DomainException("Account is inactive or locked.");
-        if (billingOnly && !await IsTenantAdministratorAsync(user.Id, ct))
-            throw new DomainException("This company subscription is inactive or expired. Contact the company administrator.");
+        var accessPaused = billingOnly && !await IsTenantAdministratorAsync(user.Id, ct);
         var session = await IssueAsync(user, ct, stored);
-        return session with { BillingOnly = billingOnly };
+        return session with { BillingOnly = billingOnly && !accessPaused, AccessPaused = accessPaused };
+    }
+
+    private async Task<bool> IsBillingRestrictedAsync(Tenant tenant, DateTimeOffset now, CancellationToken ct)
+    {
+        if (tenant.Slug == "platform") return false;
+        var razorpayProvider = string.Equals(configuration["Billing:Razorpay:Mode"], "test", StringComparison.OrdinalIgnoreCase) ? "razorpay_test" : "razorpay_live";
+        var cashfreeProvider = string.Equals(configuration["Billing:Cashfree:Mode"], "test", StringComparison.OrdinalIgnoreCase) ? "cashfree_test" : "cashfree_live";
+        var paid = await subscriptions.AnyAsync(x => x.IsActive && x.PlanCode != "trial"
+            && (x.BillingProvider == null || x.BillingProvider == razorpayProvider || x.BillingProvider == cashfreeProvider)
+            && x.StartsAt <= now && (!x.EndsAt.HasValue || x.EndsAt > now), ct);
+        if (paid) return false;
+        if (tenant.Status != TenantStatus.Trial || tenant.TrialEndsAt <= now) return true;
+        return tenant.RequiresBillingMandate && !await billingCheckouts.AnyAsync(x => (x.Provider == razorpayProvider || x.Provider == cashfreeProvider)
+            && (x.Status == "authenticated" || x.Status == "active" || x.Status == "payment_pending") && !x.IsDeleted, ct);
     }
 
     private async Task<bool> IsTenantAdministratorAsync(Guid userId, CancellationToken ct)

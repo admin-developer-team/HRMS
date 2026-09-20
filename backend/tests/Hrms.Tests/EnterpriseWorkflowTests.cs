@@ -5,6 +5,7 @@ using Hrms.Domain.Common;
 using Hrms.Infrastructure.Identity;
 using Hrms.Infrastructure.Persistence;
 using Hrms.Infrastructure;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 
 namespace Hrms.Tests;
@@ -455,6 +456,37 @@ public sealed class EnterpriseWorkflowTests
     {
         public Task<(IReadOnlyList<CalendarObservance> Items, bool Available)> GetAsync(string countryCode, int year, CancellationToken ct) =>
             Task.FromResult<(IReadOnlyList<CalendarObservance>, bool)>(([], false));
+    }
+
+    [Fact]
+    public async Task New_trial_allows_billing_until_mandate_is_authorized_then_pauses_at_expiry()
+    {
+        using var h = new Harness();
+        var tenant = await h.Db.Tenants.SingleAsync();
+        tenant.Status = TenantStatus.Trial;
+        tenant.RequiresBillingMandate = true;
+        tenant.TrialEndsAt = DateTimeOffset.UtcNow.AddDays(30);
+        var user = new UserAccount { TenantId = h.Id, Email = "owner@example.test", IsActive = true };
+        var role = new Role { TenantId = h.Id, Name = "Owner", NormalizedName = "TENANT_ADMIN", PermissionsCsv = "*" };
+        var token = new RefreshToken { TenantId = h.Id, UserId = user.Id, ExpiresAt = DateTimeOffset.UtcNow.AddDays(1), TokenHash = "owner-session" };
+        h.Db.Users.Add(user); h.Db.Roles.Add(role); h.Db.RefreshTokens.Add(token);
+        h.Db.UserRoles.Add(new UserRole { TenantId = h.Id, UserId = user.Id, RoleId = role.Id });
+        h.Db.TenantSubscriptions.Add(new TenantSubscription { TenantId = h.Id, PlanCode = "trial", StartsAt = DateTimeOffset.UtcNow, EndsAt = tenant.TrialEndsAt, IsActive = true });
+        await h.Db.SaveChangesAsync();
+        var principal = new ClaimsPrincipal(new ClaimsIdentity([new(ClaimTypes.NameIdentifier, user.Id.ToString()), new("tenant_id", h.Id.ToString()), new("session_id", token.Id.ToString())], "test"));
+        var accessor = new HttpContextAccessor { HttpContext = new DefaultHttpContext() };
+        var validator = new SessionValidator(h.Db, accessor);
+        accessor.HttpContext.Request.Path = "/api/v1/employees";
+        Assert.False(await validator.ValidateAsync(principal, Ct));
+        accessor.HttpContext.Request.Path = "/api/v1/billing/status";
+        Assert.True(await validator.ValidateAsync(principal, Ct));
+        h.Db.BillingCheckouts.Add(new BillingCheckout { TenantId = h.Id, Provider = "razorpay_live", ProviderSubscriptionId = "sub_test", Status = "authenticated" });
+        await h.Db.SaveChangesAsync();
+        accessor.HttpContext.Request.Path = "/api/v1/employees";
+        Assert.True(await validator.ValidateAsync(principal, Ct));
+        tenant.TrialEndsAt = DateTimeOffset.UtcNow.AddMinutes(-1);
+        await h.Db.SaveChangesAsync();
+        Assert.False(await validator.ValidateAsync(principal, Ct));
     }
 
     private sealed class CapturingEmailQueue : IEmailQueue

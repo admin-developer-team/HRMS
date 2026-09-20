@@ -7,6 +7,7 @@ public sealed class Tenant : AuditableEntity
     public string Name { get; set; } = string.Empty;
     public string Slug { get; set; } = string.Empty;
     public string? PreferredPlanCode { get; set; }
+    public bool RequiresBillingMandate { get; set; }
     public string? LegalName { get; set; }
     public string? TaxIdentifier { get; set; }
     public string DefaultCurrency { get; set; } = "INR";

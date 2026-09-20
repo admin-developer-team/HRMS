@@ -1,5 +1,6 @@
 export interface UserSession {
   billingOnly?: boolean;
+  accessPaused?: boolean;
   accessToken: string;
   refreshToken: string;
   expiresAt: string;

@@ -28,7 +28,7 @@ public sealed record LoginRequest(string? TenantSlug, string Email, string Passw
 public sealed record RefreshRequest(string RefreshToken);
 public sealed record ChangePasswordRequest(string CurrentPassword, string NewPassword);
 public sealed record UpdateSelfProfileRequest(string? Phone);
-public sealed record TokenResponse(string AccessToken, string RefreshToken, DateTimeOffset ExpiresAt, UserDto User, bool BillingOnly = false);
+public sealed record TokenResponse(string AccessToken, string RefreshToken, DateTimeOffset ExpiresAt, UserDto User, bool BillingOnly = false, bool AccessPaused = false);
 public sealed record EmailSignInResponse(TokenResponse Session, string Destination);
 public sealed record UserDto(Guid Id, Guid TenantId, Guid? EmployeeId, string Email, string DisplayName, IReadOnlyList<string> Roles, IReadOnlyList<string> Permissions);
 public sealed record CreateRoleRequest(string Name, IReadOnlyList<string> Permissions);

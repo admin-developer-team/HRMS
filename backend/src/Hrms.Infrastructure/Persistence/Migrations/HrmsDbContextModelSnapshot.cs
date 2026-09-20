@@ -2963,6 +2963,9 @@ namespace Hrms.Infrastructure.Persistence.Migrations
                     b.Property<string>("PreferredPlanCode")
                         .HasColumnType("text");
 
+                    b.Property<bool>("RequiresBillingMandate")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("SettingsJson")
                         .HasColumnType("text");
 

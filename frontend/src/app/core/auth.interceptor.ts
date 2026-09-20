@@ -52,17 +52,24 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
         !request.url.endsWith('/auth/email-link/redeem')
       ) {
         return auth.refreshSession().pipe(
-          switchMap((session) =>
-            next(
-              request.clone({
-                setHeaders: {
-                  Authorization: `Bearer ${session.accessToken}`,
-                  'X-Tenant-ID': session.user.tenantId,
-                },
-              }),
-            ),
-          ),
+          switchMap((session) => {
+            if (session.accessPaused) {
+              void router.navigate(['/access-paused']);
+              return throwError(() => error);
+            }
+            if (session.billingOnly && !request.url.includes('/billing/')) {
+              void router.navigate(['/billing']);
+              return throwError(() => error);
+            }
+            return next(request.clone({
+              setHeaders: {
+                Authorization: `Bearer ${session.accessToken}`,
+                'X-Tenant-ID': session.user.tenantId,
+              },
+            }));
+          }),
           catchError((refreshError) => {
+            if (auth.session()?.accessPaused || auth.session()?.billingOnly) return throwError(() => refreshError);
             auth.logout(false);
             void router.navigate(['/login']);
             return throwError(() => refreshError);

@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Hrms.Domain\Hrms.Domain.csproj" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.9" />
   </ItemGroup>
 
 </Project>

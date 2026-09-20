@@ -45,6 +45,7 @@ public static class DependencyInjection
         services.AddScoped<ICurrentUser, CurrentUser>();
         services.AddScoped<PlatformExperienceService>();
         services.AddHttpClient<ISubscriptionPaymentGateway, RazorpaySubscriptionGateway>(client => client.Timeout = TimeSpan.FromSeconds(15));
+        services.AddHttpClient<CashfreeSubscriptionGateway>(client => client.Timeout = TimeSpan.FromSeconds(15));
         services.AddScoped<BillingService>();
         services.AddDbContext<HrmsDbContext>(options => options.UseNpgsql(connectionString, npgsql => npgsql.MigrationsAssembly(typeof(HrmsDbContext).Assembly.FullName)));
         services.AddScoped(typeof(IRepository<>), typeof(Repository<>));

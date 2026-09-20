@@ -12,6 +12,8 @@ function loginRedirect(router: Router, returnUrl: string) {
 export const authGuard: CanActivateFn = (route, state) => {
   const auth = inject(AuthService);
   if (!auth.isAuthenticated()) return loginRedirect(inject(Router), state.url);
+  if (auth.session()?.accessPaused && !state.url.startsWith('/access-paused'))
+    return inject(Router).createUrlTree(['/access-paused']);
   if (auth.session()?.billingOnly && !state.url.startsWith('/billing'))
     return inject(Router).createUrlTree(['/billing']);
   return true;

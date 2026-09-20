@@ -2,6 +2,7 @@ using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Hrms.Application;
 using Microsoft.Extensions.Configuration;
 
@@ -9,7 +10,7 @@ namespace Hrms.Infrastructure.Billing;
 
 public sealed class RazorpaySubscriptionGateway(HttpClient client, IConfiguration configuration) : ISubscriptionPaymentGateway
 {
-    private string Mode => configuration["Billing:Razorpay:Mode"]?.Trim().ToLowerInvariant() ?? "test";
+    private string Mode => configuration["Billing:Razorpay:Mode"]?.Trim().ToLowerInvariant() ?? "live";
     public bool IsTest => Mode == "test";
     public string ProviderKey => IsTest ? "razorpay_test" : "razorpay_live";
     public string PlanConfigurationKey => "RazorpayPlanId";
@@ -27,7 +28,7 @@ public sealed class RazorpaySubscriptionGateway(HttpClient client, IConfiguratio
         return (id, secret, webhookSecret);
     }
 
-    public async Task<BillingCheckoutResult> CreateSubscriptionAsync(BillingPlan plan, Guid tenantId, CancellationToken ct)
+    public async Task<BillingCheckoutResult> CreateSubscriptionAsync(BillingPlan plan, Guid tenantId, DateTimeOffset? firstChargeAt, CancellationToken ct)
     {
         var (id, secret, _) = Credentials();
         using (var planRequest = new HttpRequestMessage(HttpMethod.Get, $"https://api.razorpay.com/v1/plans/{Uri.EscapeDataString(plan.ProviderPlanId)}"))
@@ -53,8 +54,9 @@ public sealed class RazorpaySubscriptionGateway(HttpClient client, IConfiguratio
             total_count = 120,
             quantity = 1,
             customer_notify = true,
+            start_at = firstChargeAt?.ToUnixTimeSeconds(),
             notes = new { tenant_id = tenantId.ToString(), plan_code = plan.Code }
-        }), Encoding.UTF8, "application/json");
+        }, new JsonSerializerOptions { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull }), Encoding.UTF8, "application/json");
         using var response = await client.SendAsync(request, ct);
         var content = await response.Content.ReadAsStringAsync(ct);
         if (!response.IsSuccessStatusCode) throw new InvalidOperationException($"Razorpay subscription creation failed ({(int)response.StatusCode}). Check plan ID and Subscriptions access in the selected mode.");
@@ -65,7 +67,25 @@ public sealed class RazorpaySubscriptionGateway(HttpClient client, IConfiguratio
         if (string.IsNullOrWhiteSpace(subscriptionId) || !Uri.TryCreate(url, UriKind.Absolute, out var uri)
             || uri.Scheme != Uri.UriSchemeHttps || !(uri.Host == "rzp.io" || uri.Host.EndsWith(".razorpay.com", StringComparison.OrdinalIgnoreCase)))
             throw new InvalidOperationException("Razorpay returned an invalid subscription checkout URL.");
-        return new BillingCheckoutResult(subscriptionId, url!);
+        return new BillingCheckoutResult(subscriptionId, url!, "razorpay", IsTest);
+    }
+
+    public async Task<ProviderSubscriptionStatus> GetSubscriptionAsync(string subscriptionId, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(subscriptionId) || !subscriptionId.StartsWith("sub_", StringComparison.Ordinal))
+            throw new ArgumentException("Invalid subscription ID.", nameof(subscriptionId));
+        var (id, secret, _) = Credentials();
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"https://api.razorpay.com/v1/subscriptions/{Uri.EscapeDataString(subscriptionId)}");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(Encoding.UTF8.GetBytes($"{id}:{secret}")));
+        using var response = await client.SendAsync(request, ct);
+        if (!response.IsSuccessStatusCode) throw new InvalidOperationException("Could not verify the Razorpay subscription status.");
+        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
+        var root = json.RootElement;
+        if (root.GetProperty("id").GetString() != subscriptionId) throw new InvalidOperationException("Razorpay subscription ID mismatch.");
+        DateTimeOffset? end = root.TryGetProperty("current_end", out var value) && value.ValueKind == JsonValueKind.Number
+            ? DateTimeOffset.FromUnixTimeSeconds(value.GetInt64()) : null;
+        return new ProviderSubscriptionStatus(root.GetProperty("status").GetString() ?? "unknown", end,
+            root.GetProperty("plan_id").GetString() ?? "", root.TryGetProperty("paid_count", out var count) ? count.GetInt32() : 0);
     }
 
     public bool VerifyWebhook(ReadOnlySpan<byte> body, string signature)

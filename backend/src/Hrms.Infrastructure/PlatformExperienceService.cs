@@ -7,6 +7,7 @@ using Hrms.Domain;
 using Hrms.Domain.Common;
 using Hrms.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 
 namespace Hrms.Infrastructure;
 
@@ -21,7 +22,7 @@ public sealed record SupportTeamMember(Guid Id, string Name, string Email, bool 
 public sealed record SupportAccessUpdate(bool Enabled);
 public sealed record InviteSupportUserRequest(string Name, string Email);
 
-public sealed class PlatformExperienceService(HrmsDbContext db, ICurrentTenant currentTenant, ICurrentUser actor, IPasswordHasher hasher)
+public sealed class PlatformExperienceService(HrmsDbContext db, ICurrentTenant currentTenant, ICurrentUser actor, IPasswordHasher hasher, IConfiguration? configuration = null)
 {
     private static readonly Guid PlatformId = DatabaseInitializer.PlatformTenantId;
     private static readonly string[] ReservedSlugs = ["platform", "www", "api", "app", "admin", "mail", "support", "billing", "status", "login", "signup", "help", "static"];
@@ -32,6 +33,22 @@ public sealed class PlatformExperienceService(HrmsDbContext db, ICurrentTenant c
     public async Task RequestTrialAsync(PublicTrialRequest request, string? applicationBaseUrl, CancellationToken ct)
     {
         if (currentTenant.TenantId != PlatformId) throw new UnauthorizedAccessException("Start a trial on the platform website.");
+        if (configuration is not null)
+        {
+            var mode = string.Equals(configuration["Billing:Razorpay:Mode"], "test", StringComparison.OrdinalIgnoreCase) ? "Test" : "Live";
+            var key = configuration[$"Billing:Razorpay:{mode}:KeyId"];
+            var razorpayReady = !string.IsNullOrWhiteSpace(key) && key.StartsWith(mode == "Live" ? "rzp_live_" : "rzp_test_", StringComparison.Ordinal)
+                && !string.IsNullOrWhiteSpace(configuration[$"Billing:Razorpay:{mode}:KeySecret"])
+                && !string.IsNullOrWhiteSpace(configuration[$"Billing:Razorpay:{mode}:WebhookSecret"])
+                && !string.IsNullOrWhiteSpace(configuration[$"Billing:Plans:starter:{mode}:RazorpayPlanId"]);
+            var cashfreeMode = string.Equals(configuration["Billing:Cashfree:Mode"], "test", StringComparison.OrdinalIgnoreCase) ? "Test" : "Live";
+            var cashfreeReady = !string.IsNullOrWhiteSpace(configuration[$"Billing:Cashfree:{cashfreeMode}:ClientId"])
+                && !string.IsNullOrWhiteSpace(configuration[$"Billing:Cashfree:{cashfreeMode}:ClientSecret"])
+                && !string.IsNullOrWhiteSpace(configuration[$"Billing:Cashfree:{cashfreeMode}:WebhookSecret"])
+                && !string.IsNullOrWhiteSpace(configuration[$"Billing:Plans:starter:{cashfreeMode}:CashfreePlanId"]);
+            if (!razorpayReady && !cashfreeReady)
+                throw new DomainException("New company subscriptions are not ready yet. Please contact support.");
+        }
         var slug = request.Slug.Trim().ToLowerInvariant();
         var name = request.CompanyName.Trim();
         var adminName = request.AdminName.Trim();
@@ -40,9 +57,9 @@ public sealed class PlatformExperienceService(HrmsDbContext db, ICurrentTenant c
         if (name.Length is < 2 or > 150 || adminName.Length is < 2 or > 120) throw new DomainException("Enter a valid company and administrator name.");
         if (await db.Tenants.AnyAsync(x => x.Slug == slug, ct)) throw new DomainException("This workspace address is already in use.");
         var plan = (request.PreferredPlanCode ?? "starter").Trim().ToLowerInvariant();
-        if (plan is not ("starter" or "professional" or "enterprise")) throw new DomainException("Choose a supported plan.");
+        if (plan != "starter") throw new DomainException("Starter is currently the available plan.");
         var tenant = new Tenant { Name = name, Slug = slug, Status = TenantStatus.Trial, TrialEndsAt = null,
-            PreferredPlanCode = plan, DefaultCurrency = "INR", TimeZone = "Asia/Kolkata" };
+            PreferredPlanCode = plan, RequiresBillingMandate = true, DefaultCurrency = "INR", TimeZone = "Asia/Kolkata" };
         db.Tenants.Add(tenant);
         currentTenant.Set(tenant.Id, slug);
         try

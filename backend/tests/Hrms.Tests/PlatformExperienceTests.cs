@@ -20,13 +20,13 @@ public sealed class PlatformExperienceTests
         var service = Service(db, tenant);
 
         await service.RequestTrialAsync(
-            new("Acme Studio", "acme-studio", "Alex Morgan", "alex@example.test", "professional"),
+            new("Acme Studio", "acme-studio", "Alex Morgan", "alex@example.test", "starter"),
             "http://localhost:4200",
             default);
 
         var company = await db.Tenants.IgnoreQueryFilters().SingleAsync(x => x.Slug == "acme-studio");
         Assert.Null(company.TrialEndsAt);
-        Assert.Equal("professional", company.PreferredPlanCode);
+        Assert.Equal("starter", company.PreferredPlanCode);
         var admin = await db.Users.IgnoreQueryFilters().SingleAsync(x => x.TenantId == company.Id);
         Assert.False(admin.IsActive);
         var email = await db.EmailOutboxItems.IgnoreQueryFilters().SingleAsync(x => x.ToEmail == admin.Email);

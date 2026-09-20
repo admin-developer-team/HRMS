@@ -56,9 +56,9 @@ export class HomePage {
         <form (ngSubmit)="submit()"><label>Company name<input name="companyName" [(ngModel)]="companyName" required minlength="2" placeholder="Acme Studio" /></label>
           <label>Workspace address<div class="slug-input"><input name="slug" [(ngModel)]="slug" required minlength="3" pattern="[a-z0-9][a-z0-9-]*[a-z0-9]" placeholder="acme" /><span>.{{ domain }}</span></div></label>
           <div class="form-row"><label>Your name<input name="adminName" [(ngModel)]="adminName" required placeholder="Alex Morgan" /></label><label>Work email<input name="adminEmail" [(ngModel)]="adminEmail" type="email" required placeholder="alex@company.com" /></label></div>
-          <label>Plan to explore<select name="preferredPlanCode" [(ngModel)]="preferredPlanCode"><option value="starter">Starter</option><option value="professional">Professional</option><option value="enterprise">Enterprise</option></select></label>
+          <label>Plan after trial<select name="preferredPlanCode" [(ngModel)]="preferredPlanCode"><option value="starter">Starter · ₹10/month</option></select></label>
           @if (error()) { <p class="form-error">{{ error() }}</p> }<button class="form-submit" [disabled]="busy()" type="submit">{{ busy() ? 'Creating your workspace…' : 'Start 30-day free trial' }} <span>↗</span></button>
-          <small>No payment details needed today. Your trial begins when you activate your account.</small></form>
+          <small>Your 30-day trial clock starts when you activate your account. Access requires Razorpay automatic payment authorization. The first ₹10 plan payment is due at trial end; Razorpay may make a small refundable authorization charge now.</small></form>
         } </section></main></div>`,
 })
 export class GetStartedPage {
@@ -94,7 +94,7 @@ export class GetStartedPage {
 @Component({
   selector: 'app-activate', imports: [FormsModule, RouterLink], styleUrl: './public-pages.scss',
   template: `<div class="public-site form-site"><nav class="public-nav"><a class="logo" routerLink="/"><span class="logo-mark" aria-hidden="true"><i></i><i></i><i></i></span><strong>PeopleFlow<span>.</span></strong></a><a routerLink="/help">Need help?</a></nav>
-  <main class="single-form"><section class="form-card"><span class="card-kicker">SECURE ACCOUNT SETUP</span>@if (done()) { <span class="success-icon">✓</span><h1>Your account is ready.</h1><p>Your 30-day trial has started. Sign in to explore your workspace.</p><a class="form-submit" routerLink="/login">Continue to sign in <span>↗</span></a> } @else { <h1>Make it yours.</h1><p>Set your password now. The remaining company details can wait.</p>
+  <main class="single-form"><section class="form-card"><span class="card-kicker">SECURE ACCOUNT SETUP</span>@if (done()) { <span class="success-icon">✓</span><h1>Your account is ready.</h1><p>Sign in to authorize automatic billing, then use your 30-day trial. The first ₹10 plan payment is due after the trial.</p><a class="form-submit" routerLink="/login">Continue to sign in <span>↗</span></a> } @else { <h1>Make it yours.</h1><p>Set your password now. The remaining company details can wait.</p>
     <form (ngSubmit)="submit()"><label>Password<input name="password" [(ngModel)]="password" [type]="showPassword() ? 'text' : 'password'" required minlength="8" maxlength="256" autocomplete="new-password" placeholder="At least 8 characters" /></label>
       <div class="password-guidance"><span>{{ password.length >= 8 ? '✓' : '○' }} At least 8 characters</span><span>{{ password.length >= 12 ? '✓' : '○' }} Longer is stronger</span><button type="button" (click)="showPassword.set(!showPassword())">{{ showPassword() ? 'Hide password' : 'Show password' }}</button></div>
       <label>Confirm password<input name="confirm" [(ngModel)]="confirm" type="password" required maxlength="256" autocomplete="new-password" /></label>
