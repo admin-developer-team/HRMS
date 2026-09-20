@@ -21,7 +21,13 @@ public sealed class BillingService(HrmsDbContext db, ICurrentTenant currentTenan
             var currency = section["Currency"] ?? "INR";
             if (amount <= 0 || limit <= 0 || currency != "INR") continue;
             var razorpayId = section[$"{(gateway.IsTest ? "Test" : "Live")}:{gateway.PlanConfigurationKey}"];
-            if (!string.IsNullOrWhiteSpace(razorpayId))
+            var razorpayMode = gateway.IsTest ? "Test" : "Live";
+            var razorpayCredentials = configuration.GetSection($"Billing:Razorpay:{razorpayMode}");
+            var razorpayKey = razorpayCredentials["KeyId"];
+            if (!string.IsNullOrWhiteSpace(razorpayId)
+                && razorpayKey?.StartsWith(gateway.IsTest ? "rzp_test_" : "rzp_live_", StringComparison.Ordinal) == true
+                && !string.IsNullOrWhiteSpace(razorpayCredentials["KeySecret"])
+                && !string.IsNullOrWhiteSpace(razorpayCredentials["WebhookSecret"]))
                 plans.Add(new BillingPlan(section.Key, section["Name"] ?? section.Key, currency, amount, limit, razorpayId));
             if (cashfree?.IsConfigured == true && !string.IsNullOrWhiteSpace(cashfree.PlanId))
                 plans.Add(new BillingPlan(section.Key, section["Name"] ?? section.Key, currency, amount, limit, cashfree.PlanId, "cashfree"));

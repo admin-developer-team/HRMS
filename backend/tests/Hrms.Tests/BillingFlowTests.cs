@@ -34,7 +34,10 @@ public sealed class BillingFlowTests
             ["Billing:Plans:starter:Currency"] = "INR",
             ["Billing:Plans:starter:AmountMinor"] = "1000",
             ["Billing:Plans:starter:EmployeeLimit"] = "50",
-            ["Billing:Plans:starter:Live:RazorpayPlanId"] = "plan_12345678901234"
+            ["Billing:Plans:starter:Live:RazorpayPlanId"] = "plan_12345678901234",
+            ["Billing:Razorpay:Live:KeyId"] = "rzp_live_example",
+            ["Billing:Razorpay:Live:KeySecret"] = "example-secret",
+            ["Billing:Razorpay:Live:WebhookSecret"] = "example-webhook-secret"
         }).Build();
         var service = new BillingService(db, tenantContext, gateway, settings);
 

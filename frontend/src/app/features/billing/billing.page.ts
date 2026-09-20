@@ -32,11 +32,11 @@ interface Checkout { subscriptionId: string; checkoutUrl: string; provider: stri
         }
         @if (error()) { <p class="error">{{ error() }}</p> }
         <section class="plans" aria-label="Available subscription plans">
-          @for (plan of plans(); track plan.code) {
+          @for (plan of plans(); track plan.provider + ':' + plan.code) {
             <article><h2>{{ plan.name }} · {{ plan.provider === 'cashfree' ? 'Cashfree' : 'Razorpay' }}</h2><p class="price">₹{{ plan.amountMinor / 100 | number:'1.2-2' }} <small>/ billing cycle</small></p>
               <p>Up to {{ plan.employeeLimit }} employees</p>
               @if (plan.provider === 'cashfree') { <label for="cashfree-phone">Billing mobile number</label><input id="cashfree-phone" type="tel" inputmode="numeric" autocomplete="tel-national" maxlength="10" [value]="phone()" (input)="phone.set($any($event.target).value)" placeholder="10-digit Indian mobile number" /> }
-              <button type="button" [disabled]="busy() || status()?.pendingStatus === 'authenticated' || status()?.pendingStatus === 'active' || status()?.pendingStatus === 'payment_pending' || (status()?.pendingStatus === 'pending' && status()?.pendingProvider !== plan.provider)" (click)="checkout(plan)">{{ status()?.pendingStatus === 'pending' && status()?.pendingProvider === plan.provider ? 'Continue authorization' : 'Authorize automatic billing' }}</button>
+              <button type="button" [disabled]="busy() || status()?.pendingStatus === 'authenticated' || status()?.pendingStatus === 'active' || status()?.pendingStatus === 'payment_pending' || (status()?.pendingStatus === 'pending' && status()?.pendingProvider !== plan.provider)" (click)="checkout(plan)">{{ planActionLabel(plan) }}</button>
             </article>
           } @empty { <p>No billing plans are configured yet. Ask the platform administrator to configure Razorpay or Cashfree.</p> }
         </section>
@@ -61,6 +61,16 @@ export class BillingPage {
   readonly phone = signal('');
 
   trialExpired(value: string | null): boolean { return !!value && new Date(value).getTime() <= Date.now(); }
+
+  planActionLabel(plan: BillingPlan): string {
+    const current = this.status();
+    if (current?.pendingStatus === 'pending')
+      return current.pendingProvider === plan.provider ? 'Continue authorization' : 'Another provider in progress';
+    if (current?.pendingStatus === 'authenticated' || current?.pendingStatus === 'active')
+      return 'Automatic billing authorized';
+    if (current?.pendingStatus === 'payment_pending') return 'Payment processing';
+    return 'Authorize automatic billing';
+  }
 
   constructor() {
     if (!this.auth.user()?.roles.includes('TENANT_ADMIN')) return;

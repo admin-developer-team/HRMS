@@ -22,7 +22,14 @@ public sealed class TenantResolutionMiddleware(RequestDelegate next, IConfigurat
 {
     public async Task InvokeAsync(HttpContext context, ICurrentTenant currentTenant, HrmsDbContext db)
     {
-        if (context.Request.Path == "/health") { await next(context); return; }
+        // Signed provider callbacks identify the tenant from the stored subscription, not the request host.
+        if (context.Request.Path == "/health"
+            || context.Request.Path == "/api/v1/billing/webhooks/razorpay"
+            || context.Request.Path == "/api/v1/billing/webhooks/cashfree")
+        {
+            await next(context);
+            return;
+        }
         var baseDomain = configuration["Tenancy:BaseDomain"];
         var host = context.Request.Host.Host.TrimEnd('.');
         var hostSlug = TenantDomains.SlugForHost(host, baseDomain);

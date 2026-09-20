@@ -176,9 +176,9 @@ public sealed class EmailNotificationTests
         Assert.Equal(
             "http://acme.localhost:4200",
             Hrms.Infrastructure.EmailOutboxWorker.ResolveTenantBaseUrl(
-                "https://hrms.avntechnologies.co.in",
+                "https://hrms.ssym.co.in",
                 "http://localhost:4200",
-                "hrms.avntechnologies.co.in",
+                "hrms.ssym.co.in",
                 "acme"));
     }
 
@@ -188,7 +188,7 @@ public sealed class EmailNotificationTests
         const string queued = "http://acme.localhost:4201/activate?token=activation-token";
 
         var actionUrl = Hrms.Infrastructure.EmailOutboxWorker.SelectActionUrl(
-            "https://acme.hrms.avntechnologies.co.in",
+            "https://acme.hrms.ssym.co.in",
             "/activate?token=activation-token",
             EmailTemplateKeys.AccountActivation,
             queued,

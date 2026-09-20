@@ -38,9 +38,9 @@ public sealed class PlatformExperienceTests
             $"http://acme-studio.localhost:4200{link}",
             emailModel["actionUrl"]);
         var emailBaseUrl = EmailOutboxWorker.ResolveTenantBaseUrl(
-            "https://hrms.avntechnologies.co.in",
+            "https://hrms.ssym.co.in",
             emailModel["applicationBaseUrl"],
-            "hrms.avntechnologies.co.in",
+            "hrms.ssym.co.in",
             company.Slug);
         Assert.Equal(
             $"http://acme-studio.localhost:4200{link}",

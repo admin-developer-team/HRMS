@@ -58,7 +58,7 @@ export class HomePage {
           <div class="form-row"><label>Your name<input name="adminName" [(ngModel)]="adminName" required placeholder="Alex Morgan" /></label><label>Work email<input name="adminEmail" [(ngModel)]="adminEmail" type="email" required placeholder="alex@company.com" /></label></div>
           <label>Plan after trial<select name="preferredPlanCode" [(ngModel)]="preferredPlanCode"><option value="starter">Starter · ₹10/month</option></select></label>
           @if (error()) { <p class="form-error">{{ error() }}</p> }<button class="form-submit" [disabled]="busy()" type="submit">{{ busy() ? 'Creating your workspace…' : 'Start 30-day free trial' }} <span>↗</span></button>
-          <small>Your 30-day trial clock starts when you activate your account. Access requires Razorpay automatic payment authorization. The first ₹10 plan payment is due at trial end; Razorpay may make a small refundable authorization charge now.</small></form>
+          <small>Your 30-day trial clock starts when you activate your account. Access requires automatic payment authorization through Razorpay or Cashfree. The first ₹10 plan payment is due at trial end; the provider may make a small refundable authorization charge now.</small></form>
         } </section></main></div>`,
 })
 export class GetStartedPage {

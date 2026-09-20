@@ -6,7 +6,7 @@ The public signup offers one Starter plan: **₹10 per month for up to 50 employ
 
 1. Complete Razorpay business activation and ask Razorpay to enable **Subscriptions** and the recurring payment methods you intend to accept in Live Mode. Confirm supported payment methods and mandate limits with Razorpay.
 2. In **Live Mode → Subscriptions → Plans**, create an **INR 10.00**, **monthly**, **interval 1** plan. Copy its `plan_...` ID. The API checks amount, currency and interval before creating a mandate.
-3. Generate a Live Mode API key. In **Live Mode → Account & Settings → Webhooks**, create a separate random webhook secret and register `https://hrms.avntechnologies.co.in/api/v1/billing/webhooks/razorpay` (replace with the actual public API host). Select `subscription.authenticated`, `subscription.charged`, `subscription.pending`, `subscription.halted`, `subscription.cancelled`, and `subscription.completed`. Set a webhook failure alert email. The endpoint must be reachable publicly over HTTPS.
+3. Generate a Live Mode API key. In **Live Mode → Account & Settings → Webhooks**, create a separate random webhook secret and register `https://hrms.ssym.co.in/api/v1/billing/webhooks/razorpay` (replace with the actual public API host). Select `subscription.authenticated`, `subscription.charged`, `subscription.pending`, `subscription.halted`, `subscription.cancelled`, and `subscription.completed`. Set a webhook failure alert email. The endpoint must be reachable publicly over HTTPS.
 
 The Razorpay API key secret and webhook secret are different. Save both only in server environment variables. Do not add them to Angular, Git, or the Razorpay plan configuration returned to the browser.
 
@@ -14,9 +14,20 @@ The Razorpay API key secret and webhook secret are different. Save both only in 
 
 1. Activate the Cashfree merchant account and request **Subscriptions** for live recurring payments. Confirm UPI AutoPay or card mandate access in your account. Cashfree's [subscription API](https://www.cashfree.com/docs/api-reference/payments/latest/subscription/create-subscription) and [checkout demo](https://www.cashfree.com/devstudio/preview/subs/web/checkout) describe the hosted flow.
 2. Create an **ACTIVE PERIODIC** plan for **INR 10.00**, **MONTH**, interval **1**, maximum charge at least ₹10, and at least **120 cycles**. Copy its Cashfree plan ID. The API fetches the plan and checks those settings before creating a mandate.
-3. In the Cashfree dashboard, register a Subscriptions webhook at `https://hrms.avntechnologies.co.in/api/v1/billing/webhooks/cashfree` (replace with the actual public API host). Select `SUBSCRIPTION_AUTH_STATUS`, `SUBSCRIPTION_STATUS_CHANGED`, `SUBSCRIPTION_PAYMENT_SUCCESS`, and `SUBSCRIPTION_PAYMENT_FAILED` using the 2026-01-01 webhook version. Save its webhook signing secret. The endpoint must be publicly reachable over HTTPS. Cashfree's [event formats](https://www.cashfree.com/docs/api-reference/payments/latest/subscription/webhooks) and [signature instructions](https://www.cashfree.com/docs/api-reference/payments/latest/subscription/webhook-signature) are the reference.
+3. In the Cashfree dashboard, register a Subscriptions webhook at `https://hrms.ssym.co.in/api/v1/billing/webhooks/cashfree` (replace with the actual public API host). Select `SUBSCRIPTION_AUTH_STATUS`, `SUBSCRIPTION_STATUS_CHANGED`, `SUBSCRIPTION_PAYMENT_SUCCESS`, and `SUBSCRIPTION_PAYMENT_FAILED` using the 2026-01-01 webhook version. Save its webhook signing secret. The endpoint must be publicly reachable over HTTPS. Cashfree's [event formats](https://www.cashfree.com/docs/api-reference/payments/latest/subscription/webhooks) and [signature instructions](https://www.cashfree.com/docs/api-reference/payments/latest/subscription/webhook-signature) are the reference.
 
 Cashfree asks for the billing administrator's 10-digit Indian mobile number when starting a mandate. It is sent to Cashfree for that checkout and is not stored in HRMS.
+
+## Webhook addresses for Oracle and local testing
+
+On the live Oracle VM, Nginx serves the API through the HRMS domain. In each provider's **Live Mode** webhook form use:
+
+| Provider | Webhook URL |
+| --- | --- |
+| Razorpay | `https://hrms.ssym.co.in/api/v1/billing/webhooks/razorpay` |
+| Cashfree | `https://hrms.ssym.co.in/api/v1/billing/webhooks/cashfree` |
+
+For a local API on `http://localhost:5207`, first expose that port through a temporary public HTTPS tunnel. In each provider's **Test Mode** webhook form replace the domain above with the tunnel's HTTPS hostname, keeping the same `/api/v1/billing/webhooks/...` path. A provider cannot deliver to `localhost`, and the tunnel URL may change when restarted. Set a separate test webhook secret for each provider and match it to the server's `Billing__Razorpay__Test__WebhookSecret` or `Billing__Cashfree__Test__WebhookSecret`. Test and live modes need separate API keys, plans, webhooks, and secrets. Deploy the webhook route update before registering live webhooks.
 
 ## Server configuration
 
@@ -39,7 +50,11 @@ Configure either provider or both. Starter's name, currency, ₹10 amount (`Amou
 
 Test Mode requires separate test keys, webhook secret, and plan ID for each provider. Do not carry test subscription records into a live database; test and live objects cannot be interchanged.
 
+The development settings contain the test plan IDs only. Set `Billing__Razorpay__Test__KeyId`, `Billing__Razorpay__Test__KeySecret`, `Billing__Razorpay__Test__WebhookSecret`, `Billing__Cashfree__Test__ClientId`, `Billing__Cashfree__Test__ClientSecret`, and `Billing__Cashfree__Test__WebhookSecret` in the API server's private environment. A plan is offered on the billing page only when its provider credentials and webhook secret are configured. Do not put these secrets in `appsettings.Development.json` or commit them.
+
 For a Cashfree sandbox run, set `Billing__Cashfree__Mode=test` and the `Billing__Cashfree__Test__ClientId`, `ClientSecret`, and `WebhookSecret` variables, plus `Billing__Plans__starter__Test__CashfreePlanId`. The local return origin is `http://localhost:4200`; in any other non-production environment set `Billing__Cashfree__ReturnBaseUrl` to the actual public application origin. Cashfree requires that origin to be allowlisted for its checkout SDK.
+
+Before starting a Cashfree checkout, use its Fetch Plan API to confirm the plan returns `plan_max_cycles` of at least 120. A dashboard value of 0 does not satisfy the application's current plan check; if Cashfree intends 0 to mean unlimited, confirm that meaning with Cashfree before changing the check. A subscription created manually in the Cashfree dashboard is not linked to an HRMS company; an HRMS checkout creates an ID beginning with `hrms_`.
 
 ## Flow
 

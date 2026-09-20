@@ -11,6 +11,24 @@ namespace Hrms.Tests;
 
 public sealed class TenantHostMiddlewareTests
 {
+    [Theory]
+    [InlineData("/api/v1/billing/webhooks/razorpay")]
+    [InlineData("/api/v1/billing/webhooks/cashfree")]
+    public async Task Signed_billing_webhooks_accept_public_tunnel_host_without_resolving_tenant(string path)
+    {
+        var tenant = new CurrentTenant();
+        await using var db = CreateDb(tenant);
+        var context = Context("example-tunnel.example", Guid.NewGuid());
+        context.Request.Path = path;
+        var called = false;
+        var middleware = Middleware(_ => { called = true; return Task.CompletedTask; });
+
+        await middleware.InvokeAsync(context, tenant, db);
+
+        Assert.True(called);
+        Assert.Null(tenant.TenantId);
+    }
+
     [Fact]
     public async Task Tenant_host_rejects_another_tenants_access_token()
     {
@@ -20,7 +38,7 @@ public sealed class TenantHostMiddlewareTests
         await using var db = CreateDb(tenant);
         db.Tenants.AddRange(first, second);
         await db.SaveChangesAsync();
-        var context = Context("first.hrms.avntechnologies.co.in", second.Id);
+        var context = Context("first.hrms.ssym.co.in", second.Id);
         var called = false;
         var middleware = Middleware(_ => { called = true; return Task.CompletedTask; });
 
@@ -38,7 +56,7 @@ public sealed class TenantHostMiddlewareTests
         await using var db = CreateDb(tenant);
         db.Tenants.Add(company);
         await db.SaveChangesAsync();
-        var context = Context("acme.hrms.avntechnologies.co.in", company.Id);
+        var context = Context("acme.hrms.ssym.co.in", company.Id);
         var called = false;
         var middleware = Middleware(_ => { called = true; return Task.CompletedTask; });
 
@@ -51,7 +69,7 @@ public sealed class TenantHostMiddlewareTests
 
     private static TenantResolutionMiddleware Middleware(RequestDelegate next) => new(next,
         new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
-        { ["Tenancy:BaseDomain"] = "hrms.avntechnologies.co.in" }).Build());
+        { ["Tenancy:BaseDomain"] = "hrms.ssym.co.in" }).Build());
 
     private static DefaultHttpContext Context(string host, Guid claimTenant)
     {
