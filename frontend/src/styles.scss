@@ -1852,11 +1852,34 @@ textarea:focus-visible {
   max-width: min(280px, calc(100vw - 24px)) !important;
   max-height: min(320px, calc(100dvh - 32px));
   overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--brand) var(--card-muted);
   padding: 6px;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--card);
   box-shadow: 0 12px 28px rgb(9 30 66 / 0.24);
+}
+
+.theme-select-menu::-webkit-scrollbar {
+  width: 8px;
+}
+
+.theme-select-menu::-webkit-scrollbar-track {
+  margin: 6px 0;
+  border-radius: 999px;
+  background: var(--card-muted);
+}
+
+.theme-select-menu::-webkit-scrollbar-thumb {
+  min-height: 32px;
+  border: 2px solid var(--card-muted);
+  border-radius: 999px;
+  background: var(--brand);
+}
+
+.theme-select-menu::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
 }
 
 .theme-select-menu .theme-select-option {
@@ -1936,6 +1959,79 @@ textarea:focus-visible {
 
 .notification-menu .notification-list {
   background: var(--card);
+  scrollbar-width: thin;
+  scrollbar-color: var(--brand) var(--card-muted);
+}
+
+.notification-menu .notification-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.notification-menu .notification-list::-webkit-scrollbar-track {
+  margin: 6px 0;
+  border-radius: 999px;
+  background: var(--card-muted);
+}
+
+.notification-menu .notification-list::-webkit-scrollbar-thumb {
+  min-height: 32px;
+  border: 2px solid var(--card-muted);
+  border-radius: 999px;
+  background: var(--brand);
+}
+
+.notification-menu .notification-list::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
+
+.notification-menu-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.quick-actions-menu .shell-menu-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.shell-menu-close {
+  width: 30px;
+  height: 30px;
+  padding: 0 !important;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--brand) !important;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.shell-menu-close .mat-icon {
+  width: 20px !important;
+  height: 20px !important;
+  margin: 0 !important;
+  font-size: 20px !important;
+  line-height: 20px !important;
+  color: var(--brand) !important;
+}
+
+.shell-menu-close:hover {
+  background: rgb(var(--brand-rgb) / 0.12);
+  color: var(--accent) !important;
+}
+
+.shell-menu-close:hover .mat-icon {
+  color: var(--accent) !important;
+}
+
+.shell-menu-close:focus-visible {
+  outline: 0;
+  box-shadow: 0 0 0 3px rgb(var(--brand-rgb) / 0.16);
 }
 
 .notification-menu .notification-item {

@@ -107,6 +107,28 @@
   padding: 3px 9px 16px;
   overflow-y: auto;
   scrollbar-width: thin;
+  scrollbar-color: var(--brand) rgb(255 255 255 / 0.08);
+}
+
+.side-nav::-webkit-scrollbar {
+  width: 8px;
+}
+
+.side-nav::-webkit-scrollbar-track {
+  margin: 6px 0;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.08);
+}
+
+.side-nav::-webkit-scrollbar-thumb {
+  min-height: 32px;
+  border: 2px solid var(--sidebar-bg);
+  border-radius: 999px;
+  background: var(--brand);
+}
+
+.side-nav::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
 }
 
 .nav-section-label {

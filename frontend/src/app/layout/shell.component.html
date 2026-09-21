@@ -157,7 +157,7 @@
       <div class="topbar-actions">
         <!-- Notifications -->
         <button class="notification-trigger" mat-icon-button type="button" [matMenuTriggerFor]="notificationMenu"
-          aria-label="Open notifications">
+          #notificationMenuTrigger="matMenuTrigger" aria-label="Open notifications">
           <mat-icon class="account-item-content">notifications</mat-icon>
 
           @if (notifications.feed().unreadCount) {
@@ -185,11 +185,17 @@
               }
             </div>
 
-            @if (notifications.feed().unreadCount) {
-            <button type="button" (click)="markAllNotificationsRead()">
-              Mark all read
-            </button>
-            }
+            <div class="notification-menu-actions">
+              @if (notifications.feed().unreadCount) {
+              <button type="button" (click)="markAllNotificationsRead()">
+                Mark all read
+              </button>
+              }
+              <button type="button" class="shell-menu-close" aria-label="Close notifications"
+                (click)="notificationMenuTrigger.closeMenu()">
+                <mat-icon>close</mat-icon>
+              </button>
+            </div>
           </div>
 
           <div class="notification-list">
@@ -228,13 +234,18 @@
         </mat-menu>
 
         <!-- Quick actions -->
-        <button mat-icon-button type="button" [matMenuTriggerFor]="quickActionsMenu" aria-label="Open quick actions">
+        <button mat-icon-button type="button" [matMenuTriggerFor]="quickActionsMenu"
+          #quickActionsMenuTrigger="matMenuTrigger" aria-label="Open quick actions">
           <mat-icon>apps</mat-icon>
         </button>
 
         <mat-menu #quickActionsMenu="matMenu" class="quick-actions-menu">
           <div class="shell-menu-head" (click)="$event.stopPropagation()">
             <strong>Quick actions</strong>
+            <button type="button" class="shell-menu-close" aria-label="Close quick actions"
+              (click)="quickActionsMenuTrigger.closeMenu()">
+              <mat-icon>close</mat-icon>
+            </button>
           </div>
 
           <div class="quick-menu-list">
@@ -311,7 +322,8 @@
         </mat-menu>
 
         <!-- User -->
-        <button class="user-trigger" type="button" [matMenuTriggerFor]="userMenu" aria-label="Open account menu">
+        <button class="user-trigger" type="button" [matMenuTriggerFor]="userMenu" #userMenuTrigger="matMenuTrigger"
+          aria-label="Open account menu">
           <span class="avatar">
             @if (profilePhotoUrl()) {
             <img [src]="profilePhotoUrl()" alt="" />
@@ -335,6 +347,11 @@
               <strong>{{ auth.user()?.displayName }}</strong>
               <small>{{ auth.user()?.email }}</small>
             </div>
+
+            <button type="button" class="shell-menu-close" aria-label="Close account menu"
+              (click)="userMenuTrigger.closeMenu()">
+              <mat-icon>close</mat-icon>
+            </button>
           </div>
 
           <div class="user-menu-divider"></div>
