@@ -346,6 +346,16 @@
             </span>
           </button>
 
+          <button type="button" class="account-menu-item account-theme-menu-trigger" cdkOverlayOrigin
+            #themeOrigin="cdkOverlayOrigin" [attr.aria-expanded]="themePickerOpen()" aria-haspopup="listbox"
+            aria-label="Select theme" (click)="$event.stopPropagation(); toggleThemePicker()">
+            <span class="account-item-content">
+              <mat-icon>palette</mat-icon>
+              <span>Select theme</span>
+              <mat-icon class="account-theme-chevron">expand_more</mat-icon>
+            </span>
+          </button>
+
           <button mat-menu-item class="account-menu-item signout" (click)="auth.logout()">
             <span class="account-item-content">
               <mat-icon>logout</mat-icon>
@@ -353,6 +363,23 @@
             </span>
           </button>
         </mat-menu>
+
+        <ng-template cdk-connected-overlay [cdkConnectedOverlayOrigin]="themeOrigin"
+          [cdkConnectedOverlayOpen]="themePickerOpen()" [cdkConnectedOverlayPositions]="themeOverlayPositions"
+          [cdkConnectedOverlayHasBackdrop]="true" cdkConnectedOverlayBackdropClass="cdk-overlay-transparent-backdrop"
+          (backdropClick)="closeThemePicker()">
+          <div class="theme-select-menu" role="listbox" aria-label="Select color theme">
+          @for (theme of themes.presets; track theme.id) {
+          <button type="button" role="option" class="theme-select-option" [class.selected]="themes.current().id === theme.id"
+            [attr.aria-selected]="themes.current().id === theme.id" (click)="selectTheme(theme.id)">
+            <span class="theme-select-option-content">
+              <span>{{ theme.name }}</span>
+              <mat-icon aria-hidden="true">check</mat-icon>
+            </span>
+          </button>
+          }
+          </div>
+        </ng-template>
       </div>
     </header>
 

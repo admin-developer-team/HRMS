@@ -1,4 +1,5 @@
 import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
+import { ConnectedPosition, OverlayModule } from '@angular/cdk/overlay';
 import { DatePipe } from '@angular/common';
 import { Component, ElementRef, HostListener, OnDestroy, ViewChild, computed, effect, inject, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
@@ -16,6 +17,7 @@ import { LoadingService } from '../core/loading.service';
 import { UserNotification } from '../core/models';
 import { NotificationService } from '../core/notification.service';
 import { ToastService } from '../core/toast.service';
+import { ThemeService } from '../core/theme.service';
 import { workspaceSlug } from '../core/workspace-url';
 import { MODULES } from '../features/module/module.registry';
 
@@ -58,6 +60,7 @@ interface GlobalSearchResponse { items: GlobalSearchResult[] }
     MatIconModule,
     MatMenuModule,
     MatTooltipModule,
+    OverlayModule,
     DatePipe,
   ],
   templateUrl: './shell.component.html',
@@ -70,6 +73,7 @@ export class ShellComponent implements OnDestroy {
   readonly company = inject(CompanyProfileService);
   readonly notifications = inject(NotificationService);
   readonly toasts = inject(ToastService);
+  readonly themes = inject(ThemeService);
   private readonly api = inject(ApiService);
   private readonly documents = inject(DocumentService);
   private readonly breakpoint = inject(BreakpointObserver);
@@ -90,6 +94,12 @@ export class ShellComponent implements OnDestroy {
   readonly globalSearchError = signal(false);
   readonly globalSearchResults = signal<GlobalSearchResult[]>([]);
   readonly globalSearchActive = signal(0);
+  readonly themePickerOpen = signal(false);
+  readonly themeOverlayPositions: ConnectedPosition[] = [
+    { originX: 'start', originY: 'bottom', overlayX: 'start', overlayY: 'top', offsetY: 4 },
+    { originX: 'end', originY: 'bottom', overlayX: 'end', overlayY: 'top', offsetY: 4 },
+    { originX: 'start', originY: 'top', overlayX: 'start', overlayY: 'bottom', offsetY: -4 },
+  ];
   private globalSearchTimer?: ReturnType<typeof setTimeout>;
   private globalSearchGeneration = 0;
   private globalSearchRequest?: Subscription;
@@ -104,6 +114,22 @@ export class ShellComponent implements OnDestroy {
       .toUpperCase(),
   );
   readonly companyName = computed(() => this.company.profile()?.name ?? 'PeopleFlow');
+
+  selectTheme(themeId: string): void {
+    const theme = this.themes.presets.find((preset) => preset.id === themeId);
+    this.themePickerOpen.set(false);
+    if (!theme || theme.id === this.themes.current().id) return;
+    this.themes.select(theme);
+    this.toasts.success(`${theme.name} theme applied.`);
+  }
+
+  toggleThemePicker(): void {
+    this.themePickerOpen.update((open) => !open);
+  }
+
+  closeThemePicker(): void {
+    this.themePickerOpen.set(false);
+  }
 
   readonly navigation: NavSection[] = [
     {

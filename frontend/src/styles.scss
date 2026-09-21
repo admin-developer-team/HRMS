@@ -1841,6 +1841,71 @@ textarea:focus-visible {
     ) !important;
 }
 
+/* Scrollable color-theme popup; it does not change the account menu height. */
+.user-menu .account-theme-menu-trigger .account-theme-chevron {
+  margin-left: auto !important;
+  color: var(--ink-muted) !important;
+}
+
+.theme-select-menu {
+  min-width: 220px !important;
+  max-width: min(280px, calc(100vw - 24px)) !important;
+  max-height: min(320px, calc(100dvh - 32px));
+  overflow-y: auto;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  box-shadow: 0 12px 28px rgb(9 30 66 / 0.24);
+}
+
+.theme-select-menu .theme-select-option {
+  width: 100%;
+  min-height: 40px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.theme-select-menu .theme-select-option-content {
+  width: 100%;
+}
+
+.theme-select-menu .theme-select-option-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.theme-select-menu .theme-select-option .mat-icon {
+  width: 20px !important;
+  height: 20px !important;
+  margin: 0 !important;
+  flex: 0 0 20px;
+  visibility: hidden;
+  color: var(--brand);
+  font-size: 20px !important;
+  line-height: 20px !important;
+}
+
+.theme-select-menu .theme-select-option:hover,
+.theme-select-menu .theme-select-option.selected {
+  background: rgb(var(--brand-rgb) / 0.12) !important;
+  color: var(--brand) !important;
+}
+
+.theme-select-menu .theme-select-option.selected .mat-icon {
+  visibility: visible;
+}
+
 /* ---------- Notifications ---------- */
 
 .notification-menu .notification-head {
