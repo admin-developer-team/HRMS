@@ -7,7 +7,7 @@ import { PagedResult } from '../../core/models';
 interface TenantSubscription { id:string; name:string; slug:string; status:string; defaultCurrency:string; timeZone:string; employeeLimit:number; trialEndsAt:string|null; planCode:string; preferredPlanCode:string|null; subscriptionStartsAt:string; subscriptionEndsAt:string|null; subscriptionActive:boolean; version:number; subscriptionVersion:number }
 
 @Component({selector:'app-subscription-admin',imports:[FormsModule],template:`
-<main class="admin-page"><header><span class="eyebrow">PLATFORM / REVENUE OPERATIONS</span><h1>Company subscriptions</h1><p>Review every customer workspace and manage trial dates, plan access, and employee limits.</p></header>
+<main class="admin-page"><header><span class="eyebrow">Subscriptions</span></header>
 <div class="toolbar"><input aria-label="Search companies" placeholder="Search company or workspace" [(ngModel)]="search" (keyup.enter)="load()"><button (click)="load()">Search</button><span>{{ total() }} companies</span></div>
 @if(error()){<p class="error">{{ error() }}</p>}
 <div class="layout"><section class="company-list" aria-label="Customer companies">@for(t of companies();track t.id){<button class="company" [class.selected]="selected()?.id===t.id" (click)="select(t)"><span class="company-mark">{{ t.name.slice(0,1).toUpperCase() }}</span><span><strong>{{ t.name }}</strong><small>{{ t.slug }} · {{ t.planCode }}</small></span><b [class.active]="t.subscriptionActive">{{ t.status }}</b></button>}@empty{<p class="empty">No companies found.</p>}

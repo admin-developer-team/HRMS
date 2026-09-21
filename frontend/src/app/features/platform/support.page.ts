@@ -9,7 +9,7 @@ interface Ticket { id:string;reference:string;contactName:string;contactEmail:st
 interface Member {id:string;name:string;email:string;inboxEnabled:boolean;active:boolean;canRead:boolean;canManage:boolean}
 
 @Component({selector:'app-support-page',imports:[DatePipe,FormsModule],template:`
-<main class="support-page"><header><span class="eyebrow">PLATFORM / CUSTOMER CARE</span><h1>Support inbox</h1><p>Every request is saved here, even when email delivery is unavailable.</p></header>
+<main class="support-page"><header><span class="eyebrow">Support inbox</span></header>
 <div class="tabs"><button [class.active]="tab()==='tickets'" (click)="tab.set('tickets')">Requests <b>{{ tickets().length }}</b></button>@if(auth.isPlatformAdmin()){<button [class.active]="tab()==='team'" (click)="tab.set('team')">Team & access</button>}</div>
 @if(error()){<p class="error">{{ error() }}</p>}
 @if(tab()==='tickets') {<div class="grid"><section class="ticket-list"><div class="list-head"><strong>Recent requests</strong><button (click)="loadTickets()">Refresh</button></div>@for(t of tickets();track t.id){<button class="ticket" [class.selected]="selected()?.id===t.id" (click)="select(t)"><span class="ticket-top"><b>{{ t.reference }}</b><small>{{ t.createdAt | date:'mediumDate' }}</small></span><strong>{{ t.subject }}</strong><span class="ticket-bottom"><small>{{ t.contactName }} · {{ t.category }}</small><i [class.resolved]="t.status==='resolved'||t.status==='closed'">{{ t.status.replace('_',' ') }}</i></span></button>}@empty{<p class="empty">No support requests yet.</p>}</section>

@@ -2,8 +2,6 @@
   <div class="page-header">
     <div>
       <div class="eyebrow">{{ definition().eyebrow }}</div>
-      <h1 class="page-title">{{ definition().title }}</h1>
-      <p class="page-description">{{ definition().description }}</p>
     </div>
     <div class="header-actions">
       <button mat-stroked-button (click)="exportCsv()" [disabled]="!rows().length">

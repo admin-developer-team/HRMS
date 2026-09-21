@@ -461,7 +461,7 @@ export const MODULES: Record<string, ModuleDefinition> = {
   team: {
     key: 'team',
     title: 'My team',
-    eyebrow: 'Manager workspace',
+    eyebrow: 'MY TEAM',
     icon: 'groups',
     description: 'View only your direct reports and approve their operational requests.',
     views: [
@@ -769,7 +769,7 @@ export const MODULES: Record<string, ModuleDefinition> = {
   organization: {
     key: 'organization',
     title: 'Organization',
-    eyebrow: 'Core HR · Structure',
+    eyebrow: 'Organization',
     icon: 'account_tree',
     description:
       'Model departments, designations and operating locations with reusable employee selectors.',
@@ -784,7 +784,7 @@ export const MODULES: Record<string, ModuleDefinition> = {
   leave: {
     key: 'leave',
     title: 'Leave management',
-    eyebrow: 'Workforce · Time away',
+    eyebrow: 'Leave',
     icon: 'beach_access',
     description: 'Manage leave requests, balances, policies and approval decisions.',
     views: [
@@ -931,7 +931,7 @@ export const MODULES: Record<string, ModuleDefinition> = {
   attendance: {
     key: 'attendance',
     title: 'Attendance',
-    eyebrow: 'Workforce · Time & presence',
+    eyebrow: 'Attendance',
     icon: 'schedule',
     description: 'Review punch sessions, attendance outcomes, exceptions and company attendance policy.',
     views: [
@@ -1068,7 +1068,7 @@ export const MODULES: Record<string, ModuleDefinition> = {
   workforce: {
     key: 'workforce',
     title: 'Workforce operations',
-    eyebrow: 'Workforce · Planning',
+    eyebrow: 'WORKFORCE',
     icon: 'calendar_month',
     description: 'Coordinate timesheets, schedules, holidays, documents and announcements.',
     views: [
@@ -1346,7 +1346,7 @@ export const MODULES: Record<string, ModuleDefinition> = {
   recruitment: {
     key: 'recruitment',
     title: 'Recruitment',
-    eyebrow: 'Talent · Hiring pipeline',
+    eyebrow: 'RECRUITMENT',
     icon: 'person_search',
     description:
       'Create openings, register candidates and move applications through hiring stages.',
@@ -1514,7 +1514,7 @@ export const MODULES: Record<string, ModuleDefinition> = {
   performance: {
     key: 'performance',
     title: 'Performance',
-    eyebrow: 'Talent · Growth',
+    eyebrow: 'PERFORMANCE',
     icon: 'monitoring',
     description: 'Run review cycles, collect ratings and progress reviews through completion.',
     views: [
@@ -1611,7 +1611,7 @@ export const MODULES: Record<string, ModuleDefinition> = {
   assets: {
     key: 'assets',
     title: 'Asset management',
-    eyebrow: 'Operations · Equipment',
+    eyebrow: 'ASSETS',
     icon: 'laptop_mac',
     description: 'Track company equipment and employee custody.',
     views: [
@@ -1683,7 +1683,7 @@ export const MODULES: Record<string, ModuleDefinition> = {
   expenses: {
     key: 'expenses',
     title: 'Expenses',
-    eyebrow: 'Compensation · Reimbursements',
+    eyebrow: 'EXPENSES',
     icon: 'receipt_long',
     description: 'Submit, approve and track employee expense claims.',
     views: [
@@ -1764,7 +1764,7 @@ export const MODULES: Record<string, ModuleDefinition> = {
   training: {
     key: 'training',
     title: 'Learning & development',
-    eyebrow: 'Talent · Capability',
+    eyebrow: 'LEARNING',
     icon: 'school',
     description: 'Build courses, enroll employees and record completion scores.',
     views: [
@@ -1834,7 +1834,7 @@ export const MODULES: Record<string, ModuleDefinition> = {
   identity: {
     key: 'identity',
     title: 'Access & roles',
-    eyebrow: 'Administration · Security',
+    eyebrow: 'ACCESS & ROLES',
     icon: 'admin_panel_settings',
     description: 'Control tenant users, role assignments and permission boundaries.',
     views: [
@@ -1970,7 +1970,7 @@ export const MODULES: Record<string, ModuleDefinition> = {
   audit: {
     key: 'audit',
     title: 'Audit log',
-    eyebrow: 'Administration · Governance',
+    eyebrow: 'AUDIT LOG',
     icon: 'history',
     description:
       'Review immutable activity history for sensitive data and administrative operations.',
