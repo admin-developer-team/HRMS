@@ -75,8 +75,8 @@ jobs:
         run: |
           ssh -i ~/.ssh/hrms_deploy_key \
             "${{ secrets.ORACLE_USER }}@${{ secrets.ORACLE_HOST }}" \
-            "mkdir -p ~/deploy/hrms/backend ~/deploy/hrms/frontend && \
-             rm -rf ~/deploy/hrms/backend/* ~/deploy/hrms/frontend/*"
+            "mkdir -p ~/deploy/hrms/backend ~/deploy/hrms/frontend ~/deploy/hrms/nginx && \
+             rm -rf ~/deploy/hrms/backend/* ~/deploy/hrms/frontend/* ~/deploy/hrms/nginx/*"
 
       # -----------------------------
       # Upload backend
@@ -97,6 +97,16 @@ jobs:
             -e "ssh -i ~/.ssh/hrms_deploy_key" \
             "${{ github.workspace }}/frontend/dist/frontend/browser/" \
             "${{ secrets.ORACLE_USER }}@${{ secrets.ORACLE_HOST }}:/home/ubuntu/deploy/hrms/frontend/"
+
+      # -----------------------------
+      # Upload Nginx configuration
+      # -----------------------------
+      - name: Upload Nginx configuration
+        run: |
+          rsync -az \
+            -e "ssh -i ~/.ssh/hrms_deploy_key" \
+            "${{ github.workspace }}/deploy/nginx/hrms.conf" \
+            "${{ secrets.ORACLE_USER }}@${{ secrets.ORACLE_HOST }}:/home/ubuntu/deploy/hrms/nginx/hrms.conf"
 
       # -----------------------------
       # Deploy backend
@@ -122,6 +132,12 @@ jobs:
           sudo mkdir -p /etc/nginx/conf.d
           printf 'client_max_body_size 0;\n' | \
             sudo tee /etc/nginx/conf.d/hrms-upload-size.conf > /dev/null
+
+          echo "Installing HRMS reverse-proxy configuration..."
+          sudo install -m 0644 \
+            /home/ubuntu/deploy/hrms/nginx/hrms.conf \
+            /etc/nginx/sites-available/hrms
+          sudo ln -sfn /etc/nginx/sites-available/hrms /etc/nginx/sites-enabled/hrms
           sudo nginx -t
           sudo systemctl reload nginx
 
@@ -170,5 +186,9 @@ jobs:
           sleep 5
           curl --fail --silent --show-error \
             https://hrms.ssym.co.in/ > /dev/null
+
+          health_body="$(curl --fail --silent --show-error \
+            https://hrms.ssym.co.in/health)"
+          test "$health_body" = "Healthy"
 
           echo "HRMS deployment completed successfully."

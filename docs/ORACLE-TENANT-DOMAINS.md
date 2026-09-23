@@ -15,14 +15,24 @@ user's tenant ID must match the host tenant on every API and SignalR request.
    `*.hrms.ssym.co.in`. Let's Encrypt requires DNS-01 validation for
    the wildcard. Configure automatic renewal using a narrowly scoped DNS API
    credential; a manually renewed certificate is not suitable for production.
-4. Extend the existing HTTPS Nginx server block with
+4. Install the checked-in [`deploy/nginx/hrms.conf`](../deploy/nginx/hrms.conf)
+   as `/etc/nginx/sites-available/hrms` (or merge it into the existing server
+   block). It includes an exact `/health` proxy to the ASP.NET health endpoint;
+   do not allow `/health` to fall through to Angular's `index.html`. The server uses
    `server_name hrms.ssym.co.in *.hrms.ssym.co.in;` and
-   point `ssl_certificate` and `ssl_certificate_key` at the new certificate.
+   points `ssl_certificate` and `ssl_certificate_key` at the wildcard certificate.
    Keep the existing Angular `try_files` rule and API/SignalR proxy rules.
    In each proxied API/SignalR location, set `proxy_set_header Host $host;` so
    ASP.NET receives the company hostname. Keep the API port private to the VM.
 5. Run `sudo nginx -t` and reload Nginx, then verify both the platform host and
-   one existing company slug over HTTPS before announcing the URLs.
+   one existing company slug over HTTPS before announcing the URLs. A health
+   request must return `Content-Type: text/plain` with body `Healthy`, not the
+   Angular HTML document:
+
+   ```bash
+   curl -i https://hrms.ssym.co.in/health
+   curl -i https://ssym.hrms.ssym.co.in/health
+   ```
 
 The API's `Tenancy:BaseDomain` setting defaults to
 `hrms.ssym.co.in` in `appsettings.json` and can be overridden with
