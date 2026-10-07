@@ -6,6 +6,7 @@ using Hrms.Application;
 using Hrms.Infrastructure;
 using Hrms.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.OpenApi;
 
@@ -43,6 +44,12 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 builder.Services.AddHealthChecks();
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    // Nginx terminates TLS and forwards the original protocol. Without this,
+    // UseHttpsRedirection sends the proxied /health request back to HTTPS.
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+});
 builder.Services.AddSignalR();
 builder.Services.AddSingleton<INotificationPublisher, SignalRNotificationPublisher>();
 builder.Services.AddInfrastructure(builder.Configuration);
@@ -81,6 +88,7 @@ builder.Services.AddRateLimiter(options =>
 var app = builder.Build();
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseMiddleware<CorrelationMiddleware>();
+app.UseForwardedHeaders();
 app.UseHttpsRedirection();
 app.UseCors("Frontend");
 app.UseAuthentication();

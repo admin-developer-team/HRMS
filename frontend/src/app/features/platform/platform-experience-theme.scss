@@ -28,7 +28,7 @@
   width: 4px;
   flex: none;
   border-radius: 2px 2px 0 0;
-  background: #fff;
+  background: var(--on-brand, #fff);
 }
 .public-site.public-site .logo-mark i:nth-child(1) { height: 9px; opacity: 0.7; }
 .public-site.public-site .logo-mark i:nth-child(2) { height: 18px; }
@@ -108,6 +108,12 @@
 }
 
 .public-site.public-site .public-footer { border-color: var(--border); }
+
+.public-site.public-site .nav-cta,
+.public-site.public-site .primary-action,
+.public-site.public-site .form-submit {
+  color: var(--on-brand) !important;
+}
 
 .admin-page.admin-page.admin-page,
 .support-page.support-page.support-page,

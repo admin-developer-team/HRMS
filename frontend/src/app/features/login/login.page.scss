@@ -58,7 +58,7 @@
 .login-mark i {
   width: 5px;
   border-radius: 2px 2px 0 0;
-  background: #ffffff;
+  background: var(--on-brand, #ffffff);
 }
 
 .login-mark i:nth-child(1) {
@@ -401,7 +401,5 @@
 .login-field:focus-within { border-color: var(--brand); box-shadow: 0 0 0 3px rgb(var(--brand-rgb) / .12); }
 .login-field button { background: transparent; }
 .remember input { accent-color: var(--brand); }
-.login-submit { background: var(--brand) !important; }
+.login-submit { background: var(--brand) !important; color: var(--on-brand) !important; }
 .login-error { border-color: var(--danger); background: var(--danger-bg); color: var(--danger); }
-
-:root[data-theme='black-white'] .login-submit { color: #000000 !important; }

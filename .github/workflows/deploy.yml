@@ -183,12 +183,19 @@ jobs:
       # -----------------------------
       - name: Verify production website
         run: |
-          sleep 5
-          curl --fail --silent --show-error \
-            https://hrms.ssym.co.in/ > /dev/null
+          for attempt in {1..12}; do
+            if curl --fail --silent --show-error --max-time 10 \
+              https://hrms.ssym.co.in/ > /dev/null \
+              && health_body="$(curl --fail --silent --show-error --max-time 10 \
+                https://hrms.ssym.co.in/health)" \
+              && test "$health_body" = "Healthy"; then
+              echo "HRMS deployment completed successfully."
+              exit 0
+            fi
 
-          health_body="$(curl --fail --silent --show-error \
-            https://hrms.ssym.co.in/health)"
-          test "$health_body" = "Healthy"
+            echo "Production website is not ready yet (attempt $attempt/12)."
+            sleep 5
+          done
 
-          echo "HRMS deployment completed successfully."
+          echo "HRMS did not become healthy within 60 seconds." >&2
+          exit 1
