@@ -377,6 +377,17 @@
 }
 
 @media (max-width: 720px) {
+  .metric-label {
+    min-height: 2.5em;
+    padding-right: 42px;
+    line-height: 1.25;
+  }
+
+  .metric-icon {
+    top: 14px;
+    right: 14px;
+  }
+
   .header-actions {
     width: 100%;
   }

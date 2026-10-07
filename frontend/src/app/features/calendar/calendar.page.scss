@@ -77,3 +77,13 @@ button { cursor: pointer; }
 .editor > p, .type-choices small, .attendee-list small { color: var(--ink-muted); }
 .editor input:not([type=radio]), .editor select, .editor textarea, .type-choices label, .attendee-list { border-color: var(--border); background: var(--card); color: var(--ink); }
 .type-choices label.active { border-color: var(--brand); background: color-mix(in srgb, var(--brand) 10%, var(--card)); }
+.detail-item.office-detail,
+.detail-item.optional-detail,
+.detail-item.public-detail,
+.detail-item.leave-detail,
+.detail-item.attendance-detail,
+.detail-item.meeting-detail {
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--brand) 10%, var(--card));
+  color: var(--ink);
+}

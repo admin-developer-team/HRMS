@@ -18,6 +18,7 @@ export interface WorkSprint {
 @Component({
   selector: 'app-sprint-panel',
   imports: [DatePipe, ReactiveFormsModule, MatButtonModule, MatIconModule, MatProgressBarModule, SearchableSelectComponent],
+  styleUrl: './sprint-panel.component.scss',
   template: `
     <section class="sprint-panel" aria-label="Sprint planning">
       <div class="report-head"><div><h2>Plan a focused delivery cycle</h2><p>Create a sprint, add work from ticket details, then start when the team is ready.</p></div>
