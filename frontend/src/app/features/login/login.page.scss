@@ -385,3 +385,23 @@
     margin-bottom: 24px;
   }
 }
+
+/* The sign-in screen is outside the application shell, so map it explicitly to
+   the active workspace theme. */
+.login-page { background: var(--app-bg); color: var(--ink); }
+.login-brand { background: var(--sidebar-bg); border-color: var(--border); color: var(--ink); }
+.login-mark { background: var(--brand); }
+.brand-lockup span, .brand-message p, .brand-security { color: var(--ink-muted); }
+.brand-message > span, .form-heading > span { color: var(--accent); }
+.brand-security mat-icon { color: var(--success); }
+.login-form-side { background: var(--app-bg); }
+.form-heading h2, .form-field > label, .login-field input, .mobile-brand { color: var(--ink); }
+.form-heading p, .access-help, .remember, .mobile-brand span, .login-field > mat-icon, .login-field button, .login-field input::placeholder { color: var(--ink-muted); }
+.login-field { border-color: var(--border-strong); background: var(--card); }
+.login-field:focus-within { border-color: var(--brand); box-shadow: 0 0 0 3px rgb(var(--brand-rgb) / .12); }
+.login-field button { background: transparent; }
+.remember input { accent-color: var(--brand); }
+.login-submit { background: var(--brand) !important; }
+.login-error { border-color: var(--danger); background: var(--danger-bg); color: var(--danger); }
+
+:root[data-theme='black-white'] .login-submit { color: #000000 !important; }

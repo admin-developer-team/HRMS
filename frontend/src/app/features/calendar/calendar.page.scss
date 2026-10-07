@@ -52,3 +52,28 @@ button { cursor: pointer; }
 .meeting-editor { width: min(620px, calc(100vw - 28px)); }.meeting-time-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }.meeting-time-row label { display: grid; gap: 7px; color: #4c617c; font-size: 12px; font-weight: 800; }.meeting-editor textarea { width: 100%; box-sizing: border-box; border: 1px solid #dce5ef; border-radius: 10px; padding: 10px; font: inherit; }.attendee-picker { display: grid; gap: 8px; }.attendee-picker > strong { color: #4c617c; font-size: 12px; }.attendee-list { max-height: 160px; overflow: auto; border: 1px solid #dce5ef; border-radius: 10px; padding: 6px; }.attendee-list label { display: flex; align-items: center; gap: 8px; padding: 5px; font-size: 12px; }.attendee-list input { width: auto !important; height: auto !important; }.attendee-list span { display: grid; }.attendee-list small { color: #7e90a6; font-size: 10px; }
 @media (max-width: 1100px) { .workspace { grid-template-columns: 1fr; }.details { max-width: none; }.stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 650px) { .calendar-page { padding: 20px 12px 38px; }.hero { align-items: flex-start; flex-direction: column; }.stats { gap: 8px; }.stat { min-height: 70px; padding: 10px; gap: 8px; }.stat-icon { width: 32px; height: 32px; font-size: 17px; }.stat strong { font-size: 18px; }.stat.location strong { font-size: 13px; }.toolbar { padding: 15px; flex-wrap: wrap; gap: 10px; }.toolbar-actions { flex-wrap: wrap; }.toolbar h2 { font-size: 19px; }.day { height: 70px; padding: 4px 2px; }.day-number { font-size: 11px; min-width: 20px; height: 20px; }.event { font-size: 8px; padding: 2px; }.legend { padding: 12px; }.type-choices { grid-template-columns: 1fr; } }
+
+/* Keep the calendar legible with every workspace theme, including dark presets. */
+:host { color: var(--ink); }
+.eyebrow { color: var(--brand); }
+.hero h1, .toolbar h2, .details h2, .editor-heading h2 { color: var(--ink); }
+.hero p, .stat span:last-child, .details-heading p, .detail-item p, .legend, .loading { color: var(--ink-muted); }
+.stat, .calendar-card, .details, .toolbar-actions select, .toolbar-actions button, .add-day-button, .add-menu-options, .editor, .editor input:not([type=radio]), .editor select, .editor textarea, .editor-actions > button:first-child { background: var(--card); border-color: var(--border); }
+.stat strong, .day, .toolbar-actions select, .toolbar-actions button, .toolbar h2, .details h2, .editor-heading h2, .editor input:not([type=radio]), .editor select { color: var(--ink); }
+.weekday-row { background: var(--card-muted); border-color: var(--border); }
+.weekday-row span { color: var(--ink-muted); }
+.grid { border-color: var(--border); }
+.day { background: var(--card); border-color: var(--border); }
+.day:hover { background: color-mix(in srgb, var(--brand) 7%, var(--card)); }
+.day.selected { background: color-mix(in srgb, var(--brand) 13%, var(--card)); box-shadow: inset 0 0 0 2px var(--brand); }
+.day.muted, .day.weekend:not(.selected) { background: var(--card-muted); color: var(--ink-muted); }
+.details-heading { background: color-mix(in srgb, var(--brand) 5%, var(--card)); border-color: var(--border); }
+.add-menu-options { box-shadow: 0 12px 30px rgb(0 0 0 / .22); }
+.add-menu-options button, .editor form > label, .meeting-time-row label, .attendee-picker > strong { color: var(--ink); }
+.add-menu-options button:hover, .add-menu-options button:focus-visible { background: color-mix(in srgb, var(--brand) 9%, var(--card)); }
+.detail-item.rest { background: var(--card-muted); color: var(--ink-muted); }
+.empty-day { color: var(--ink-muted); }
+.empty-day strong { color: var(--ink); }
+.editor > p, .type-choices small, .attendee-list small { color: var(--ink-muted); }
+.editor input:not([type=radio]), .editor select, .editor textarea, .type-choices label, .attendee-list { border-color: var(--border); background: var(--card); color: var(--ink); }
+.type-choices label.active { border-color: var(--brand); background: color-mix(in srgb, var(--brand) 10%, var(--card)); }

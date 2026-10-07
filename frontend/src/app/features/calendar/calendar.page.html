@@ -74,7 +74,6 @@
         @for (attendance of day.attendance; track attendance.date) { <div class="detail-item attendance-detail"><span class="material-symbols-rounded">schedule</span><div><strong>Attendance recorded</strong><p>{{ attendance.workHours }} hours · {{ attendance.status }}</p></div></div> }
         @if (!day.isWeekend && !day.office.length && !day.optional.length && !day.suggested.length && !day.leave.length && !day.attendance.length && !day.meetings.length) { <div class="empty-day"><span class="material-symbols-rounded">wb_sunny</span><strong>Nothing planned for this day</strong><p>Enjoy the space on your calendar.</p></div> }
       }
-      <div class="source-note"><span class="material-symbols-rounded">info_outline</span><p>@if (month()?.suggestionsAvailable) { Public dates for {{ month()?.countryCode }} are suggested from {{ month()?.countryCode === 'IN' ? 'Google Calendar' : 'Nager.Date' }}. HR confirms office holidays. } @else { Public suggestions are unavailable for this location or moment. Your company calendar still works. }</p></div>
     </aside>
   </div>
 </div>

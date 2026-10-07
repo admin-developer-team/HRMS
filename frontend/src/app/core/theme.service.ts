@@ -121,7 +121,22 @@ export const THEME_PRESETS: TenantTheme[] = [
     radius: 8,
     density: 'comfortable',
   },
+  {
+    id: 'black-white',
+    name: 'Black & White',
+    description: 'High-contrast monochrome workspace',
+    scheme: 'dark',
+    primary: '#ffffff',
+    primaryRgb: '255 255 255',
+    accent: '#d4d4d4',
+    surface: '#000000',
+    sidebar: '#000000',
+    radius: 8,
+    density: 'comfortable',
+  },
 ];
+
+const PUBLIC_THEME_KEY = 'peopleflow.theme.public';
 
 @Injectable({ providedIn: 'root' })
 export class ThemeService {
@@ -135,7 +150,8 @@ export class ThemeService {
   constructor() {
     effect(() => {
       const tenantId = this.auth.tenantId();
-      const saved = localStorage.getItem(`peopleflow.theme.${tenantId}`);
+      const saved = localStorage.getItem(`peopleflow.theme.${tenantId}`)
+        ?? (tenantId === 'anonymous' ? localStorage.getItem(PUBLIC_THEME_KEY) : null);
       let theme = THEME_PRESETS[0];
       if (saved) {
         try {
@@ -154,6 +170,7 @@ export class ThemeService {
     theme = { ...theme, radius: Math.min(8, Math.max(4, theme.radius)) };
     const tenantId = this.auth.tenantId();
     localStorage.setItem(`peopleflow.theme.${tenantId}`, JSON.stringify(theme));
+    localStorage.setItem(PUBLIC_THEME_KEY, JSON.stringify(theme));
     this.selected.set(theme);
     this.apply(theme);
   }
