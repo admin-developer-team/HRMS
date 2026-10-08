@@ -250,7 +250,7 @@
 
           <div class="quick-menu-list">
             @if (auth.hasPermission('employees.manage')) {
-            <button mat-menu-item routerLink="/employees" class="quick-menu-item">
+            <button mat-menu-item [routerLink]="['/employees']" [queryParams]="{ action: 'create' }" class="quick-menu-item">
               <span class="quick-item-content">
                 <mat-icon>person_add</mat-icon>
                 <span>Add employee</span>

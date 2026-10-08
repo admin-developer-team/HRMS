@@ -102,9 +102,12 @@ export class EmployeesPage implements OnInit {
   });
 
   ngOnInit(): void {
-    this.search.set(this.route.snapshot.queryParamMap.get('search') ?? '');
     this.loadLookups();
-    this.load();
+    this.route.queryParamMap.subscribe(params => {
+      this.search.set(params.get('search') ?? '');
+      this.load();
+      if (params.get('action') === 'create' && !this.drawerOpen()) this.openCreate();
+    });
   }
 
   load(page = 1): void {
