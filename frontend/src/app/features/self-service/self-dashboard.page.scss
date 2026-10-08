@@ -1,3 +1,17 @@
+.self-page {
+  color: var(--ink);
+}
+
+.self-page .mat-mdc-outlined-button {
+  --mdc-outlined-button-label-text-color: var(--brand);
+  --mdc-outlined-button-outline-color: var(--border-strong);
+  --mat-outlined-button-state-layer-color: var(--brand);
+}
+
+.self-page .mat-mdc-progress-spinner {
+  --mdc-circular-progress-active-indicator-color: var(--brand);
+}
+
 .header-actions {
   display: flex;
   gap: 9px;
@@ -24,10 +38,10 @@
 
 .success-banner {
   padding: 8px 12px;
-  border: 1px solid #a7e6c3;
+  border: 1px solid var(--success-border);
   border-radius: var(--radius);
-  background: #ecfdf3;
-  color: #067647;
+  background: var(--success-bg);
+  color: var(--success);
   font-size: 0.875rem;
 }
 
@@ -68,8 +82,8 @@
 .live-dot {
   padding: 4px 8px;
   border-radius: 999px;
-  background: #ecfdf3;
-  color: #067647;
+  background: var(--success-bg);
+  color: var(--success);
   font-size: 0.75rem;
   font-weight: 650;
 }
@@ -79,7 +93,7 @@
   height: 6px;
   margin-right: 5px;
   border-radius: 50%;
-  background: #12b76a;
+  background: var(--success);
   display: inline-block;
 }
 
@@ -163,14 +177,19 @@
   color: #ffffff !important;
 }
 
-.clock-actions mat-spinner {
+.clock-actions .primary-button mat-spinner {
+  margin: auto;
+  --mdc-circular-progress-active-indicator-color: var(--on-brand);
+}
+
+.clock-actions .clock-out mat-spinner {
   margin: auto;
   --mdc-circular-progress-active-indicator-color: #ffffff;
 }
 
 .completed {
   min-height: 44px;
-  color: #067647;
+  color: var(--success);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -218,7 +237,7 @@
 }
 
 
-.profile-head > div {
+.profile-head > div:not(.profile-photo-wrap) {
   min-width: 0;
   flex: 1;
 }

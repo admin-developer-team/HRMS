@@ -141,7 +141,7 @@ export class ShellComponent implements OnDestroy {
           route: '/dashboard',
           permission: 'dashboard.admin',
         },
-        { label: 'My workspace', icon: 'home', route: '/my', employeeOnly: true },
+        { label: 'My workspace', icon: 'home', route: '/my-workspace', employeeOnly: true },
         { label: 'My services', icon: 'apps', route: '/my-services', employeeOnly: true },
         { label: 'Calendar', icon: 'event', route: '/calendar' },
         { label: 'My team', icon: 'groups', route: '/my-team', permission: 'team.read' },

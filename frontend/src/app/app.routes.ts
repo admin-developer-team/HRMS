@@ -52,7 +52,7 @@ export const routes: Routes = [
         title: 'Dashboard · PeopleFlow',
       },
       {
-        path: 'my',
+        path: 'my-workspace',
         canActivate: [employeeGuard],
         loadComponent: () =>
           import('./features/self-service/self-dashboard.page').then((m) => m.SelfDashboardPage),
@@ -178,8 +178,16 @@ export const routes: Routes = [
           import('./features/settings/theme-studio.page').then((m) => m.ThemeStudioPage),
         title: 'Settings · PeopleFlow',
       },
-      { path: '**', redirectTo: 'dashboard' },
+      {
+        path: '**',
+        loadComponent: () => import('./features/not-found/not-found.page').then(m => m.NotFoundPage),
+        title: 'Page not found · PeopleFlow',
+      },
     ],
   },
-  { path: '**', redirectTo: 'login' },
+  {
+    path: '**',
+    loadComponent: () => import('./features/not-found/not-found.page').then(m => m.NotFoundPage),
+    title: 'Page not found · PeopleFlow',
+  },
 ];

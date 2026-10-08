@@ -614,7 +614,7 @@
   position: fixed;
   z-index: 1200;
   right: 18px;
-  bottom: 18px;
+  top: 78px;
   display: grid;
   gap: 8px;
   pointer-events: none;
@@ -673,7 +673,7 @@
 @keyframes toast-in {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(-8px);
   }
 }
 
@@ -747,7 +747,7 @@ main {
 
   .toast-stack {
     right: 12px;
-    bottom: 12px;
+    top: 60px;
   }
 }
 

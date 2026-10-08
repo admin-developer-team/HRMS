@@ -47,6 +47,26 @@
   --mat-sys-body-medium-font: 'Segoe UI', system-ui, sans-serif;
   --mat-sys-label-large-font: 'Segoe UI', system-ui, sans-serif;
   --mat-sys-title-medium-font: 'Segoe UI', system-ui, sans-serif;
+
+  /* Angular Material's prebuilt palette is only a base. Keep its controls in
+     sync with the runtime workspace theme, including light presets. */
+  --mat-sys-background: var(--app-bg);
+  --mat-sys-on-background: var(--ink);
+  --mat-sys-primary: var(--brand);
+  --mat-sys-on-primary: var(--on-brand);
+  --mat-sys-primary-container: rgb(var(--brand-rgb) / 0.12);
+  --mat-sys-on-primary-container: var(--brand);
+  --mat-sys-secondary: var(--accent);
+  --mat-sys-on-secondary: var(--ink);
+  --mat-sys-surface: var(--card);
+  --mat-sys-surface-container: var(--card);
+  --mat-sys-surface-container-low: var(--card);
+  --mat-sys-surface-container-high: var(--card-muted);
+  --mat-sys-surface-container-highest: var(--card-muted);
+  --mat-sys-on-surface: var(--ink);
+  --mat-sys-on-surface-variant: var(--ink-muted);
+  --mat-sys-outline: var(--border-strong);
+  --mat-sys-outline-variant: var(--border);
 }
 
 :root[data-scheme='dark'] {
@@ -406,7 +426,7 @@ textarea:focus-visible {
 
 .primary-button.mat-mdc-raised-button {
   --mdc-protected-button-container-color: var(--brand);
-  --mdc-protected-button-label-text-color: #ffffff;
+  --mdc-protected-button-label-text-color: var(--on-brand);
   border-radius: 6px;
   box-shadow: 0 1px 1px rgb(9 30 66 / 0.12);
 }

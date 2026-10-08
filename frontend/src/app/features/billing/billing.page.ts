@@ -45,9 +45,9 @@ interface Checkout { subscriptionId: string; checkoutUrl: string; provider: stri
     </main>
   `,
   styles: [`
-    .billing-page{max-width:1100px;margin:0 auto;padding:36px 24px 70px}h1{font-size:2rem;margin:8px 0}header p{color:#64748b}.eyebrow{color:#2563eb;text-transform:uppercase;font-size:.8rem;font-weight:700;letter-spacing:.1em}
-    .current,.plans article{background:#fff;border:1px solid #e2e8f0;border-radius:18px;padding:24px;box-shadow:0 8px 24px #0f172a0a}.current{margin:24px 0}.current h2,.plans h2{margin-top:0}.plans{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px}.price{font-size:1.5rem;font-weight:700}.price small{font-size:.85rem;font-weight:400;color:#64748b}
-    button{border:0;border-radius:9px;background:#2563eb;color:white;padding:12px 18px;cursor:pointer;font-weight:700}button:disabled{opacity:.5;cursor:not-allowed}.notice{color:#7c3aed}.error{color:#b91c1c}label{display:block;margin:12px 0 5px;font-weight:600}input{padding:11px;border:1px solid #cbd5e1;border-radius:8px;width:100%;box-sizing:border-box;margin-bottom:12px}
+    .billing-page{max-width:1100px;margin:0 auto;padding:36px 24px 70px;color:var(--ink)}h1{font-size:2rem;margin:8px 0}header p{color:var(--ink-muted)}.eyebrow{color:var(--brand);text-transform:uppercase;font-size:.8rem;font-weight:700;letter-spacing:.1em}
+    .current,.plans article{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;box-shadow:var(--shadow)}.current{margin:24px 0}.current h2,.plans h2{margin-top:0}.plans{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px}.price{font-size:1.5rem;font-weight:700}.price small{font-size:.85rem;font-weight:400;color:var(--ink-muted)}
+    button{border:0;border-radius:var(--radius);background:var(--brand);color:var(--on-brand);padding:12px 18px;cursor:pointer;font-weight:700}button:disabled{opacity:.5;cursor:not-allowed}.notice{color:var(--brand)}.error{color:var(--danger)}label{display:block;margin:12px 0 5px;font-weight:600}input{padding:11px;border:1px solid var(--border-strong);border-radius:var(--radius);width:100%;box-sizing:border-box;margin-bottom:12px;background:var(--card);color:var(--ink)}input:focus{outline:0;border-color:var(--brand);box-shadow:0 0 0 3px rgb(var(--brand-rgb) / .12)}
   `],
 })
 export class BillingPage implements OnDestroy {

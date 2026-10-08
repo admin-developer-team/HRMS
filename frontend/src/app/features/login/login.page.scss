@@ -294,7 +294,7 @@
   width: 20px !important;
   height: 20px !important;
   margin: auto;
-  --mat-progress-spinner-active-indicator-color: #ffffff;
+  --mat-progress-spinner-active-indicator-color: var(--on-brand, #ffffff);
 }
 
 .access-help {
