@@ -68,7 +68,7 @@ export class LoginPage {
         if (this.auth.session()?.accessPaused) void this.router.navigate(['/access-paused']);
         else if (this.auth.session()?.billingOnly) void this.router.navigate(['/billing']);
         else if (safeReturnUrl) void this.router.navigateByUrl(safeReturnUrl);
-        else void this.router.navigate([this.auth.isEmployee() ? '/my' : this.auth.hasPermission('dashboard.admin') ? '/dashboard' : this.auth.hasPermission('support.read') ? '/support' : '/calendar']);
+        else void this.router.navigate([this.auth.isEmployee() ? '/my-workspace' : this.auth.hasPermission('dashboard.admin') ? '/dashboard' : this.auth.hasPermission('support.read') ? '/support' : '/calendar']);
       },
       error: (error: HttpErrorResponse) => {
         this.loading.set(false);
