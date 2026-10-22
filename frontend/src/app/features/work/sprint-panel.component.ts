@@ -3,6 +3,7 @@ import { Component, effect, inject, input, output, signal } from '@angular/core'
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { LocalIconDirective } from '../../shared/local-icon.directive';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { finalize } from 'rxjs';
 import { ApiService } from '../../core/api.service';
@@ -17,7 +18,7 @@ export interface WorkSprint {
 
 @Component({
   selector: 'app-sprint-panel',
-  imports: [DatePipe, ReactiveFormsModule, MatButtonModule, MatIconModule, MatProgressBarModule, SearchableSelectComponent],
+  imports: [DatePipe, ReactiveFormsModule, MatButtonModule, MatIconModule, LocalIconDirective, MatProgressBarModule, SearchableSelectComponent],
   styleUrl: './sprint-panel.component.scss',
   template: `
     <section class="sprint-panel" aria-label="Sprint planning">

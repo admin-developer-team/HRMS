@@ -193,7 +193,7 @@
                       aria-label="Record actions"
                     >
                       <mat-icon>more_horiz</mat-icon></button
-                    ><mat-menu #rowMenu="matMenu">
+                    ><mat-menu #rowMenu="matMenu" class="compact-action-menu">
                       @for (action of view().rowActions ?? []; track action.label) {
                         @if (actionVisible(action, row)) {
                           <button

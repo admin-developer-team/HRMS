@@ -21,6 +21,7 @@ import {
 
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { LocalIconDirective } from '../local-icon.directive';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
@@ -115,6 +116,7 @@ interface UtifModule {
     CommonModule,
     MatButtonModule,
     MatIconModule,
+    LocalIconDirective,
     MatProgressSpinnerModule,
     MatTooltipModule,
   ],

@@ -4,6 +4,7 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { LocalIconDirective } from '../../shared/local-icon.directive';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -33,6 +34,7 @@ interface RoleLookup {
     ReactiveFormsModule,
     MatButtonModule,
     MatIconModule,
+    LocalIconDirective,
     MatMenuModule,
     MatProgressSpinnerModule,
   ],

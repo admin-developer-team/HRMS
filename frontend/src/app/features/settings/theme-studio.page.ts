@@ -3,6 +3,7 @@ import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { LocalIconDirective } from '../../shared/local-icon.directive';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { finalize } from 'rxjs';
@@ -16,7 +17,7 @@ import { DocumentComponent } from '../../shared/document/document.component';
 
 @Component({
   selector: 'app-theme-studio-page',
-  imports: [DatePipe, FormsModule, MatButtonModule, MatIconModule, MatProgressSpinnerModule, MatSlideToggleModule, DocumentComponent],
+  imports: [DatePipe, FormsModule, MatButtonModule, MatIconModule, LocalIconDirective, MatProgressSpinnerModule, MatSlideToggleModule, DocumentComponent],
   templateUrl: './theme-studio.page.html',
   styleUrl: './theme-studio.page.scss',
 })

@@ -1,10 +1,11 @@
 import { Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
+import { LocalIconDirective } from '../../shared/local-icon.directive';
 
 @Component({
   selector: 'app-not-found-page',
-  imports: [RouterLink, MatIconModule],
+  imports: [RouterLink, MatIconModule, LocalIconDirective],
   template: `
     <main class="not-found-page">
       <section class="not-found-card" aria-labelledby="not-found-title">

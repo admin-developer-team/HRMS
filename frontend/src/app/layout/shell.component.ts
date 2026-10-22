@@ -4,6 +4,7 @@ import { DatePipe } from '@angular/common';
 import { Component, ElementRef, HostListener, OnDestroy, ViewChild, computed, effect, inject, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { LocalIconDirective } from '../shared/local-icon.directive';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatSidenavModule } from '@angular/material/sidenav';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -58,6 +59,7 @@ interface GlobalSearchResponse { items: GlobalSearchResult[] }
     MatSidenavModule,
     MatButtonModule,
     MatIconModule,
+    LocalIconDirective,
     MatMenuModule,
     MatTooltipModule,
     OverlayModule,

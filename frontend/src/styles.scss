@@ -2,7 +2,6 @@
 @use './app/features/work/work.page';
 @use './app/features/platform/platform-experience-theme';
 @import '@angular/material/prebuilt-themes/azure-blue.css';
-@import 'material-symbols/rounded.css';
 
 :root {
   --brand: #075ea8;
@@ -247,15 +246,7 @@ textarea:focus-visible {
 }
 
 .mat-icon {
-  font-family: 'Material Symbols Rounded' !important;
-  font-weight: normal;
-  font-style: normal;
   line-height: 1;
-  font-variation-settings:
-    'FILL' 0,
-    'wght' 400,
-    'GRAD' 0,
-    'opsz' 24;
 }
 
 .mat-mdc-button-base {
@@ -343,6 +334,60 @@ textarea:focus-visible {
   min-height: 40px;
   font-family: inherit;
   font-size: 0.875rem;
+}
+
+/* Compact row-action menus: consistent icon/text alignment across data tables. */
+.compact-action-menu {
+  min-width: 168px !important;
+  max-width: min(280px, calc(100vw - 24px));
+  width: max-content;
+  border: 1px solid var(--border) !important;
+  border-radius: 8px !important;
+  background: var(--card) !important;
+  box-shadow: 0 10px 24px rgb(16 24 40 / 0.12) !important;
+}
+
+.compact-action-menu .mat-mdc-menu-content {
+  padding: 4px !important;
+}
+
+.compact-action-menu .mat-mdc-menu-item {
+  display: grid !important;
+  grid-template-columns: 17px minmax(0, 1fr);
+  column-gap: 10px;
+  align-items: center;
+  min-height: 34px !important;
+  padding: 0 9px !important;
+  border-radius: 5px;
+  color: var(--ink) !important;
+  font-size: 0.8125rem !important;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.compact-action-menu .mat-mdc-menu-item-text {
+  width: 100%;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.compact-action-menu .mat-icon {
+  width: 17px !important;
+  height: 17px !important;
+  margin: 0 !important;
+  flex: 0 0 17px;
+  color: var(--brand) !important;
+  font-size: 17px !important;
+  line-height: 17px !important;
+}
+
+.compact-action-menu .mat-mdc-menu-item:hover {
+  background: rgb(var(--brand-rgb) / 0.08) !important;
+}
+
+.compact-action-menu .danger-action,
+.compact-action-menu .danger-action .mat-icon {
+  color: var(--danger) !important;
 }
 
 .mat-mdc-button-base .mat-mdc-progress-spinner {

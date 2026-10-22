@@ -10,6 +10,7 @@ import {
 } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { LocalIconDirective } from '../../shared/local-icon.directive';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -41,6 +42,7 @@ type SelectOption = { label: string; value: string | number | boolean; group?: s
     ReactiveFormsModule,
     MatButtonModule,
     MatIconModule,
+    LocalIconDirective,
     MatMenuModule,
     MatProgressSpinnerModule,
     DocumentComponent,

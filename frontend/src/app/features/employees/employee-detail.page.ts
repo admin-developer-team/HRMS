@@ -3,6 +3,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { LocalIconDirective } from '../../shared/local-icon.directive';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { catchError, forkJoin, of } from 'rxjs';
@@ -53,7 +54,7 @@ interface LoginHistory {
 @Component({
   selector: 'app-employee-detail-page',
   standalone: true,
-  imports: [DatePipe, RouterLink, MatButtonModule, MatIconModule, MatProgressSpinnerModule, DocumentComponent],
+  imports: [DatePipe, RouterLink, MatButtonModule, MatIconModule, LocalIconDirective, MatProgressSpinnerModule, DocumentComponent],
   templateUrl: './employee-detail.page.html',
   styleUrl: './employee-detail.page.scss',
 })

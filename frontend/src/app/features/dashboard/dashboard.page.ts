@@ -2,6 +2,7 @@ import { CurrencyPipe, DatePipe, DecimalPipe } from '@angular/common';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { LocalIconDirective } from '../../shared/local-icon.directive';
 import { RouterLink } from '@angular/router';
 import { ApiService } from '../../core/api.service';
 import { AuthService } from '../../core/auth.service';
@@ -9,7 +10,7 @@ import { Dashboard } from '../../core/models';
 
 @Component({
   selector: 'app-dashboard-page',
-  imports: [CurrencyPipe, DecimalPipe, MatButtonModule, MatIconModule, RouterLink],
+  imports: [CurrencyPipe, DecimalPipe, MatButtonModule, MatIconModule, LocalIconDirective, RouterLink],
   templateUrl: './dashboard.page.html',
   styleUrl: './dashboard.page.scss',
 })

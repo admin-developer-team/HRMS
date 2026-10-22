@@ -178,7 +178,7 @@
             <td>{{ formatMinutes(item.loggedMinutes) }}</td>
             <td><button mat-icon-button (click)="$event.stopPropagation()" [matMenuTriggerFor]="transitionMenu"
                 aria-label="Ticket actions"><mat-icon>more_horiz</mat-icon></button>
-              <mat-menu #transitionMenu="matMenu">
+              <mat-menu #transitionMenu="matMenu" class="compact-action-menu">
                 <button mat-menu-item (click)="openItem(item.id)"><mat-icon>open_in_new</mat-icon>Open ticket</button>
                 @for (next of canMoveOnBoard() ? transitionOptions(item.status) : []; track next) {
                 <button mat-menu-item (click)="transition(item, next)"><mat-icon>arrow_forward</mat-icon>Move to {{
@@ -455,7 +455,7 @@
         }
       </button>
 
-      <mat-menu #statusMenu="matMenu">
+      <mat-menu #statusMenu="matMenu" class="compact-action-menu">
         @for (next of transitionOptions(data.item.status); track next) {
         <button mat-menu-item (click)="transition(data.item, next)">
           {{ statusLabel(next) }}

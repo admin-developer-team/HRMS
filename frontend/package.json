@@ -30,7 +30,6 @@
     "docx-preview": "^0.4.0",
     "heic2any": "^0.0.4",
     "jszip": "^3.10.1",
-    "material-symbols": "^0.47.1",
     "postcss": "^8.5.19",
     "rxjs": "~7.8.0",
     "tailwindcss": "^4.3.3",

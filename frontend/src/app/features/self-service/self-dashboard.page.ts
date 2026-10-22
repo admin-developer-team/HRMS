@@ -3,6 +3,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { LocalIconDirective } from '../../shared/local-icon.directive';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
@@ -20,6 +21,7 @@ import { AttendanceRecord, PagedResult, SelfDashboard } from '../../core/models'
     RouterLink,
     MatButtonModule,
     MatIconModule,
+    LocalIconDirective,
     MatProgressSpinnerModule,
   ],
   templateUrl: './self-dashboard.page.html',

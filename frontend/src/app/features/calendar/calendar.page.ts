@@ -2,11 +2,13 @@ import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, DestroyRef, ElementRef, HostListener, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatIconModule } from '@angular/material/icon';
 import { ActivatedRoute } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ApiService } from '../../core/api.service';
 import { AuthService } from '../../core/auth.service';
 import { ToastService } from '../../core/toast.service';
+import { LocalIconDirective } from '../../shared/local-icon.directive';
 
 interface Holiday { id: string; name: string; date: string; locationId: string | null; locationName: string | null; isOptional: boolean; appliesToMe: boolean; selected: boolean; version: number }
 interface Observance { date: string; name: string; isPublicHoliday: boolean }
@@ -20,7 +22,7 @@ interface DayCell { date: string; day: number; inMonth: boolean; isToday: boolea
 
 @Component({
   selector: 'app-calendar',
-  imports: [DatePipe, FormsModule],
+  imports: [DatePipe, FormsModule, MatIconModule, LocalIconDirective],
   templateUrl: './calendar.page.html',
   styleUrl: './calendar.page.scss',
 })
