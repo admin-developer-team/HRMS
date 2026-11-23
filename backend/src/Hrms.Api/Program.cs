@@ -125,6 +125,7 @@ if (seedSample || args.Contains("--seed-demo", StringComparer.OrdinalIgnoreCase)
     var result = await scope.ServiceProvider.GetRequiredService<DemoCompanySeeder>().SeedAsync(sample: seedSample);
     Console.WriteLine(result.Created
         ? $"Created demo tenant '{result.TenantSlug}' with {result.Accounts.Count} accounts."
+        : seedSample ? "Sample access and subscription settings verified."
         : $"Demo tenant '{result.TenantSlug}' already exists; no data was changed.");
     return;
 }

@@ -16,6 +16,9 @@ public sealed class DemoCompanySeeder(
     public const string SampleSlug = "sample";
     public static readonly Guid SampleId = Guid.Parse("64ba3667-2f40-4c9b-bb5e-508c427501e4");
 
+    private static string SamplePermissions => string.Join(',', Permissions.Catalog.Except(
+        [Permissions.PlatformManage, Permissions.SupportRead, Permissions.SupportManage]));
+
     public async Task<DemoCompanySeedResult> SeedAsync(CancellationToken ct = default, bool sample = false)
     {
         var slug = sample ? SampleSlug : TenantSlug;
@@ -36,14 +39,31 @@ public sealed class DemoCompanySeeder(
             accountEmails = accountEmails.Select(email => email.Replace("northstar.demo", "sample.example.invalid")).ToArray();
             accountEmails[0] = "visitor@sample.example.invalid";
         }
-        if (await db.Tenants.IgnoreQueryFilters().AnyAsync(x => x.Slug == slug, ct))
+        var existing = await db.Tenants.IgnoreQueryFilters().SingleOrDefaultAsync(x => x.Slug == slug, ct);
+        if (existing is not null)
+        {
+            if (sample)
+            {
+                if (existing.Id != SampleId || existing.IsDeleted) throw new InvalidOperationException("Sample tenant identity mismatch.");
+                currentTenant.Set(companyId, slug);
+                var subscription = await db.TenantSubscriptions.SingleAsync(x => x.IsActive && x.PlanCode == "enterprise-demo", ct);
+                var visitor = await db.Roles.SingleAsync(x => x.NormalizedName == "DEMO_VISITOR", ct);
+                visitor.PermissionsCsv = SamplePermissions;
+                existing.AdminAccessEnabled = true;
+                existing.AdminAccessEndsAt = existing.CreatedAt.AddYears(3);
+                subscription.EndsAt = existing.AdminAccessEndsAt;
+                await db.SaveChangesAsync(ct);
+                currentTenant.Clear();
+            }
             return new DemoCompanySeedResult(slug, password, accountEmails, false);
+        }
 
         var now = DateTimeOffset.UtcNow;
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
         var tenant = new Tenant
         {
             Id = companyId, Name = companyName, Slug = slug, AdminAccessEnabled = sample ? true : null,
+            AdminAccessEndsAt = sample ? now.AddYears(3) : null,
             LegalName = companyName + " Private Limited", TaxIdentifier = "DEMO-GSTIN-29ABCDE1234F1Z5",
             DefaultCurrency = "INR", TimeZone = "Asia/Kolkata", Locale = "en-IN",
             Status = TenantStatus.Active, SettingsJson = """{"financialYearStartMonth":4,"workWeek":["Monday","Tuesday","Wednesday","Thursday","Friday"]}"""
@@ -53,7 +73,7 @@ public sealed class DemoCompanySeeder(
         db.TenantSubscriptions.Add(new TenantSubscription
         {
             TenantId = companyId, PlanCode = "enterprise-demo", EmployeeLimit = 250,
-            StartsAt = now.AddMonths(-3), EndsAt = now.AddMonths(9), IsActive = true
+            StartsAt = now.AddMonths(-3), EndsAt = sample ? now.AddYears(3) : now.AddMonths(9), IsActive = true
         });
 
         var roleMap = new Dictionary<string, Role>(StringComparer.OrdinalIgnoreCase);
@@ -105,8 +125,7 @@ public sealed class DemoCompanySeeder(
             var visitor = new Role
             {
                 TenantId = companyId, Name = "Demo visitor", NormalizedName = "DEMO_VISITOR", IsSystem = true,
-                PermissionsCsv = string.Join(',', Permissions.HrAdministrator.Append(Permissions.PayrollManage)
-                    .Except([Permissions.IdentityManage, Permissions.AuditRead]))
+                PermissionsCsv = SamplePermissions
             };
             roleMap[visitor.NormalizedName] = visitor;
             db.Roles.Add(visitor);
