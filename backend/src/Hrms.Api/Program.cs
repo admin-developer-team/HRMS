@@ -118,10 +118,11 @@ if (app.Configuration.GetValue("Database:AutoMigrate", true))
     await scope.ServiceProvider.GetRequiredService<DatabaseInitializer>().InitializeAsync();
 }
 
-if (args.Contains("--seed-demo", StringComparer.OrdinalIgnoreCase))
+var seedSample = args.Contains("--seed-sample", StringComparer.OrdinalIgnoreCase);
+if (seedSample || args.Contains("--seed-demo", StringComparer.OrdinalIgnoreCase))
 {
     await using var scope = app.Services.CreateAsyncScope();
-    var result = await scope.ServiceProvider.GetRequiredService<DemoCompanySeeder>().SeedAsync();
+    var result = await scope.ServiceProvider.GetRequiredService<DemoCompanySeeder>().SeedAsync(sample: seedSample);
     Console.WriteLine(result.Created
         ? $"Created demo tenant '{result.TenantSlug}' with {result.Accounts.Count} accounts."
         : $"Demo tenant '{result.TenantSlug}' already exists; no data was changed.");

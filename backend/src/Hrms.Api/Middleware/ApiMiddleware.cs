@@ -61,6 +61,15 @@ public sealed class TenantResolutionMiddleware(RequestDelegate next, IConfigurat
             await context.Response.WriteAsJsonAsync(new ProblemDetails { Status = 403, Title = "Tenant mismatch", Detail = "The account does not belong to this company workspace." });
             return;
         }
+        if (hostTenant.Id == DemoCompanySeeder.SampleId && !HttpMethods.IsGet(context.Request.Method)
+            && !HttpMethods.IsHead(context.Request.Method) && !HttpMethods.IsOptions(context.Request.Method)
+            && !(HttpMethods.IsPost(context.Request.Method) && context.Request.Path.Value?.ToLowerInvariant() is
+                "/api/v1/auth/login" or "/api/v1/auth/refresh" or "/api/v1/auth/revoke" or "/hubs/notifications/negotiate"))
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            await context.Response.WriteAsJsonAsync(new ProblemDetails { Status = 403, Title = "Read-only demo", Detail = "The sample workspace is read-only." });
+            return;
+        }
         currentTenant.Set(hostTenant.Id, hostTenant.Slug);
         await next(context);
     }

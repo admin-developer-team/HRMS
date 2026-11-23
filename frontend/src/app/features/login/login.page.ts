@@ -46,7 +46,11 @@ export class LoginPage {
       return;
     }
     const email = this.route.snapshot.queryParamMap.get('email');
-    this.form.patchValue({ ...(email ? { email } : {}) });
+    if (this.workspace === 'sample') {
+      this.form.patchValue({ email: 'visitor@sample.example.invalid', password: 'SampleTour2026!', remember: false });
+    } else if (email) {
+      this.form.patchValue({ email });
+    }
     this.api.get<{ slug: string; name: string }>('/auth/workspace').subscribe({
       next: result => this.workspaceName.set(result.name),
       error: () => this.error.set('This company workspace URL is unavailable.'),
