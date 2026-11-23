@@ -147,6 +147,7 @@ export const THEME_PRESETS: TenantTheme[] = [
   },
 ];
 
+const DEFAULT_THEME = THEME_PRESETS.find(theme => theme.id === 'azure')!;
 const PUBLIC_THEME_KEY = 'peopleflow.theme.public';
 const WORKSPACE_THEME_KEY_PREFIX = 'peopleflow.theme.workspace.';
 
@@ -154,7 +155,7 @@ const WORKSPACE_THEME_KEY_PREFIX = 'peopleflow.theme.workspace.';
 export class ThemeService {
   private readonly document = inject(DOCUMENT);
   private readonly auth = inject(AuthService);
-  private readonly selected = signal<TenantTheme>(THEME_PRESETS.find(theme => theme.id === 'obsidian-gold')!);
+  private readonly selected = signal<TenantTheme>(DEFAULT_THEME);
   readonly presets = THEME_PRESETS;
   readonly current = this.selected.asReadonly();
   readonly isDark = computed(() => this.current().scheme === 'dark');
@@ -169,7 +170,7 @@ export class ThemeService {
       const saved = localStorage.getItem(`peopleflow.theme.${tenantId}`)
         ?? (tenantId === 'anonymous' ? localStorage.getItem(workspaceThemeKey) : null)
         ?? (tenantId === 'anonymous' ? localStorage.getItem(PUBLIC_THEME_KEY) : null);
-      let theme = THEME_PRESETS.find(theme => theme.id === 'obsidian-gold')!;
+      let theme = DEFAULT_THEME;
       if (saved) {
         try {
           const stored = JSON.parse(saved) as TenantTheme;

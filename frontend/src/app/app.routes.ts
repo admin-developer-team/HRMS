@@ -23,6 +23,11 @@ export const routes: Routes = [
     title: 'Activate your account · PeopleFlow',
   },
   {
+    path: 'forgot-password',
+    loadComponent: () => import('./features/login/password-recovery.page').then(m => m.PasswordRecoveryPage),
+    title: 'Reset password � PeopleFlow HRMS',
+  },
+  {
     path: 'login',
     loadComponent: () => import('./features/login/login.page').then((m) => m.LoginPage),
     title: 'Sign in · PeopleFlow HRMS',

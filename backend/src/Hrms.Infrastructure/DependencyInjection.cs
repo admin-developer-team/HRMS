@@ -115,6 +115,7 @@ public static class DependencyInjection
         services.AddScoped<IWorkManagementService, WorkManagementService>();
         services.AddScoped<IDocumentService, DocumentService>();
         services.AddScoped<INotificationService, NotificationService>();
+        services.AddScoped<PasswordRecoveryService>();
         services.AddScoped<IEmailQueue, EmailQueue>();
         services.AddScoped<IGlobalEmailConfigurationReader, GlobalEmailConfigurationReader>();
         services.AddScoped<IEmailAdministrationService, EmailAdministrationService>();

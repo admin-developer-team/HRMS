@@ -97,7 +97,7 @@ public sealed class EmailOutboxWorker(IServiceScopeFactory scopeFactory, ILogger
         var ids = await db.EmailOutboxItems.IgnoreQueryFilters()
             .Where(x => !x.IsDeleted && x.SentAt == null && x.AttemptCount < 8 && x.NextAttemptAt <= now)
             .OrderBy(x => x.TemplateKey == EmailTemplateKeys.AccountActivation || x.TemplateKey == EmailTemplateKeys.AccountCreated
-                || x.TemplateKey == EmailTemplateKeys.PasswordReset ? 0 : 1)
+                || x.TemplateKey == EmailTemplateKeys.RecoveryCode || x.TemplateKey == EmailTemplateKeys.PasswordReset ? 0 : 1)
             .ThenBy(x => x.NextAttemptAt).Select(x => x.Id).Take(5).ToListAsync(ct);
 
         foreach (var id in ids)
@@ -117,6 +117,27 @@ public sealed class EmailOutboxWorker(IServiceScopeFactory scopeFactory, ILogger
                 var configuration = await db.EmailConfigurations.IgnoreQueryFilters().FirstOrDefaultAsync(
                     x => x.TenantId == DatabaseInitializer.PlatformTenantId && !x.IsDeleted && x.IsEnabled, ct);
                 if (configuration is null) { item.LastError = "Email delivery is disabled or not configured."; continue; }
+                if (item.TemplateKey == EmailTemplateKeys.RecoveryCode)
+                {
+                    var payload = JsonSerializer.Deserialize<RecoveryEmail>(item.ModelJson)!;
+                    if (payload.ExpiresAt <= DateTimeOffset.UtcNow || !await db.Users.AnyAsync(
+                        u => u.Id == payload.UserId && u.IsActive && u.Email == item.ToEmail &&
+                             u.PasswordResetExpiresAt == payload.ExpiresAt, ct))
+                    {
+                        item.ModelJson = "{}";
+                        item.AttemptCount = 8;
+                        item.LastError = "Recovery code expired or superseded.";
+                        continue;
+                    }
+                    var code = protector.Unprotect(payload.ProtectedCode);
+                    var body = $"Your PeopleFlow password reset code is {code}. It expires in 10 minutes. If you did not request it, you can ignore this email.";
+                    await transport.SendAsync(EmailAdministrationService.ToDeliverySettings(configuration, protector),
+                        new RenderedEmail(item.ToEmail, item.ToName, "Your PeopleFlow password reset code", body, body), ct);
+                    item.ModelJson = "{}";
+                    item.SentAt = DateTimeOffset.UtcNow;
+                    item.LastError = null;
+                    continue;
+                }
                 var template = await db.EmailTemplates.IgnoreQueryFilters().FirstOrDefaultAsync(
                     x => x.TenantId == DatabaseInitializer.PlatformTenantId && !x.IsDeleted && x.Key == item.TemplateKey && x.IsEnabled, ct)
                     ?? await db.EmailTemplates.IgnoreQueryFilters().FirstOrDefaultAsync(

@@ -2930,12 +2930,6 @@ namespace Hrms.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("uuid");
-
                     b.Property<bool?>("AdminAccessEnabled")
                         .HasColumnType("boolean");
 
@@ -2944,6 +2938,12 @@ namespace Hrms.Infrastructure.Persistence.Migrations
 
                     b.Property<DateTimeOffset?>("AdminAccessStartsAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
 
                     b.Property<string>("DefaultCurrency")
                         .IsRequired()
@@ -3290,6 +3290,15 @@ namespace Hrms.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("PasswordHash")
                         .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("PasswordResetAttempts")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("PasswordResetExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PasswordResetHash")
                         .HasColumnType("text");
 
                     b.Property<bool>("SupportInboxEnabled")

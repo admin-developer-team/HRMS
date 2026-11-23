@@ -8,6 +8,8 @@ import { LoadingService, SKIP_GLOBAL_LOADING } from './loading.service';
 export function isPublicRequestUrl(url: string): boolean {
   return [
     '/auth/login',
+    '/auth/password-recovery/request',
+    '/auth/password-recovery/confirm',
     '/auth/workspace',
     '/auth/email-link/redeem',
     '/auth/email-link/tenant',

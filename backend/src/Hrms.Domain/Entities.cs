@@ -64,6 +64,9 @@ public sealed class UserAccount : TenantEntity
 {
     public string Email { get; set; } = string.Empty;
     public string PasswordHash { get; set; } = string.Empty;
+    public string? PasswordResetHash { get; set; }
+    public DateTimeOffset? PasswordResetExpiresAt { get; set; }
+    public int PasswordResetAttempts { get; set; }
     public string DisplayName { get; set; } = string.Empty;
     public bool IsActive { get; set; } = true;
     public bool IsPlatformAdmin { get; set; }

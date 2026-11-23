@@ -100,7 +100,7 @@
 
       <p class="access-help">
         <mat-icon>help_outline</mat-icon>
-        Contact your HR administrator if you need your company URL or password.
+        <a routerLink="/forgot-password" [queryParams]="{email: form.controls.email.value || null}">Forgot password?</a>
       </p>
     </div>
   </section>
